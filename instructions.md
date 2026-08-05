@@ -17,8 +17,9 @@ Here some other details.
     - If you think that I should also have other configure already implemented let me know
 - In general, substitutes the prints with a proper log.
 - Copy/reimplement also the metrics file. Check if can be improved or if it is okay as it is.
+- Be sure to keep the `support_training.py` for all the shared code across modules. Or for code that will made the other files to long/noisy/difficult to read.
 - Keep the extensive comment style (see the `train_functions` inside `training_OLD/`)
-- I also have attached another instruction file with guideline regarding code style (`coding_style_instructions_ENG.md`). Read it, and be sure to follow it.
+- I also have uploaded another instruction file with guideline regarding code style (`coding_style_instructions_ENG.md`). Read it, and be sure to follow it.
 
 As always if you have any doubt just let me know.
 
