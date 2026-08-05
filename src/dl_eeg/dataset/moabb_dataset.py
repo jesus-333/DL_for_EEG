@@ -18,34 +18,28 @@ extra of ``pyproject.toml``). They are therefore imported lazily, inside the
 functions that need them, so ``import dl_eeg`` works without them installed. Install
 them with ``pip install jade[dataset]``.
 
-Preprocessing config schema
----------------------------
-The ``preprocess`` argument of :func:`get_dataset` is a plain dict::
+Configuration
+-------------
+:func:`get_dataset` is driven by a :class:`dl_eeg.config.dataset.DatasetConfig`, which
+declares the dataset name, the subject(s), the filtering (a nested
+:class:`dl_eeg.config.filter.FilterConfig`), the resampling and the normalization::
 
-    preprocess = {
-        # Resampling: a boolean flag plus the target frequency (Hz).
-        "resample": {"enabled": True, "freq": 128},
+    from dl_eeg.config import DatasetConfig, FilterConfig
 
-        # Filtering: an ordered list of filters, each applied in turn to the raw
-        # signal using MNE's own filtering routines (no custom filters here).
-        # Supported "type" values: "bandpass", "lowpass", "highpass", "notch".
-        #   - bandpass  -> band = [l_freq, h_freq]
-        #   - lowpass   -> band = [h_freq]            (or [None, h_freq])
-        #   - highpass  -> band = [l_freq]            (or [l_freq, None])
-        #   - notch     -> band = [f0, f1, ...]       (frequencies to notch out)
-        "filters": [
-            {"type": "bandpass", "band": [8, 32]},
-            {"type": "notch",    "band": [50]},
-        ],
+    config = DatasetConfig(
+        dataset_name="BNCI2014_001",
+        subjects=[1, 3],
+        filter=FilterConfig(filter_type="bandpass", l_freq=8, h_freq=32),
+        resample=True,
+        resample_freq=128,
+        normalize=-1,
+    )
+    train_set = get_dataset(config, dataset_type="train")
 
-        # Optional normalization forwarded to EEG_Dataset (see its docstring):
-        # -1 = none (default), 1 = min-max over the whole dataset,
-        #  2 = per-trial per-channel, 3 = per-trial.
-        "normalize": -1,
-    }
-
-Any of the keys may be omitted: no ``"resample"``/``"filters"`` means the signal is
-left untouched, and ``"normalize"`` defaults to ``-1``.
+The filtering is applied by calling MNE's own routines (``Raw.filter`` for
+band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters
+carried by the ``FilterConfig`` - the same routines moabb uses; no custom filter is
+implemented here.
 """
 
 from __future__ import annotations
@@ -55,6 +49,8 @@ from typing import Optional, Sequence, Union
 
 import numpy as np
 
+from dl_eeg.config.dataset import DatasetConfig
+from dl_eeg.config.filter import FilterConfig
 from dl_eeg.dataset.dataset_time import EEG_Dataset
 
 __all__ = ["download_dataset", "get_dataset"]
@@ -238,52 +234,62 @@ def _select_sessions(session_names: Sequence[str], dataset_type: str) -> list:
 # ---------------------------------------------------------------------------------
 # Preprocessing (filtering + resampling) via MNE, on the raw objects moabb returns
 # ---------------------------------------------------------------------------------
-def _apply_preprocess(raw, preprocess: dict):
+def _apply_filter(raw, filter_config: FilterConfig):
     """
-    Apply the configured filters and resampling to an MNE ``Raw`` object, in place.
+    Apply a single :class:`FilterConfig` to an MNE ``Raw`` object, in place.
 
-    Filtering uses MNE's own routines (``raw.filter`` / ``raw.notch_filter``) - no
-    custom filter is implemented here, as requested. Filters are applied in the order
-    given, and resampling (if enabled) is applied last so it acts on the already
-    band-limited signal.
+    A ``notch`` filter goes through ``Raw.notch_filter``; every other type goes through
+    ``Raw.filter`` (the ``filter_type`` only fixes which cutoffs are used - MNE reads
+    the kind of filter from ``l_freq``/``h_freq``: ``l_freq < h_freq`` is a band-pass,
+    ``l_freq > h_freq`` a band-stop, one of them ``None`` a low-/high-pass). These are
+    MNE's own routines, exactly as moabb uses them; no custom filter is implemented.
     """
-    if preprocess is None:
-        return raw
+    ftype = filter_config.filter_type
 
-    # Filtering requires the data in memory.
+    if ftype == "notch":
+        raw.notch_filter(
+            freqs=filter_config.freqs,
+            picks=filter_config.picks,
+            method=filter_config.method,
+            iir_params=filter_config.iir_params,
+            filter_length=filter_config.filter_length,
+            phase=filter_config.phase,
+            fir_window=filter_config.fir_window,
+            fir_design=filter_config.fir_design,
+            verbose=False,
+        )
+    else:
+        raw.filter(
+            l_freq=filter_config.l_freq,
+            h_freq=filter_config.h_freq,
+            picks=filter_config.picks,
+            method=filter_config.method,
+            iir_params=filter_config.iir_params,
+            filter_length=filter_config.filter_length,
+            l_trans_bandwidth=filter_config.l_trans_bandwidth,
+            h_trans_bandwidth=filter_config.h_trans_bandwidth,
+            phase=filter_config.phase,
+            fir_window=filter_config.fir_window,
+            fir_design=filter_config.fir_design,
+            verbose=False,
+        )
+    return raw
+
+
+def _apply_preprocess(raw, config: DatasetConfig):
+    """
+    Apply the config's filtering then resampling to an MNE ``Raw`` object, in place.
+
+    Resampling is applied last, so it acts on the already band-limited signal.
+    """
+    # Filtering / resampling both require the data in memory.
     raw.load_data(verbose=False)
 
-    for filt in preprocess.get("filters", []) or []:
-        ftype = str(filt["type"]).lower()
-        band = filt.get("band")
+    if config.filter is not None:
+        _apply_filter(raw, config.filter)
 
-        if ftype == "bandpass":
-            raw.filter(l_freq=band[0], h_freq=band[1], verbose=False)
-        elif ftype == "lowpass":
-            # band = [h_freq] or [None, h_freq]
-            h_freq = band[-1]
-            raw.filter(l_freq=None, h_freq=h_freq, verbose=False)
-        elif ftype == "highpass":
-            # band = [l_freq] or [l_freq, None]
-            l_freq = band[0]
-            raw.filter(l_freq=l_freq, h_freq=None, verbose=False)
-        elif ftype == "notch":
-            raw.notch_filter(freqs=band, verbose=False)
-        else:
-            raise ValueError(
-                f"unknown filter type {ftype!r}; expected 'bandpass', 'lowpass', "
-                "'highpass' or 'notch'"
-            )
-
-    resample = preprocess.get("resample")
-    if resample and resample.get("enabled"):
-        freq = resample.get("freq")
-        if freq is None:
-            raise ValueError(
-                "resample is enabled but no 'freq' was provided in the preprocess "
-                "config (expected {'enabled': True, 'freq': <Hz>})"
-            )
-        raw.resample(sfreq=float(freq), verbose=False)
+    if config.resample:
+        raw.resample(sfreq=float(config.resample_freq), verbose=False)
 
     return raw
 
@@ -350,9 +356,7 @@ def _epoch_raw(raw, dataset, mne):
 # Public: build an EEG_Dataset
 # ---------------------------------------------------------------------------------
 def get_dataset(
-    dataset_name: str,
-    subjects: Union[int, Sequence[int]],
-    preprocess: Optional[dict] = None,
+    config: Union[DatasetConfig, dict],
     dataset_type: str = "train",
 ) -> EEG_Dataset:
     """
@@ -360,15 +364,12 @@ def get_dataset(
 
     Parameters
     ----------
-    dataset_name : str
-        Name of a moabb dataset (case-insensitive), e.g. ``"BNCI2014_001"``.
-    subjects : int or sequence of int
-        Subject(s) to load. If the requested data is not on disk it is downloaded
-        automatically through :func:`download_dataset`.
-    preprocess : dict or None, optional
-        Preprocessing configuration (filtering + resampling + optional normalization).
-        See the module docstring for the full schema. ``None`` means no filtering and
-        no resampling.
+    config : DatasetConfig or dict
+        The dataset configuration (see :class:`dl_eeg.config.dataset.DatasetConfig`):
+        the dataset name, the subject(s), the filtering (nested ``FilterConfig``), the
+        resampling and the normalization. A plain dict is accepted for convenience and
+        promoted via ``DatasetConfig.from_dict``. If the requested data is not on disk
+        it is downloaded automatically through :func:`download_dataset`.
     dataset_type : {'train', 'test'}, default 'train'
         Which split to return. moabb organises data by *session*; this selects the
         train or test session(s) using the naming heuristic in
@@ -380,6 +381,13 @@ def get_dataset(
         Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels and
         the EEG channel names attached (``.ch_list``).
     """
+    if isinstance(config, dict):
+        config = DatasetConfig.from_dict(config)
+    elif not isinstance(config, DatasetConfig):
+        raise TypeError(
+            f"config must be a DatasetConfig (or a dict), got {type(config)!r}"
+        )
+
     dataset_type = str(dataset_type).lower()
     if dataset_type not in ("train", "test"):
         raise ValueError(
@@ -390,8 +398,8 @@ def get_dataset(
 
     # Downloading is idempotent (moabb caches), so this both ensures the data is
     # present and gives us the dataset object.
-    dataset = download_dataset(dataset_name, subjects)
-    subject_list = _as_subject_list(subjects, dataset)
+    dataset = download_dataset(config.dataset_name, config.subjects)
+    subject_list = _as_subject_list(config.subjects, dataset)
 
     data = dataset.get_data(subjects=subject_list)  # {subj: {session: {run: Raw}}}
 
@@ -404,7 +412,7 @@ def get_dataset(
 
         for session_name in selected:
             for _run_name, raw in sessions[session_name].items():
-                raw = _apply_preprocess(raw, preprocess)
+                raw = _apply_preprocess(raw, config)
                 X, labels, ch_names = _epoch_raw(raw, dataset, mne)
                 if X.shape[0] == 0:
                     continue
@@ -423,7 +431,7 @@ def get_dataset(
 
     if not X_all:
         raise RuntimeError(
-            f"No trials were extracted for dataset={dataset_name!r}, "
+            f"No trials were extracted for dataset={config.dataset_name!r}, "
             f"subjects={subject_list}, dataset_type={dataset_type!r}."
         )
 
@@ -433,5 +441,4 @@ def get_dataset(
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
     X = X[:, np.newaxis, :, :]
 
-    normalize = (preprocess or {}).get("normalize", -1)
-    return EEG_Dataset(X, labels, ch_list, normalize=normalize)
+    return EEG_Dataset(X, labels, ch_list, normalize=config.normalize)
