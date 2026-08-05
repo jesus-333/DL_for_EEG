@@ -9,10 +9,12 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 #%% Imports
 
+from __future__ import annotations
+
 import torch
 from torch import nn
 
-from . import support_function
+from dl_eeg.model import support_functions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 #%% Network declaration
@@ -63,8 +65,8 @@ class EEGNet(nn.Module):
         
         use_bias = config['use_bias']
         D = config['D']
-        activation = support_function.get_activation(config['activation'])
-        dropout = support_function.get_dropout(config['prob_dropout'], config['use_dropout_2d'])
+        activation = support_functions.get_activation(config['activation'])
+        dropout = support_functions.get_dropout(config['prob_dropout'], config['use_dropout_2d'])
         
         # NOT USED
         self.C = config['C']
@@ -111,9 +113,9 @@ class EEGNet(nn.Module):
         if 'print_var' not in config: config['print_var'] = False
         if config['print_var']:
             print("EEGNet Created. Number of parameters:")
-            print("\tNumber of trainable parameters (Block 1 - Temporal) = {}".format(support_function.count_trainable_parameters(self.temporal_filter)))
-            print("\tNumber of trainable parameters (Block 1 - Spatial)  = {}".format(support_function.count_trainable_parameters(self.spatial_filter)))
-            print("\tNumber of trainable parameters (Block 2)            = {}\n".format(support_function.count_trainable_parameters(self.separable_convolution)))
+            print("\tNumber of trainable parameters (Block 1 - Temporal) = {}".format(support_functions.count_trainable_parameters(self.temporal_filter)))
+            print("\tNumber of trainable parameters (Block 1 - Spatial)  = {}".format(support_functions.count_trainable_parameters(self.spatial_filter)))
+            print("\tNumber of trainable parameters (Block 2)            = {}\n".format(support_functions.count_trainable_parameters(self.separable_convolution)))
             if 'input_size' in config: self.debug_shape(config['input_size'])
 
     def forward(self, x : torch.tensor) -> torch.tensor :

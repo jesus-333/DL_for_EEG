@@ -69,12 +69,12 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from .avg_pool import AvgPool1d
-from .blur_pool import BlurPool1d
-from .dwt_pool import WAVELET_FILTERS, DWTPool1d
-from .max_pool import MaxPool1d
-from .sinc_pool import SincPool1d
-from .support_pooling import (
+from dl_eeg.model.pooling_1d.avg_pool import AvgPool1d
+from dl_eeg.model.pooling_1d.blur_pool import BlurPool1d
+from dl_eeg.model.pooling_1d.dwt_pool import WAVELET_FILTERS, DWTPool1d
+from dl_eeg.model.pooling_1d.max_pool import MaxPool1d
+from dl_eeg.model.pooling_1d.sinc_pool import SincPool1d
+from dl_eeg.model.pooling_1d.support_pooling import (
     _as_decimation_factor,
     _filter_and_subsample,
     _get,

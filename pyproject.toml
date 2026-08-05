@@ -2,22 +2,23 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# The distribution (PyPI) name is "jade" (Just Another Deep-learning EEG package),
+# but the importable package name is "dl_eeg" (as in scikit-learn -> sklearn).
+# The code lives in src/dl_eeg, so point the wheel at that folder: hatchling then
+# exposes it as the top-level import package "dl_eeg".
 [tool.hatch.build.targets.wheel]
-include = ["/src"]
+packages = ["src/dl_eeg"]
 
-[tool.hatch.build.targets.wheel.sources]
-"src" = "dego"
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 [project]
-name = "dego"
+name = "jade"
 version = "0.0.1"
 license = "Apache-2.0"
 authors = [
   { name = "Alberto (Jesus) Zancanaro", email = "alberto.zancanaro.1@gmail.com" },
 ]
-description = ""
+description = "JADE - Just Another Deep-learning EEG package"
 dependencies = [
 	"numpy",
 	"matplotlib",

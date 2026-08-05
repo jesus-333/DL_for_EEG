@@ -9,10 +9,12 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Imports
 
+from __future__ import annotations
+
 import torch
 
-from . import EEGNet
-from . import support_functions
+from dl_eeg.model import EEGNet
+from dl_eeg.model import support_functions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

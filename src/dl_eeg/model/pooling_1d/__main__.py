@@ -5,9 +5,11 @@ Runs the self-test and then prints the figures-of-merit table for the two EEGNet
 pooling stages, exactly as running the original single-file module directly did.
 """
 
+from __future__ import annotations
+
 import warnings
 
-from . import get_pooling_layer, self_test
+from dl_eeg.model.pooling_1d import get_pooling_layer, self_test
 
 if __name__ == "__main__":  # pragma: no cover
     self_test()

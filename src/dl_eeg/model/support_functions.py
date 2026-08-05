@@ -9,6 +9,8 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #%% Imports
 
+from __future__ import annotations
+
 import torch
 from torch import nn
 

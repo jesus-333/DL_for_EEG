@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from .support_pooling import _as_decimation_factor, _get
+from dl_eeg.model.pooling_1d.support_pooling import _as_decimation_factor, _get
 
 
 # =================================================================================

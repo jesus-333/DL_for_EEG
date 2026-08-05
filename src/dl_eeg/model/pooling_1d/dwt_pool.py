@@ -10,7 +10,7 @@ from typing import Dict, Sequence
 import numpy as np
 import torch
 
-from .support_pooling import (
+from dl_eeg.model.pooling_1d.support_pooling import (
     _FIRDecimationPool1d,
     _as_decimation_factor,
     _filter_and_subsample,

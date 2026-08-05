@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .support_pooling import (
+from dl_eeg.model.pooling_1d.support_pooling import (
     _FIRDecimationPool1d,
     _binomial_kernel,
     _gaussian_kernel,

@@ -8,6 +8,8 @@ Function to the creation the PyTorch dataset with EEG data in format channels x 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #%% Imports
 
+from __future__ import annotations
+
 import torch
 from torch.utils.data import Dataset
 
