@@ -1,444 +1,515 @@
 """
 Interaction with the `moabb <https://moabb.neurotechx.com/>`_ package.
 
-This module turns the EEG datasets bundled with moabb into ``torch``-ready datasets,
-i.e. instances of :class:`dl_eeg.dataset.dataset_time.EEG_Dataset`.
+This module turns the EEG datasets bundled with moabb into ``torch``-ready datasets, i.e. instances of :class:`~dl_eeg.dataset.dataset_time.EEG_Dataset`.
 
 It exposes two public functions:
 
-* :func:`download_dataset` - download the raw recordings of a moabb dataset (all
-  subjects, or a specific subset).
-* :func:`get_dataset` - load a moabb dataset, preprocess it (filtering + resampling
-  through moabb/MNE's own routines), epoch it into trials and wrap it in an
-  ``EEG_Dataset`` (channel names included). If the data is not on disk yet it is
-  downloaded automatically via :func:`download_dataset`.
+* :func:`~dl_eeg.dataset.moabb_dataset.download_dataset` - download the raw recordings of a moabb dataset (all subjects, or a specific subset).
+* :func:`~dl_eeg.dataset.moabb_dataset.get_dataset` - load a moabb dataset, preprocess it (filtering + resampling through moabb/MNE's own routines), epoch it into trials and wrap it in an :class:`~dl_eeg.dataset.dataset_time.EEG_Dataset` (channel names included).
+  If the data is not on disk yet it is downloaded automatically via :func:`~dl_eeg.dataset.moabb_dataset.download_dataset`.
 
-``moabb`` and ``mne`` are heavy, optional dependencies (declared in the ``dataset``
-extra of ``pyproject.toml``). They are therefore imported lazily, inside the
-functions that need them, so ``import dl_eeg`` works without them installed. Install
-them with ``pip install jade[dataset]``.
+``moabb`` and ``mne`` are heavy, optional dependencies (declared in the ``dataset`` extra of ``pyproject.toml``).
+They are therefore imported lazily, inside the functions that need them, so ``import dl_eeg`` works without them installed.
+Install them with ``pip install jade[dataset]``.
 
 Configuration
 -------------
-:func:`get_dataset` is driven by a :class:`dl_eeg.config.dataset.DatasetConfig`, which
-declares the dataset name, the subject(s), the filtering (a nested
-:class:`dl_eeg.config.filter.FilterConfig`), the resampling and the normalization::
+:func:`~dl_eeg.dataset.moabb_dataset.get_dataset` is driven by a :class:`~dl_eeg.config.dataset.dataset_config`, which declares the dataset name, the subject(s), the filtering (a nested :class:`~dl_eeg.config.filter.filter_config`), the resampling and the normalization::
 
-    from dl_eeg.config import DatasetConfig, FilterConfig
+    from dl_eeg.config import dataset_config, filter_config
 
-    config = DatasetConfig(
-        dataset_name="BNCI2014_001",
-        subjects=[1, 3],
-        filter=FilterConfig(filter_type="bandpass", l_freq=8, h_freq=32),
-        resample=True,
-        resample_freq=128,
-        normalize=-1,
+    config = dataset_config(
+        dataset_name = "BNCI2014_001",
+        subjects = [1, 3],
+        filter = filter_config(filter_type = "bandpass", l_freq = 8, h_freq = 32),
+        resample = True,
+        resample_freq = 128,
+        normalize = -1,
     )
-    train_set = get_dataset(config, dataset_type="train")
+    train_set = get_dataset(config, dataset_type = "train")
 
-The filtering is applied by calling MNE's own routines (``Raw.filter`` for
-band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters
-carried by the ``FilterConfig`` - the same routines moabb uses; no custom filter is
-implemented here.
+The filtering is applied by calling MNE's own routines (``Raw.filter`` for band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters carried by the ``filter_config`` - the same routines moabb uses; no custom filter is implemented here.
 """
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Imports
 
 from __future__ import annotations
 
+# Full module imports
 import warnings
+
+# Specific imports
 from typing import Optional, Sequence, Union
 
+# Third party imports
 import numpy as np
 
-from dl_eeg.config.dataset import DatasetConfig
-from dl_eeg.config.filter import FilterConfig
+# Internal imports
+from dl_eeg.config.dataset import dataset_config
+from dl_eeg.config.filter import filter_config
 from dl_eeg.dataset.dataset_time import EEG_Dataset
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Public API
 
 __all__ = ["download_dataset", "get_dataset"]
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Lazy dependency import
-# ---------------------------------------------------------------------------------
-def _import_moabb_mne():
+
+def _import_moabb_mne() :
     """
     Import ``moabb`` and ``mne`` on demand, with a helpful error if they are missing.
 
     Returns
     -------
-    (moabb_datasets_module, mne_module)
+    tuple
+        The ``(moabb.datasets module, mne module)`` pair.
     """
-    try:
+
+    try :
         import mne
         from moabb import datasets as moabb_datasets
-    except ImportError as exc:  # pragma: no cover - exercised only without the extra
+    except ImportError as exc :  # pragma: no cover - exercised only without the extra
         raise ImportError(
             "moabb_dataset needs the optional 'dataset' dependencies (moabb + mne). "
             "Install them with:  pip install jade[dataset]  (or 'pip install moabb mne')."
         ) from exc
     return moabb_datasets, mne
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Dataset name resolution
-# ---------------------------------------------------------------------------------
-def _resolve_dataset_class(dataset_name: str):
+
+def _resolve_dataset_class(dataset_name : str) :
     """
     Resolve a (case-insensitive) dataset name to a moabb dataset class.
 
-    moabb exposes dataset classes such as ``BNCI2014_001``, ``Cho2017``,
-    ``PhysionetMI`` under ``moabb.datasets``. The lookup is case-insensitive and also
-    ignores underscores, so ``"bnci2014_001"``, ``"BNCI2014001"`` and ``"BNCI2014_001"``
-    all resolve to the same class.
+    moabb exposes dataset classes such as ``BNCI2014_001``, ``Cho2017``, ``PhysionetMI`` under ``moabb.datasets``.
+    The lookup is case-insensitive and also ignores underscores, so ``"bnci2014_001"``, ``"BNCI2014001"`` and ``"BNCI2014_001"`` all resolve to the same class.
+
+    Parameters
+    ----------
+    dataset_name : str
+        The (case-insensitive) name of the moabb dataset.
+
+    Returns
+    -------
+    type
+        The moabb dataset class.
     """
+
     moabb_datasets, _ = _import_moabb_mne()
 
-    def _norm(s: str) -> str:
-        return s.lower().replace("_", "")
+    def _norm(name : str) -> str :
+        return name.lower().replace("_", "")
 
     target = _norm(dataset_name)
 
     # Direct attribute hit first (fast path).
-    if hasattr(moabb_datasets, dataset_name):
+    if hasattr(moabb_datasets, dataset_name) :
         return getattr(moabb_datasets, dataset_name)
 
     # Case-/underscore-insensitive scan over the module's public dataset classes.
     matches = {}
-    for attr in dir(moabb_datasets):
-        if attr.startswith("_"):
+    for attr in dir(moabb_datasets) :
+        if attr.startswith("_") :
             continue
         obj = getattr(moabb_datasets, attr)
-        if isinstance(obj, type):  # a class
+        if isinstance(obj, type) :  # a class
             matches[_norm(attr)] = obj
 
-    if target in matches:
+    if target in matches :
         return matches[target]
 
-    available = sorted(a for a in dir(moabb_datasets) if not a.startswith("_")
-                       and isinstance(getattr(moabb_datasets, a), type))
+    available = sorted(attr for attr in dir(moabb_datasets)
+                       if not attr.startswith("_") and isinstance(getattr(moabb_datasets, attr), type))
     raise ValueError(
-        f"unknown moabb dataset {dataset_name!r}. Available dataset classes under "
-        f"moabb.datasets include: {available}"
+        "unknown moabb dataset {}. Available dataset classes under moabb.datasets "
+        "include: {}".format(repr(dataset_name), available)
     )
 
 
-def _as_subject_list(subjects, dataset) -> list:
+def _as_subject_list(subjects, dataset) -> list :
     """
-    Normalise ``subjects`` to a list of subject ids.
+    Normalize ``subjects`` to a list of subject ids.
 
-    Accepts a single int, a list/tuple of ints, or ``None`` (meaning *all* subjects of
-    the dataset, i.e. ``dataset.subject_list``).
+    It accepts a single int, a list/tuple of ints, or ``None`` (meaning *all* subjects of the dataset, i.e. ``dataset.subject_list``).
+
+    Parameters
+    ----------
+    subjects : int, sequence of int or None
+        The requested subject(s).
+    dataset : moabb dataset instance
+        The dataset (used to read ``subject_list`` when ``subjects`` is ``None``).
+
+    Returns
+    -------
+    list
+        The list of subject ids.
     """
-    if subjects is None:
+
+    if subjects is None :
         return list(dataset.subject_list)
-    if isinstance(subjects, (int, np.integer)):
+    if isinstance(subjects, (int, np.integer)) :
         return [int(subjects)]
-    if isinstance(subjects, (list, tuple, set, np.ndarray)):
-        return [int(s) for s in subjects]
-    raise TypeError(
-        f"subjects must be an int, a list of ints or None, got {type(subjects)!r}"
-    )
+    if isinstance(subjects, (list, tuple, set, np.ndarray)) :
+        return [int(subject) for subject in subjects]
+    raise TypeError("subjects must be an int, a list of ints or None, got {}".format(type(subjects)))
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public: download
-# ---------------------------------------------------------------------------------
+
 def download_dataset(
-    dataset_name: str,
-    subjects: Optional[Union[int, Sequence[int]]] = None,
-):
+    dataset_name : str,
+    subjects : Optional[Union[int, Sequence[int]]] = None,
+) :
     """
     Download a moabb dataset (all subjects, or a specific subset).
+
+    moabb caches downloads under its data directory, so calling this repeatedly is cheap: already-present subjects are not re-downloaded.
 
     Parameters
     ----------
     dataset_name : str
         Name of a moabb dataset (case-insensitive), e.g. ``"BNCI2014_001"``.
-    subjects : int or sequence of int or None, optional
-        Which subject(s) to download. A single int or a list of ints selects those
-        subjects; ``None`` (the default) downloads *every* subject of the dataset.
+    subjects : int, sequence of int or None, optional
+        Which subject(s) to download.
+        A single int or a list of ints selects those subjects; ``None`` (the default) downloads *every* subject of the dataset.
 
     Returns
     -------
     moabb.datasets.base.BaseDataset
-        The instantiated dataset object (already pointing at the downloaded files),
-        ready to be passed to ``get_data``.
-
-    Notes
-    -----
-    moabb caches downloads under its data directory, so calling this repeatedly is
-    cheap: already-present subjects are not re-downloaded.
+        The instantiated dataset object (already pointing at the downloaded files), ready to be passed to ``get_data``.
     """
+
     dataset_cls = _resolve_dataset_class(dataset_name)
     dataset = dataset_cls()
     subject_list = _as_subject_list(subjects, dataset)
-    # moabb's BaseDataset.download fetches every requested subject; already-cached
-    # ones are skipped.
-    dataset.download(subject_list=subject_list)
+
+    # moabb's BaseDataset.download fetches every requested subject; already-cached ones are skipped.
+    dataset.download(subject_list = subject_list)
     return dataset
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Train / test session selection
-# ---------------------------------------------------------------------------------
-def _session_matches(session_name: str, dataset_type: str) -> bool:
+
+def _session_matches(session_name : str, dataset_type : str) -> bool :
     """
     Heuristic: does ``session_name`` belong to the requested split (train/test)?
 
-    Handles the common moabb session-naming conventions, e.g. BNCI2014_001's
-    ``'0train'`` / ``'1test'`` and the older ``'session_T'`` / ``'session_E'``.
+    It handles the common moabb session-naming conventions, e.g. BNCI2014_001's ``'0train'`` / ``'1test'`` and the older ``'session_T'`` / ``'session_E'``.
+
+    Parameters
+    ----------
+    session_name : str
+        The moabb session name.
+    dataset_type : str
+        ``'train'`` or ``'test'``.
+
+    Returns
+    -------
+    bool
+        Whether the session belongs to the requested split.
     """
+
     low = session_name.lower()
     is_test = ("test" in low) or ("eval" in low) or low.endswith("_e") or low == "e"
-    if dataset_type == "test":
+    if dataset_type == "test" :
         return is_test
+
     # train
     is_train = ("train" in low) or low.endswith("_t") or low == "t"
     return is_train
 
 
-def _select_sessions(session_names: Sequence[str], dataset_type: str) -> list:
+def _select_sessions(session_names : Sequence[str], dataset_type : str) -> list :
     """
     Pick the session keys corresponding to ``dataset_type`` ('train' or 'test').
 
     Strategy
     --------
     1. If any session name matches the split by the naming heuristic, return those.
-    2. Otherwise fall back on position: with a single session it is used for both
-       splits (a warning is emitted); with several sessions the last one is the test
-       split and the rest are the train split.
+    2. Otherwise fall back on position: with a single session it is used for both splits (a warning is emitted); with several sessions the last one is the test split and the rest are the train split.
+
+    Parameters
+    ----------
+    session_names : sequence of str
+        The available session names.
+    dataset_type : str
+        ``'train'`` or ``'test'``.
+
+    Returns
+    -------
+    list
+        The selected session names.
     """
+
     names = sorted(session_names)
-    matched = [s for s in names if _session_matches(s, dataset_type)]
-    if matched:
+    matched = [name for name in names if _session_matches(name, dataset_type)]
+    if matched :
         return matched
 
-    if len(names) == 1:
+    if len(names) == 1 :
         warnings.warn(
-            f"Dataset has a single session {names[0]!r}; using it for the "
-            f"{dataset_type!r} split as well. Provide an explicit split upstream if "
-            "you need train/test isolation.",
+            "Dataset has a single session {}; using it for the {} split as well. "
+            "Provide an explicit split upstream if you need train/test isolation.".format(repr(names[0]), repr(dataset_type)),
             RuntimeWarning,
-            stacklevel=3,
+            stacklevel = 3,
         )
         return list(names)
 
     warnings.warn(
-        f"Could not map sessions {names} to a {dataset_type!r} split by name; falling "
-        "back to positional split (last session = test, the rest = train).",
+        "Could not map sessions {} to a {} split by name; falling back to positional "
+        "split (last session = test, the rest = train).".format(names, repr(dataset_type)),
         RuntimeWarning,
-        stacklevel=3,
+        stacklevel = 3,
     )
     return names[:-1] if dataset_type == "train" else names[-1:]
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Preprocessing (filtering + resampling) via MNE, on the raw objects moabb returns
-# ---------------------------------------------------------------------------------
-def _apply_filter(raw, filter_config: FilterConfig):
-    """
-    Apply a single :class:`FilterConfig` to an MNE ``Raw`` object, in place.
 
-    A ``notch`` filter goes through ``Raw.notch_filter``; every other type goes through
-    ``Raw.filter`` (the ``filter_type`` only fixes which cutoffs are used - MNE reads
-    the kind of filter from ``l_freq``/``h_freq``: ``l_freq < h_freq`` is a band-pass,
-    ``l_freq > h_freq`` a band-stop, one of them ``None`` a low-/high-pass). These are
-    MNE's own routines, exactly as moabb uses them; no custom filter is implemented.
+def _apply_filter(raw, config_filter : filter_config) :
     """
-    ftype = filter_config.filter_type
+    Apply a single :class:`~dl_eeg.config.filter.filter_config` to an MNE ``Raw`` object, in place.
 
-    if ftype == "notch":
+    A ``notch`` filter goes through ``Raw.notch_filter``; every other type goes through ``Raw.filter`` (the ``filter_type`` only fixes which cutoffs are used - MNE reads the kind of filter from ``l_freq``/``h_freq``: ``l_freq < h_freq`` is a band-pass, ``l_freq > h_freq`` a band-stop, one of them ``None`` a low-/high-pass).
+    These are MNE's own routines, exactly as moabb uses them; no custom filter is implemented.
+
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        The raw recording to filter (modified in place).
+    config_filter : filter_config
+        The filter parameters.
+
+    Returns
+    -------
+    mne.io.Raw
+        The same (filtered) raw object.
+    """
+
+    filter_type = config_filter.filter_type
+
+    if filter_type == "notch" :
         raw.notch_filter(
-            freqs=filter_config.freqs,
-            picks=filter_config.picks,
-            method=filter_config.method,
-            iir_params=filter_config.iir_params,
-            filter_length=filter_config.filter_length,
-            phase=filter_config.phase,
-            fir_window=filter_config.fir_window,
-            fir_design=filter_config.fir_design,
-            verbose=False,
+            freqs = config_filter.freqs,
+            picks = config_filter.picks,
+            method = config_filter.method,
+            iir_params = config_filter.iir_params,
+            filter_length = config_filter.filter_length,
+            phase = config_filter.phase,
+            fir_window = config_filter.fir_window,
+            fir_design = config_filter.fir_design,
+            verbose = False,
         )
-    else:
+    else :
         raw.filter(
-            l_freq=filter_config.l_freq,
-            h_freq=filter_config.h_freq,
-            picks=filter_config.picks,
-            method=filter_config.method,
-            iir_params=filter_config.iir_params,
-            filter_length=filter_config.filter_length,
-            l_trans_bandwidth=filter_config.l_trans_bandwidth,
-            h_trans_bandwidth=filter_config.h_trans_bandwidth,
-            phase=filter_config.phase,
-            fir_window=filter_config.fir_window,
-            fir_design=filter_config.fir_design,
-            verbose=False,
+            l_freq = config_filter.l_freq,
+            h_freq = config_filter.h_freq,
+            picks = config_filter.picks,
+            method = config_filter.method,
+            iir_params = config_filter.iir_params,
+            filter_length = config_filter.filter_length,
+            l_trans_bandwidth = config_filter.l_trans_bandwidth,
+            h_trans_bandwidth = config_filter.h_trans_bandwidth,
+            phase = config_filter.phase,
+            fir_window = config_filter.fir_window,
+            fir_design = config_filter.fir_design,
+            verbose = False,
         )
     return raw
 
 
-def _apply_preprocess(raw, config: DatasetConfig):
+def _apply_preprocess(raw, config : dataset_config) :
     """
     Apply the config's filtering then resampling to an MNE ``Raw`` object, in place.
 
     Resampling is applied last, so it acts on the already band-limited signal.
-    """
-    # Filtering / resampling both require the data in memory.
-    raw.load_data(verbose=False)
 
-    if config.filter is not None:
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        The raw recording to preprocess (modified in place).
+    config : dataset_config
+        The dataset configuration (its filter + resampling fields are used).
+
+    Returns
+    -------
+    mne.io.Raw
+        The same (preprocessed) raw object.
+    """
+
+    # Filtering / resampling both require the data in memory.
+    raw.load_data(verbose = False)
+
+    if config.filter is not None :
         _apply_filter(raw, config.filter)
 
-    if config.resample:
-        raw.resample(sfreq=float(config.resample_freq), verbose=False)
+    if config.resample :
+        raw.resample(sfreq = float(config.resample_freq), verbose = False)
 
     return raw
 
 
-def _epoch_raw(raw, dataset, mne):
+def _epoch_raw(raw, dataset, mne) :
     """
     Cut an MNE ``Raw`` into trials, following moabb's own event-extraction logic.
 
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        The (preprocessed) raw recording.
+    dataset : moabb dataset instance
+        Provides ``event_id`` and ``interval``.
+    mne : module
+        The imported ``mne`` module.
+
     Returns
     -------
-    (X, labels, ch_names) where
-        X       : ndarray (n_trials, n_channels, n_times), EEG channels only
-        labels  : ndarray (n_trials,) of int class codes (from the dataset event_id)
-        ch_names: list[str] of the EEG channel names
+    X : numpy.ndarray
+        Trials of shape (n_trials, n_channels, n_times), EEG channels only.
+    labels : numpy.ndarray
+        Integer class codes of shape (n_trials,).
+    ch_names : list of str
+        The EEG channel names.
     """
+
     event_id = dataset.event_id
 
-    # moabb datasets carry events either in a stim channel or in annotations. Try the
-    # stim channel first (mne.find_events raises ValueError when there is none) and
-    # fall back to annotations - the same two sources moabb's own paradigm reads from.
-    try:
-        events = mne.find_events(raw, shortest_event=0, verbose=False)
-    except (ValueError, RuntimeError):
-        events, _ = mne.events_from_annotations(
-            raw, event_id=event_id, verbose=False
-        )
+    # moabb datasets carry events either in a stim channel or in annotations.
+    # Try the stim channel first (mne.find_events raises ValueError when there is none) and fall back to annotations - the same two sources moabb's own paradigm reads from.
+    try :
+        events = mne.find_events(raw, shortest_event = 0, verbose = False)
+    except (ValueError, RuntimeError) :
+        events, _ = mne.events_from_annotations(raw, event_id = event_id, verbose = False)
 
-    # tmax is inclusive in mne.Epochs; subtract one sample to match moabb and keep the
-    # trial length at exactly (tmax - tmin) * sfreq samples.
+    # tmax is inclusive in mne.Epochs; subtract one sample to match moabb and keep the trial length at exactly (tmax - tmin) * sfreq samples.
     tmin, tmax = dataset.interval[0], dataset.interval[1]
     tmax = tmax - 1.0 / raw.info["sfreq"]
 
-    picks = mne.pick_types(raw.info, eeg=True, stim=False, misc=False, exclude="bads")
+    picks = mne.pick_types(raw.info, eeg = True, stim = False, misc = False, exclude = "bads")
 
     epochs = mne.Epochs(
         raw,
         events,
-        event_id=event_id,
-        tmin=tmin,
-        tmax=tmax,
-        proj=False,
-        baseline=None,
-        preload=True,
-        picks=picks,
-        on_missing="ignore",
-        verbose=False,
+        event_id = event_id,
+        tmin = tmin,
+        tmax = tmax,
+        proj = False,
+        baseline = None,
+        preload = True,
+        picks = picks,
+        on_missing = "ignore",
+        verbose = False,
     )
 
     X = epochs.get_data()                        # (n_trials, n_channels, n_times)
     ch_names = list(epochs.info["ch_names"])
 
     # Map raw event codes -> deterministic 0-based class labels (sorted by class name).
-    inv_event_id = {code: name for name, code in epochs.event_id.items()}
+    inv_event_id = {code : name for name, code in epochs.event_id.items()}
     ordered_names = sorted(epochs.event_id.keys())
-    name_to_label = {name: i for i, name in enumerate(ordered_names)}
+    name_to_label = {name : index for index, name in enumerate(ordered_names)}
     labels = np.array(
         [name_to_label[inv_event_id[code]] for code in epochs.events[:, -1]],
-        dtype=np.int64,
+        dtype = np.int64,
     )
     return X, labels, ch_names
 
-
-# ---------------------------------------------------------------------------------
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public: build an EEG_Dataset
-# ---------------------------------------------------------------------------------
+
 def get_dataset(
-    config: Union[DatasetConfig, dict],
-    dataset_type: str = "train",
-) -> EEG_Dataset:
+    config : Union[dataset_config, dict],
+    dataset_type : str = "train",
+) -> EEG_Dataset :
     """
-    Load a moabb dataset as an :class:`EEG_Dataset`, ready for a ``torch`` DataLoader.
+    Load a moabb dataset as an :class:`~dl_eeg.dataset.dataset_time.EEG_Dataset`, ready for a ``torch`` DataLoader.
 
     Parameters
     ----------
-    config : DatasetConfig or dict
-        The dataset configuration (see :class:`dl_eeg.config.dataset.DatasetConfig`):
-        the dataset name, the subject(s), the filtering (nested ``FilterConfig``), the
-        resampling and the normalization. A plain dict is accepted for convenience and
-        promoted via ``DatasetConfig.from_dict``. If the requested data is not on disk
-        it is downloaded automatically through :func:`download_dataset`.
+    config : dataset_config or dict
+        The dataset configuration (see :class:`~dl_eeg.config.dataset.dataset_config`): the dataset name, the subject(s), the filtering (nested ``filter_config``), the resampling and the normalization.
+        A plain dict is accepted for convenience and promoted via ``dataset_config.from_dict``.
+        If the requested data is not on disk it is downloaded automatically through :func:`~dl_eeg.dataset.moabb_dataset.download_dataset`.
     dataset_type : {'train', 'test'}, default 'train'
-        Which split to return. moabb organises data by *session*; this selects the
-        train or test session(s) using the naming heuristic in
-        :func:`_select_sessions`.
+        Which split to return.
+        moabb organizes data by *session*; this selects the train or test session(s) using the naming heuristic in :func:`_select_sessions`.
 
     Returns
     -------
     EEG_Dataset
-        Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels and
-        the EEG channel names attached (``.ch_list``).
+        Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels and the EEG channel names attached (``.ch_list``).
     """
-    if isinstance(config, dict):
-        config = DatasetConfig.from_dict(config)
-    elif not isinstance(config, DatasetConfig):
-        raise TypeError(
-            f"config must be a DatasetConfig (or a dict), got {type(config)!r}"
-        )
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Input check
+
+    if isinstance(config, dict) :
+        config = dataset_config.from_dict(config)
+    elif not isinstance(config, dataset_config) :
+        raise TypeError("config must be a dataset_config (or a dict), got {}".format(type(config)))
 
     dataset_type = str(dataset_type).lower()
-    if dataset_type not in ("train", "test"):
-        raise ValueError(
-            f"dataset_type must be 'train' or 'test', got {dataset_type!r}"
-        )
+    if dataset_type not in ("train", "test") :
+        raise ValueError("dataset_type must be 'train' or 'test', got {}".format(repr(dataset_type)))
 
     _, mne = _import_moabb_mne()
 
-    # Downloading is idempotent (moabb caches), so this both ensures the data is
-    # present and gives us the dataset object.
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Download (idempotent) and load the raw data
+
+    # Downloading is idempotent (moabb caches), so this both ensures the data is present and gives us the dataset object.
     dataset = download_dataset(config.dataset_name, config.subjects)
     subject_list = _as_subject_list(config.subjects, dataset)
 
-    data = dataset.get_data(subjects=subject_list)  # {subj: {session: {run: Raw}}}
+    data = dataset.get_data(subjects = subject_list)  # {subj: {session: {run: Raw}}}
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Preprocess + epoch every selected recording
 
     X_all, y_all = [], []
     ch_list = None
 
-    for subject in subject_list:
+    for subject in subject_list :
         sessions = data[subject]
         selected = _select_sessions(list(sessions.keys()), dataset_type)
 
-        for session_name in selected:
-            for _run_name, raw in sessions[session_name].items():
+        for session_name in selected :
+            for _run_name, raw in sessions[session_name].items() :
                 raw = _apply_preprocess(raw, config)
                 X, labels, ch_names = _epoch_raw(raw, dataset, mne)
-                if X.shape[0] == 0:
+                if X.shape[0] == 0 :
                     continue
                 X_all.append(X)
                 y_all.append(labels)
-                if ch_list is None:
+                if ch_list is None :
                     ch_list = ch_names
-                elif ch_list != ch_names:
+                elif ch_list != ch_names :
                     warnings.warn(
-                        "Channel names differ across recordings; keeping the first "
-                        f"set ({len(ch_list)} channels). This is unusual for a single "
-                        "moabb dataset.",
+                        "Channel names differ across recordings; keeping the first set "
+                        "({} channels). This is unusual for a single moabb dataset.".format(len(ch_list)),
                         RuntimeWarning,
-                        stacklevel=2,
+                        stacklevel = 2,
                     )
 
-    if not X_all:
+    if not X_all :
         raise RuntimeError(
-            f"No trials were extracted for dataset={config.dataset_name!r}, "
-            f"subjects={subject_list}, dataset_type={dataset_type!r}."
+            "No trials were extracted for dataset={}, subjects={}, dataset_type={}.".format(
+                repr(config.dataset_name), subject_list, repr(dataset_type)
+            )
         )
 
-    X = np.concatenate(X_all, axis=0).astype(np.float32)   # (trials, channels, time)
-    labels = np.concatenate(y_all, axis=0).astype(np.int64)
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Assemble the EEG_Dataset
+
+    X = np.concatenate(X_all, axis = 0).astype(np.float32)   # (trials, channels, time)
+    labels = np.concatenate(y_all, axis = 0).astype(np.int64)
 
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
     X = X[:, np.newaxis, :, :]
 
-    return EEG_Dataset(X, labels, ch_list, normalize=config.normalize)
+    return EEG_Dataset(X, labels, ch_list, normalize = config.normalize)
