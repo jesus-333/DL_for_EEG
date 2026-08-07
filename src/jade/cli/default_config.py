@@ -76,4 +76,4 @@ def default_config(args) -> None :
         )
 
     # A short, user-facing confirmation (this is a cli command, not library-internal code).
-    print("Default config ({}) created at {}".format(args.type, os.path.abspath(destination_root)))
+    print(f"Default config ({args.type}) created at {os.path.abspath(destination_root)}")

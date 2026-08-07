@@ -38,7 +38,7 @@ Very long functions are better split into specific sub-functions.
 - When using `argparse`, provide an exhaustive description for each argument, the input type, and a default value if the argument is optional.
 - When you add new `cli`, if they are made up of multiple word, use hyphen to separate them.
     - E.g. `my-multi-word-cli-command`
-- Use always f-strig, for string with variable input.
+- Use always f-strig, for string with variable input (i.e. in the format `f"The value of x is {x}"`)
 
 ## Docstrings and comments
 
