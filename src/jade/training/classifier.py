@@ -11,8 +11,9 @@ The single-epoch logic lives in :mod:`jade.training.classifier_epoch`, the facto
 
 Only the classification (finetuning) objective is implemented for now; a reconstruction/pretraining cycle may be added later in a sibling module.
 
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -36,9 +37,7 @@ import torch
 
 # Internal imports
 from jade.config.training import training_config as training_config_class
-from jade.training import support_training
-from jade.training import metrics
-from jade.training.classifier_epoch import train_epoch_function, validation_epoch_function
+from jade.training import classifier_epoch, metrics, support_training
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Module logger
@@ -48,7 +47,17 @@ logger = logging.getLogger(__name__)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Full training cycle
 
-def train(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None) :
+def train(training_config, model_config, train_dataset, validation_dataset = None, wandb_model_artifact = None) :
+    """
+
+    """
+    
+    # To implement
+    model = None
+
+    return train_model(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None)
+
+def train_model(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None) :
     """
     Train a classifier model using the given configuration and dataset(s).
 
@@ -163,7 +172,7 @@ def train(training_config, model, train_dataset, validation_dataset = None, wand
         # (MANDATORY) Training epoch
 
         # Advance one epoch on the training set (forward + backward pass).
-        train_loss = train_epoch_function(model, train_loader, loss_function, optimizer, device, log_dict, training_config.print_var)
+        train_loss = classifier_epoch.train_epoch_function(model, train_loader, loss_function, optimizer, device, log_dict, training_config.print_var)
 
         # Save a checkpoint every epoch_to_save_model epochs (i.e. model_n.pth).
         # Note that when epoch == n the model has been trained for n + 1 epochs.
@@ -186,7 +195,7 @@ def train(training_config, model, train_dataset, validation_dataset = None, wand
 
         validation_loss = None
         if validation_loader is not None :
-            validation_loss = validation_epoch_function(model, validation_loader, loss_function, device, log_dict)
+            validation_loss = classifier_epoch.validation_epoch_function(model, validation_loader, loss_function, device, log_dict)
 
             # Save the new BEST model when a new minimum validation loss is reached.
             if validation_loss < best_loss_val :

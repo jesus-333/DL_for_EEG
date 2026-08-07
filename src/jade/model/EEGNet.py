@@ -6,7 +6,7 @@ Authors
 Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #%% Imports
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from torch import nn
 
 from jade.model import support_functions
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #%% Network declaration
 
 class EEGNet(nn.Module):

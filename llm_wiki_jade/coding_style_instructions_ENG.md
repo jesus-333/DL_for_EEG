@@ -38,6 +38,7 @@ Very long functions are better split into specific sub-functions.
 - When using `argparse`, provide an exhaustive description for each argument, the input type, and a default value if the argument is optional.
 - When you add new `cli`, if they are made up of multiple word, use hyphen to separate them.
     - E.g. `my-multi-word-cli-command`
+- Use always f-strig, for string with variable input.
 
 ## Docstrings and comments
 
@@ -46,7 +47,7 @@ Very long functions are better split into specific sub-functions.
 - Even for single-line docstrings, always add a newline after the opening `"""` (see example below).
 - If you write a long comments/docstrings start a new line only after a period. Do not start a new line in the middle of a sentence.
 - If you have short sentences you can put it in the same line.
-- If you write word that can be written with both `s` and `z` use the version with `z` (e.g. optimized instead of optimised)
+- If you write word that can be written with both `s` and `z` use the version with `z` (e.g. optimized instead of optimized)
 
 ## Short Docstring Example
 
