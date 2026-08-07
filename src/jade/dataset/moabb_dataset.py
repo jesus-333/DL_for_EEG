@@ -467,9 +467,9 @@ def get_dataset(
     Parameters
     ----------
     config : dataset_config or dict
-        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the filtering (nested ``filter_config``), the resampling and the normalization.
+        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the filtering (nested ``filter_config``), the resampling, the normalization and the download folder.
         A plain dict is accepted for convenience and promoted via ``dataset_config.from_dict``.
-        If the requested data is not on disk it is downloaded automatically through :func:`~jade.dataset.moabb_dataset.download_dataset`.
+        If the requested data is not on disk it is downloaded automatically through :func:`~jade.dataset.moabb_dataset.download_dataset` (into ``config.dataset_folder`` when set, otherwise moabb's default location).
     dataset_type : {'train', 'test'}, default 'train'
         Which split to return.
         moabb organizes data by *session*; this selects the train or test session(s) using the naming heuristic in :func:`_select_sessions`.
@@ -498,7 +498,8 @@ def get_dataset(
     # Download (idempotent) and load the raw data
 
     # Downloading is idempotent (moabb caches), so this both ensures the data is present and gives us the dataset object.
-    dataset = download_dataset(config.dataset_name, config.subjects)
+    # config.dataset_folder (when set) redirects where moabb stores and looks up the data.
+    dataset = download_dataset(config.dataset_name, config.subjects, config.dataset_folder)
     subject_list = _as_subject_list(config.subjects, dataset)
 
     data = dataset.get_data(subjects = subject_list)  # {subj: {session: {run: Raw}}}
