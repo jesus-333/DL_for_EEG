@@ -49,7 +49,7 @@ The `EEG_Dataset_ChWi` variant is built **directly** from an EEG array (not thro
 | `EEG_Dataset` | class | Trial-level dataset. Stores data as `[trials, 1, channels, time]` (the depth-1 axis is for `Conv2d`). `__getitem__` → `(data, label)`. |
 | `EEG_Dataset_ChWi` | class | Channel-wise dataset for the ChWi autoencoder. Flattens `[trials, C, T]` → `[(trials·C), 1, T]` (depth-1 axis for `Conv1d`). Labels optional. |
 | `get_dataset(config, dataset_type)` | func | Full moabb pipeline → an `EEG_Dataset`. Downloads if needed. |
-| `download_dataset(name, subjects)` | func | Instantiate + download a moabb dataset (idempotent). |
+| `download_dataset(name, subjects, dataset_folder)` | func | Instantiate + download a moabb dataset (idempotent). `dataset_folder` optionally redirects where moabb stores/looks up the data (single global setting; `None` → `~/mne_data`). Wrapped by the `download-dataset-moabb` cli command. |
 | `compute_frequency_spectrum(signal, fs, freq_config)` | func | Welch PSD of a 1-D signal, backend-agnostic (scipy/torch/numpy). |
 | `check_plot_config` / `check_freq_config` | func | Fill-and-validate config dicts for plots / PSD. |
 
