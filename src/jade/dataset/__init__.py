@@ -1,8 +1,8 @@
 """
-Dataset subpackage: PyTorch EEG datasets and loaders.
 
-``EEG_Dataset`` / ``EEG_Dataset_ChWi`` are always available.
-The moabb loader (``download_dataset`` / ``get_dataset``) is re-exported lazily via ``__getattr__`` so that ``import jade.dataset`` does not require the optional ``moabb``/``mne`` extra; those are only imported when the loader functions are actually accessed.
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

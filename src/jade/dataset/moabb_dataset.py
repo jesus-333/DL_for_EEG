@@ -130,7 +130,6 @@ def _resolve_dataset_class(dataset_name : str) :
         "include: {}".format(repr(dataset_name), available)
     )
 
-
 def _as_subject_list(subjects, dataset) -> list :
     """
     Normalize ``subjects`` to a list of subject ids.
@@ -222,7 +221,6 @@ def _session_matches(session_name : str, dataset_type : str) -> bool :
     # train
     is_train = ("train" in low) or low.endswith("_t") or low == "t"
     return is_train
-
 
 def _select_sessions(session_names : Sequence[str], dataset_type : str) -> list :
     """
@@ -471,7 +469,7 @@ def get_dataset(
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Preprocess + epoch every selected recording
 
-    X_all, y_all = [], []
+    x_all, y_all = [], []
     ch_list = None
 
     for subject in subject_list :
@@ -481,10 +479,10 @@ def get_dataset(
         for session_name in selected :
             for _run_name, raw in sessions[session_name].items() :
                 raw = _apply_preprocess(raw, config)
-                X, labels, ch_names = _epoch_raw(raw, dataset, mne)
-                if X.shape[0] == 0 :
+                x, labels, ch_names = _epoch_raw(raw, dataset, mne)
+                if x.shape[0] == 0 :
                     continue
-                X_all.append(X)
+                x_all.append(x)
                 y_all.append(labels)
                 if ch_list is None :
                     ch_list = ch_names
@@ -496,7 +494,7 @@ def get_dataset(
                         stacklevel = 2,
                     )
 
-    if not X_all :
+    if not x_all :
         raise RuntimeError(
             "No trials were extracted for dataset={}, subjects={}, dataset_type={}.".format(
                 repr(config.dataset_name), subject_list, repr(dataset_type)
@@ -506,10 +504,10 @@ def get_dataset(
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Assemble the EEG_Dataset
 
-    X = np.concatenate(X_all, axis = 0).astype(np.float32)   # (trials, channels, time)
+    x = np.concatenate(x_all, axis = 0).astype(np.float32)   # (trials, channels, time)
     labels = np.concatenate(y_all, axis = 0).astype(np.int64)
 
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
-    X = X[:, np.newaxis, :, :]
+    x = x[:, np.newaxis, :, :]
 
-    return EEG_Dataset(X, labels, ch_list, normalize = config.normalize)
+    return EEG_Dataset(x, labels, ch_list, normalize = config.normalize)
