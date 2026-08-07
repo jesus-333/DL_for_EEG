@@ -69,14 +69,18 @@ class dataset_config(generic_config) :
         Target sampling frequency (Hz). Required (and must be positive) when ``resample`` is True.
     normalize : int, default -1
         Normalization scheme forwarded to :class:`~jade.dataset.dataset_time.EEG_Dataset` (one of ``NORMALIZE_CODES``).
+    dataset_folder : str or None, default None
+        Directory where the dataset is downloaded and looked up. ``None`` means moabb's own default location (``~/mne_data``).
+        Forwarded to :func:`~jade.dataset.moabb_dataset.download_dataset`; note that moabb treats this as a single global setting (only the last folder set is consulted).
     """
 
-    dataset_name  : str = ""
-    subjects      : Optional[List[int]] = None
-    filter        : filter_config = field(default_factory = _default_filter)
-    resample      : bool = False
-    resample_freq : Optional[float] = None
-    normalize     : int = -1
+    dataset_name   : str = ""
+    subjects       : Optional[List[int]] = None
+    filter         : filter_config = field(default_factory = _default_filter)
+    resample       : bool = False
+    resample_freq  : Optional[float] = None
+    normalize      : int = -1
+    dataset_folder : Optional[str] = None
 
 
     def __post_init__(self) -> None :
@@ -123,3 +127,10 @@ class dataset_config(generic_config) :
 
         if self.normalize not in NORMALIZE_CODES :
             raise ValueError("normalize must be one of {}, got {}".format(NORMALIZE_CODES, repr(self.normalize)))
+
+        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Check the download folder
+
+        # The download folder is optional (None = moabb default), but when given it must be a string path.
+        if self.dataset_folder is not None and not isinstance(self.dataset_folder, str) :
+            raise ValueError("dataset_folder must be a string path or None, got {}".format(type(self.dataset_folder)))

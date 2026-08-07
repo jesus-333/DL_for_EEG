@@ -15,7 +15,7 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 from __future__ import annotations
 
 # Internal imports
-from jade.dataset import download_dataset
+from jade.dataset import moabb_dataset
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -41,7 +41,7 @@ def download_dataset_moabb(args) -> None :
 
     # Forward the parsed arguments to the dataset-module function that does the actual work.
     # download_dataset accepts a single int (or None) for subjects, which matches the --subject argument.
-    download_dataset(
+    moabb_dataset.download_dataset(
         dataset_name   = args.dataset_name,
         subjects       = args.subject,
         dataset_folder = args.dataset_folder,
