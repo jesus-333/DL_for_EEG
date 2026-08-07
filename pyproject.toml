@@ -30,6 +30,7 @@ dependencies = [
 	"toml",
     "torch",
     "torchvision",
+    "torchmetrics",
 ]
 [project.optional-dependencies]
 extra = [

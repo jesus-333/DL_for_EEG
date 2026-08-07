@@ -206,7 +206,11 @@ class EEGNet_Classifier(nn.Module):
         label = self.forward(x)
 
         if return_as_index:
-            predict_prob = torch.squeeze(torch.exp(label).detach())
+            # Note: do NOT squeeze here. A batch of size 1 has shape (1, n_classes) and torch.squeeze would
+            # collapse the batch dimension to (n_classes,), making the following argmax(dim = 1) fail.
+            # Keeping the (batch, n_classes) shape works for any batch size (exp is monotonic, so it does not
+            # change the argmax result for either the LogSoftmax or the Identity/logits case).
+            predict_prob = torch.exp(label).detach()
             label = torch.argmax(predict_prob, dim = 1)
 
         return label
