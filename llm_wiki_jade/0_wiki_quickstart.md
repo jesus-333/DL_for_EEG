@@ -24,7 +24,7 @@ The library is organized around a clean separation of concerns: **describe** a r
 src/jade/                 <- the package (this wiki documents everything under here)
   __init__.py
   cli/                    <- thin command-line interface: console scripts that wrap existing jade code
-  config/                 <- dataclass-based configuration objects (+ optimizers/, lr_schedulers/, loss_functions/ subpackages)
+  config/                 <- dataclass-based configuration objects (+ optimizers/, lr_schedulers/, loss_functions/, model/ subpackages; default_config/ = commented TOML skeletons shipped as package data)
   dataset/                <- download / preprocess / torch Dataset wrapping (moabb + MNE)
   model/                  <- torch EEG models (EEGNet) + pooling_1d/ anti-aliasing research subpackage
   training/               <- config-driven training loop, metrics, optional wandb
@@ -37,11 +37,11 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
 
 | Module | Purpose | Read | Public API highlights |
 |---|---|---|---|
-| **cli** | Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points do argparse only and delegate to thematic implementation files; adds no new behavior. | [modules/cli/0_module_quickstart.md](modules/cli/0_module_quickstart.md) | command `download-dataset-moabb` → `download_dataset_moabb` (wraps `jade.dataset.download_dataset`) |
-| **config** | Validated, (de)serializable dataclasses that *describe* a run (dataset, optimizer, scheduler, loss, dataloader, wandb, training hyper-params). Data + validation only; imports no torch/moabb/mne/wandb. | [modules/config/0_module_quickstart.md](modules/config/0_module_quickstart.md) | `training_config`, `dataset_config`, `filter_config`, `dataloader_config`, `wandb_training_config`; `*_config` families + `get_optimizer_config` / `get_lr_scheduler_config` / `get_loss_config` + registries |
+| **cli** | Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points do argparse only and delegate to thematic implementation files; adds no new behavior. | [modules/cli/0_module_quickstart.md](modules/cli/0_module_quickstart.md) | `download-dataset-moabb` → `download_dataset_moabb` (wraps `jade.dataset.download_dataset`); `create-default-config` → `default_config` (copies the skeleton TOML tree) |
+| **config** | Validated, (de)serializable dataclasses that *describe* a run (dataset, optimizer, scheduler, loss, dataloader, wandb, training, **and now models**). Data + validation only; imports no torch/moabb/mne/wandb. | [modules/config/0_module_quickstart.md](modules/config/0_module_quickstart.md) | `training_config`, `dataset_config`, `filter_config`, `dataloader_config`, `wandb_training_config`; `*_config` families + `get_optimizer_config` / `get_lr_scheduler_config` / `get_loss_config` / `get_model_config` / `get_pooling_config` + registries (incl. `model/`: `EEGNet_config`, the pooling config family) |
 | **dataset** | Data management: download public EEG (moabb), preprocess/filter/epoch (MNE), wrap as torch `Dataset`, plus time/freq inspection plots. | [modules/dataset/0_module_quickstart.md](modules/dataset/0_module_quickstart.md) | `EEG_Dataset`, `EEG_Dataset_ChWi`; `download_dataset`, `get_dataset` (lazy moabb/mne) |
-| **model** | torch EEG models (EEGNet family) **plus** a self-contained research subpackage on anti-aliased 1D pooling. | [modules/model/0_module_quickstart.md](modules/model/0_module_quickstart.md) | `get_model` / `MODEL_REGISTRY`; `EEGNet`, `EEGNet_Classifier`; `pooling_1d` (`get_pooling_layer`, avg/blur/max/sinc/dwt) |
-| **training** | Config-driven orchestration of the training loop (classification only, for now); metrics; optional wandb run + model artifact. | [modules/training/0_module_quickstart.md](modules/training/0_module_quickstart.md) | `train`, `wandb_train`; `train_epoch_function`, `validation_epoch_function`; `test`; `support_training`, `metrics` |
+| **model** | torch EEG models (EEGNet family) **plus** a self-contained research subpackage on anti-aliased 1D pooling. | [modules/model/0_module_quickstart.md](modules/model/0_module_quickstart.md) | `get_model` / `MODEL_REGISTRY` (now config-instance driven); `EEGNet`, `EEGNet_Classifier` (consume an `EEGNet_config`); `pooling_1d` (`get_pooling_layer`, avg/blur/max/sinc/dwt) |
+| **training** | Config-driven orchestration of the training loop (classification only, for now); metrics; optional wandb run + model artifact. | [modules/training/0_module_quickstart.md](modules/training/0_module_quickstart.md) | `train` (builds the model from a `model_config`), `train_model` (trains a prebuilt model), `wandb_train`; `train_epoch_function`, `validation_epoch_function`; `test`; `support_training` (incl. `cross_check_config`), `metrics` |
 
 ## End-to-end mental model (how a run flows)
 
@@ -51,17 +51,16 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
         │ (dataclasses)│                            │ below reads it │
         └──────────────┘                            └───────────────┘
                 │                                            │
-   dataset_config (+ filter_config)                   training_config
-                │                                     (+ optimizer/scheduler/loss/dataloader/wandb)
-                ▼                                            │
-     jade.dataset: download → filter/epoch (MNE)            │
-                → EEG_Dataset  [trials, 1, channels, time]  │
-                │                                            ▼
-                │        jade.model.get_model(config) ──▶ nn.Module (e.g. EEGNet_Classifier)
-                │                                            │
-                └──────────────┐              ┌──────────────┘
-                               ▼              ▼
-                 jade.training.train(training_config, model, train_dataset, validation_dataset)
+   dataset_config (+ filter_config)      training_config                 model_config
+                │                    (+ optimizer/scheduler/loss/dataloader/wandb)  (e.g. EEGNet_config)
+                ▼                                            │                            │
+     jade.dataset: download → filter/epoch (MNE)            │                            │
+                → EEG_Dataset  [trials, 1, channels, time]  │        jade.model.get_model(model_config) ─▶ nn.Module
+                │                                            │                            │  (e.g. EEGNet_Classifier)
+                └──────────────┐              ┌─────────────┴──────────────┬─────────────┘
+                               ▼              ▼                            ▼
+                 jade.training.train(training_config, model_config, train_dataset, validation_dataset)
+                   • cross_check_config(training_config, model_config) (e.g. loss ↔ use_softmax), then get_model, then train_model
                    • support_training turns config → torch optimizer/scheduler/loss/DataLoader (dispatch on `name`)
                    • loops epochs: train_epoch_function / validation_epoch_function
                    • metrics.compute_metrics (torchmetrics); logging via logging (NullHandler)
@@ -72,7 +71,7 @@ The linchpin is **`jade.training.support_training`**: it is the *only* place whe
 
 ## Cross-cutting conventions (true across modules)
 
-- **Registry + `get_*` factory pattern.** Interchangeable implementations are selected by a lowercase string `name`/`model_name`: a `*_REGISTRY` dict maps the name to a class, and a `get_*` factory builds it. Used for models (`MODEL_REGISTRY`/`get_model`), pooling layers (`POOLING_REGISTRY`/`get_pooling_layer`), and the optimizer/scheduler/loss config families. Factories **copy** the caller's dict and never mutate it.
+- **Registry + `get_*` factory pattern.** Interchangeable implementations are selected by a lowercase string `name`/`pooling_type`: a `*_REGISTRY` dict maps the name to a class, and a `get_*` factory builds it. Used for the runtime models (`MODEL_REGISTRY`/`get_model` — now driven by a `model_config` instance, selecting on `config.name`), pooling layers (`POOLING_REGISTRY`/`get_pooling_layer`), and the config families: optimizer/scheduler/loss **and now model** (`MODEL_CONFIG_REGISTRY`/`get_model_config`) and pooling (`POOLING_CONFIG_REGISTRY`/`get_pooling_config`). Config factories are idempotent (a built config passes through) and dict promotion never mutates the caller's dict.
 - **Configs are dataclasses rooted at `generic_config`** with recursive `to_dict`/`from_dict`/`to_toml`/`from_toml`/`to_json`/`from_json`. `from_dict` ignores unknown keys; nested dicts are promoted to the right dataclass on load; validation happens in `__post_init__` (raises `ValueError`).
 - **Optional heavy deps are imported lazily.** `moabb`/`mne` (the `dataset` extra) are pulled in only when the moabb loader is actually used (PEP 562 `__getattr__`); `wandb`/`psutil`/`scipy` are imported lazily where used. So `import jade.dataset` / `import jade.training` stay light.
 - **Logging, not prints.** `training` attaches a `logging.NullHandler` to its package logger (library best practice); each module logs via `logging.getLogger(__name__)`, with INFO gated by a `print_var` flag.
@@ -83,11 +82,12 @@ The linchpin is **`jade.training.support_training`**: it is the *only* place whe
 - Core (`pyproject.toml`): `numpy`, `matplotlib`, `pandas`, `toml`, `torch`, `torchvision`, `torchmetrics`.
 - Optional extras: `extra` → `dtw-loss-functions`, `wandb`; `dataset` → `mne`, `moabb`.
 - Build backend: `hatchling`; wheel points at `src/jade` (exposes top-level import `jade`).
-- Console scripts: declared in `[project.scripts]` and implemented by the `cli` module. Currently `download-dataset-moabb` (→ `jade.cli.cli:download_dataset_moabb`).
+- Console scripts: declared in `[project.scripts]` and implemented by the `cli` module. Currently `download-dataset-moabb` (→ `jade.cli.cli:download_dataset_moabb`) and `create-default-config` (→ `jade.cli.cli:default_config`). The latter needs the TOML skeletons under `config/default_config/` to ship as package data — guaranteed by a `force-include` in `pyproject.toml`.
 
 ## Known WIP / gotchas to keep in mind
 
-- **No model config subpackage yet** — `config` intentionally does not model-configure; `get_model` takes a plain `dict`. (Noted in source.)
+- **Models are now config-driven.** `config.model` provides `EEGNet_config` (and the pooling config family); `get_model` takes a `model_config` instance (or a dict promoted via `get_model_config`) and selects the class on `config.name`. The old `get_model({"model_name": ...})` dict key is gone — the discriminator is `name`. `EEGNet`/`EEGNet_Classifier` read the dataclass attributes directly.
+- **`train` vs `train_model`.** `train(training_config, model_config, …)` is the standard entry point: it cross-checks the configs, builds the model with `get_model`, then delegates to `train_model(training_config, model, …)` (which trains an already-built model). `wandb_train` also delegates to `train_model`. `cross_check_config` (in `support_training`) enforces the loss ↔ `use_softmax` coupling and the class-weight ↔ `n_classes` match.
 - **`aEEGNet.py` is an attention variant and a WIP stub** with a real bug: `channels_attention_head` subclasses `torch.nn.module` (lowercase — should be `nn.Module`). It is *not* about anti-aliasing.
 - **`model/support_modules.py` is an empty TODO placeholder.**
 - **`pooling_1d` is not yet wired into any model** — it's a standalone, self-testable research subpackage (`python -m jade.model.pooling_1d`). Its config aliases (e.g. `p_kernel`) are named to drop into EEGNet later.

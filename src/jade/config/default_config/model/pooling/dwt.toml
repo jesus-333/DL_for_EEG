@@ -1,0 +1,15 @@
+# DWT 1D pooling (orthogonal wavelet analysis low-pass) - filter-bank band-split.
+# jade.config.model.dwt_pooling_config -> jade.model.pooling_1d.dwt_pool_1d
+pooling_type = "dwt"
+# Decimation factor M. MUST be a power of two (it sets the number of cascaded analysis levels log2(M)).
+decimation_factor = 2
+# Signal extension before filtering: "reflect", "replicate", "constant" or "circular".
+padding_mode = "reflect"
+# Which sample of each block of M is kept: "center", "first", or an int in [0, M).
+phase = "center"
+# Kernel normalization: "dc" (unit DC gain), "orthonormal" or "none".
+gain = "dc"
+# Warn at build time if the filter is worse than a plain boxcar of length M.
+warn_if_worse_than_boxcar = true
+# Orthogonal wavelet: "haar", "db1" ... "db4", "sym4", or any PyWavelets orthogonal wavelet.
+wavelet = "db4"

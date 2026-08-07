@@ -12,6 +12,7 @@
 cli/
   cli.py               <- entry points: one function per command, argparse only, then delegate
   download_dataset.py  <- thematic implementation file (receives parsed args, calls jade code)
+  default_config.py    <- thematic implementation file (copies the packaged TOML skeleton configs)
   ...                  <- one more thematic file per future command family
 ```
 
@@ -37,6 +38,7 @@ jade.dataset.download_dataset(name, subjects, dataset_folder)   (the real work)
 | Command | Entry point (`cli.py`) | Implementation | Wraps |
 |---------|------------------------|----------------|-------|
 | `download-dataset-moabb` | `download_dataset_moabb()` | [`download_dataset.py`](./download_dataset.md) → `download_dataset_moabb(args)` | [`jade.dataset.download_dataset`](../dataset/moabb_dataset.md) |
+| `create-default-config` | `default_config()` | [`default_config.py`](./default_config.md) → `default_config(args)` | copies the packaged `config/default_config/` TOML skeletons |
 
 ### `download-dataset-moabb`
 
@@ -57,6 +59,25 @@ download-dataset-moabb --dataset_name BNCI2014_001 --subject 1 --dataset_folder 
 ```
 
 Note: moabb downloads the **full raw recordings** (every session), so there is no train/test split at download time (that split only matters in `get_dataset`).
+
+### `create-default-config`
+
+Create a `default_config` folder of commented TOML **skeleton** configs (every possible parameter, with reasonable values), meant to be copied and edited.
+
+| Argument | Type | Default | Meaning |
+|----------|------|---------|---------|
+| `--path` | str | `.` (current dir) | Where the `default_config` folder is created. |
+| `--type` | str (`train`/`model`/`dataset`/`all`) | `all` | Which configs to create. |
+
+```bash
+# everything, in the current directory
+create-default-config
+
+# only the model config, elsewhere
+create-default-config --type model --path /tmp/configs
+```
+
+This is the one command that does not wrap an existing `jade` function: it **copies package data** (the TOML tree shipped under `jade/config/default_config/`). The copy logic still lives in the thematic implementation file (`default_config.py`), so `cli.py` stays argparse-only — the two-layer pattern is preserved. Multi-choice sections (optimizer/scheduler/loss) come as one file per option, with the main `training.toml` pointing at them.
 
 ## Adding a new command (checklist)
 

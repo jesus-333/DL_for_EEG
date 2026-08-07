@@ -4,7 +4,7 @@ Source: `src/jade/training/support_training.py`
 
 Shared code used by more than one training file: the **config → torch object factories**, the **training helpers**, and a few optional **memory-profiling utilities**. This is the single place where a (deliberately torch-free, serializable) config is materialized into a real `torch` object.
 
-Module logger: `logger = logging.getLogger(__name__)`. External deps: `torch`, `numpy`; stdlib `gc`, `os`, `time`, `threading.Thread`; `psutil` imported lazily inside `cpu_memory_usage_in_gb`. Internal config imports: `dataloader_config`, `get_optimizer_config`, `get_lr_scheduler_config`, `get_loss_config`.
+Module logger: `logger = logging.getLogger(__name__)`. External deps: `torch`, `numpy`; stdlib `gc`, `os`, `time`, `threading.Thread`; `psutil` imported lazily inside `cpu_memory_usage_in_gb`. Internal config imports: `training_config` (as `training_config_class`), `dataloader_config`, `get_optimizer_config`, `get_lr_scheduler_config`, `get_loss_config`, and `get_model_config` (the last two used by `cross_check_config`).
 
 ---
 
@@ -55,7 +55,27 @@ Returns a `torch.optim.lr_scheduler.*`. Called by `train` only when a scheduler 
 | `cross_entropy` | `torch.nn.CrossEntropyLoss` | `weight`, `ignore_index`, `reduction`, `label_smoothing` |
 | `nll` | `torch.nn.NLLLoss` | `weight`, `ignore_index`, `reduction` |
 
-Class weights are stored as a plain list in the config and converted here: `weight = torch.tensor(config.weight, dtype=torch.float) if config.weight is not None else None`. Reminder embedded in the docstring: `CrossEntropyLoss` expects **logits**, `NLLLoss` expects **log-probabilities** — the caller (`train`) moves the loss to the device after building it, which matters precisely because `weight` is a tensor.
+Class weights are stored as a plain list in the config and converted here: `weight = torch.tensor(config.weight, dtype=torch.float) if config.weight is not None else None`. Reminder embedded in the docstring: `CrossEntropyLoss` expects **logits**, `NLLLoss` expects **log-probabilities** — the caller (`train_model`) moves the loss to the device after building it, which matters precisely because `weight` is a tensor.
+
+---
+
+## Cross checks between configs
+
+### `cross_check_config(training_config, model_config) -> None`
+
+The single place where constraints spanning **two** configs are verified. `jade.training.classifier.train` calls it first, so a mismatch fails fast (with a clear `ValueError`) before any model is built or trained. It is not torch-dependent — it only inspects config fields.
+
+| Param | Type | Meaning |
+|---|---|---|
+| `training_config` | `training_config` or `dict` | Promoted via `training_config_class.from_dict` if a dict. |
+| `model_config` | `model_config` or `dict` | Promoted via `get_model_config` if a dict. |
+
+Checks enforced (extend here for future constraints):
+
+1. **Loss ↔ last-layer activation.** `loss.name == "nll"` requires `model_config.use_softmax == True` (the classifier ends in `LogSoftmax`, emitting log-probabilities); `loss.name == "cross_entropy"` requires `use_softmax == False` (the classifier ends in `Identity`, emitting raw logits). Read via `getattr(model_config, "use_softmax", None)`, so a model without that field (e.g. a pure feature extractor) skips the check.
+2. **Class weights ↔ number of classes.** If `loss.weight` is set, `len(weight)` must equal `model_config.n_classes`.
+
+Raises `ValueError` on any violation; returns `None` otherwise.
 
 ---
 

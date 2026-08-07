@@ -1,0 +1,58 @@
+# =====================================================================
+# Default EEGNet model configuration (jade.config.model.EEGNet_config)
+# =====================================================================
+# Skeleton config for EEGNet / EEGNet_Classifier. The default values follow a
+# BCI IV-2a style setup (22 channels, 1000 time samples, 4 classes); edit them
+# to match your data. Load it with: EEGNet_config.from_toml("EEGNet.toml").
+
+# Which model to build: "eegnet" (feature extractor) or "eegnet_classifier" (extractor + head).
+name = "eegnet_classifier"
+
+# Convolutional layers use a bias term.
+use_bias = false
+# Number of spatial filters learned per temporal filter (total spatial filters = D * filter_1).
+D = 2
+# Activation function: "relu", "elu", "selu" or "gelu".
+activation = "elu"
+# Dropout probability, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = false
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# Number of temporal filters (first convolution).
+filter_1 = 8
+# Temporal convolution kernel (height, width) = (1, time).
+c_kernel_1 = [1, 64]
+# Spatial (depthwise) convolution kernel, usually (C, 1).
+c_kernel_2 = [22, 1]
+# First average-pooling kernel. Remove this line (or set to a null-like value) to disable the first pooling.
+p_kernel_1 = [1, 4]
+
+# Number of filters of the separable convolution (pointwise output).
+filter_2 = 16
+# Depthwise convolution kernel of the separable block.
+c_kernel_3 = [1, 16]
+# Second average-pooling kernel. Remove this line to disable the second pooling.
+p_kernel_2 = [1, 8]
+
+# Flatten the (plain) EEGNet output to (batch, n_features). Ignored by the classifier.
+flatten_output = false
+
+# --- Classifier head (used only when name = "eegnet_classifier") ---
+# Shape (batch, depth, channels, time) of a dummy input used to size the feedforward layer.
+input_size = [1, 1, 22, 1000]
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+use_softmax = true
+
+# Print the parameter count / shape tracking at build time.
+print_var = false

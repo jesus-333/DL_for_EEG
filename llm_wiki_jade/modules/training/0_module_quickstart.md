@@ -6,12 +6,14 @@
 
 `jade.training` is the subpackage that trains a model. Today it implements a single objective: **classification (finetuning)** of an EEG classifier. A reconstruction/pretraining cycle and a federated-learning submodule are anticipated by the docstrings but **not yet implemented** — do not assume they exist.
 
-The module is a thin, config-driven orchestration layer on top of PyTorch. It does not define models or datasets; it consumes a model (`torch.nn.Module`, ideally built by `jade.model.get_model`), one or two `torch.utils.data.Dataset` objects, and a `training_config` (from `jade.config`), and it produces a trained model plus a dictionary of per-epoch metrics.
+The module is a thin, config-driven orchestration layer on top of PyTorch. It does not define models or datasets. The standard entry point `train` takes a `model_config` (from `jade.config.model`) and builds the model itself via `jade.model.get_model`; the lower-level `train_model` takes an already-built `torch.nn.Module`. Both also take one or two `torch.utils.data.Dataset` objects and a `training_config` (from `jade.config`), and produce a trained model plus a dictionary of per-epoch metrics.
 
 ## End-to-end flow
 
 ```
-wandb_train  ──(opens wandb run + optional model Artifact)──►  train
+train(training_config, model_config, …)                 wandb_train(training_config, model, …)
+   │  cross_check_config + get_model(model_config)          │  opens wandb run + optional model Artifact
+   └───────────────► train_model(training_config, model, …) ◄┘
                                                                  │
                        ┌─────────────────────────────────────────┤ per epoch
                        ▼                                          ▼
@@ -21,7 +23,8 @@ wandb_train  ──(opens wandb run + optional model Artifact)──►  train
                        └──────────────► metrics.compute_metrics ◄─┘  (optional, both sets)
 ```
 
-1. **`train(training_config, model, train_dataset, validation_dataset=None, wandb_model_artifact=None)`** is the entry point and runs the full cycle:
+1. **`train(training_config, model_config, train_dataset, validation_dataset=None, wandb_model_artifact=None)`** is the standard entry point. It runs `support_training.cross_check_config(training_config, model_config)` (fail fast on e.g. a loss ↔ `use_softmax` mismatch), builds the model with `jade.model.get_model(model_config)`, and delegates to `train_model`, forwarding every argument.
+2. **`train_model(training_config, model, train_dataset, validation_dataset=None, wandb_model_artifact=None)`** runs the full cycle on an already-built model:
    - Promotes a plain `dict` config to a real `training_config`; reads `device` and whether wandb is requested.
    - Optionally seeds numpy/torch (`support_training.set_seed`).
    - Builds dataloaders, loss, optimizer and (optional) LR scheduler from the config via the `support_training` factories.
@@ -29,8 +32,8 @@ wandb_train  ──(opens wandb run + optional model Artifact)──►  train
    - Creates the checkpoint folder; if wandb is on, calls `wandb.watch`.
    - Loops `epochs` times: one training epoch (`train_epoch_function`), optional validation epoch (`validation_epoch_function`), optional metric computation on both sets (`metrics.compute_metrics`), LR logging, `lr_scheduler.step()`, INFO logging, and wandb logging.
    - Returns `(model, computed_metrics_during_training)` — the trained model and a dict mapping each tracked quantity to its list of per-epoch values.
-2. **`wandb_train(...)`** is a thin wrapper: it opens a `wandb.init(...)` run (job_type `"train"`, resume `"allow"`, run id derived from the seed), builds an optional model `wandb.Artifact`, calls `train` inside the run context, logs the artifact, and returns `train`'s result.
-3. **`test(training_config, model, test_dataset, label="test")`** is the generic evaluator: it reuses `validation_epoch_function` for the loss and `metrics.compute_metrics` for the metrics, and returns `(test_loss, log_dict)` where every key is suffixed with `label`. It does **not** log to wandb itself — the caller does.
+3. **`wandb_train(...)`** is a thin wrapper: it opens a `wandb.init(...)` run (job_type `"train"`, resume `"allow"`, run id derived from the seed), builds an optional model `wandb.Artifact`, calls `train_model` inside the run context (it already holds a built model), logs the artifact, and returns the result.
+4. **`test(training_config, model, test_dataset, label="test")`** is the generic evaluator: it reuses `validation_epoch_function` for the loss and `metrics.compute_metrics` for the metrics, and returns `(test_loss, log_dict)` where every key is suffixed with `label`. It does **not** log to wandb itself — the caller does.
 
 ## How the `training_config` drives everything
 
@@ -44,6 +47,8 @@ wandb_train  ──(opens wandb run + optional model Artifact)──►  train
 | `loss` (`name`: cross_entropy/nll) | `get_loss_function` | `torch.nn.Module` |
 
 Other important config fields: `epochs`, `device`, `path_to_save_model`, `epoch_to_save_model` (period of periodic checkpoints; a non-positive value is rewritten to `epochs + 1` so periodic saves never fire), `backup_model_every_epoch`, `measure_metrics_during_training`, `print_var`, `seed`, `path_past_weights`, `path_past_optimizer`, and the optional nested `wandb` (`wandb_training_config`). Every function accepts a plain dict for the config and promotes it via `training_config.from_dict`.
+
+The **model** config is *not* nested in `training_config`: `train` takes it as a separate `model_config` argument. Before building the model, `train` calls `support_training.cross_check_config(training_config, model_config)`, which enforces the cross-config constraints — the loss ↔ `use_softmax` coupling (`nll` needs `use_softmax=True`, `cross_entropy` needs `use_softmax=False`) and the class-weight length ↔ `n_classes` match — raising `ValueError` on a mismatch.
 
 ## Logging approach
 
@@ -71,17 +76,17 @@ When wandb is active and `wandb.log_model_artifact` is true, periodic checkpoint
 ## Dependencies
 
 - **External:** `torch` (core), `torchmetrics` (metrics), `numpy` (seeding), stdlib `logging`/`os`/`sys`/`gc`/`time`/`threading`. `wandb` is an **optional** extra — imported in a `try/except`; a clear `ImportError` is raised only if wandb logging is actually requested without it installed. `psutil` is imported lazily inside the CPU memory profiler.
-- **Internal:** `jade.config.training.training_config` (+ nested `dataloader`, `optimizers`, `lr_schedulers`, `loss_functions`, `wandb_training` configs and their `get_*_config` promoters).
+- **Internal:** `jade.config.training.training_config` (+ nested `dataloader`, `optimizers`, `lr_schedulers`, `loss_functions`, `wandb_training` configs and their `get_*_config` promoters); `jade.config.model.get_model_config` (for `cross_check_config`); `jade.model.get_model` (imported by `classifier` so `train` can build the model).
 
 ## How it connects to the rest of `jade`
 
-- **Consumes `jade.config`** — the `training_config` and all nested configs live there; `support_training` turns them into torch objects. Configs stay torch-free so they can be serialized to TOML with one section per nested config.
-- **Consumes a model** — any `torch.nn.Module`, typically produced by `jade.model.get_model(config)`. Metrics prefer the model's `classify` method (`jade.model.EEGNet.EEGNet_Classifier.classify`), falling back to `argmax`.
+- **Consumes `jade.config`** — the `training_config` and all nested configs live there; `support_training` turns them into torch objects. Configs stay torch-free so they can be serialized to TOML with one section per nested config. `train` also takes a `model_config` (from `jade.config.model`).
+- **Builds / consumes a model** — `train` builds the model from a `model_config` via `jade.model.get_model`; `train_model`/`wandb_train`/`test` take an already-built `torch.nn.Module`. Metrics prefer the model's `classify` method (`jade.model.EEGNet.EEGNet_Classifier.classify`), falling back to `argmax`.
 - **Consumes datasets** — any `torch.utils.data.Dataset` whose items are `(data, label)` pairs.
-- **`wandb_train`** additionally logs the training config (and an optional `model_config` dict, purely for reproducibility) to the wandb run.
+- **`wandb_train`** additionally logs the training config (and an optional `model_config`, promoted to a dict via `to_dict`, purely for reproducibility) to the wandb run.
 
 ## Public API (from `jade.training`)
 
-`train`, `wandb_train`, `train_epoch_function`, `validation_epoch_function`, `test`, plus the submodules `support_training` and `metrics`.
+`train`, `train_model`, `wandb_train`, `train_epoch_function`, `validation_epoch_function`, `test`, plus the submodules `support_training` (which also exposes `cross_check_config`) and `metrics`.
 
 See the [module index](0_module_index.md) for per-file pages.

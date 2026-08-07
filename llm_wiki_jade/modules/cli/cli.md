@@ -13,8 +13,9 @@ Each function is exposed as a terminal command through the `[project.scripts]` t
 ```toml
 [project.scripts]
 download-dataset-moabb = "jade.cli.cli:download_dataset_moabb"
+create-default-config = "jade.cli.cli:default_config"
 ```
-Multi-word command names use hyphens (`download-dataset-moabb`), per the coding style.
+Multi-word command names use hyphens (`download-dataset-moabb`, `create-default-config`), per the coding style.
 
 ---
 
@@ -34,3 +35,21 @@ Entry point of the `download-dataset-moabb` command.
 3. `parser.parse_args()` → `args`, then calls `download_dataset_moabb(args)` (the implementation).
 
 Takes **no Python arguments** — it reads `sys.argv` through `argparse`, as befits a console-script entry point. See [`download_dataset.md`](./download_dataset.md) for the implementation it delegates to.
+
+---
+
+## `default_config() -> None`
+
+Entry point of the `create-default-config` command.
+
+1. Lazily imports `jade.cli.default_config.default_config` (the implementation, same name).
+2. Builds an `argparse.ArgumentParser` (`prog="create-default-config"`) with:
+
+   | Argument | Type | Required / default | Meaning |
+   |----------|------|--------------------|---------|
+   | `--path` | str | default `"."` | Directory where the `default_config` folder is created. |
+   | `--type` | str (`choices=["train","model","dataset","all"]`) | default `"all"` | Which configs to create. |
+
+3. `parser.parse_args()` → `args`, then calls `default_config(args)` (the implementation).
+
+Like the other entry point it takes **no Python arguments**. See [`default_config.md`](./default_config.md) for the implementation (which copies the packaged TOML skeleton tree).

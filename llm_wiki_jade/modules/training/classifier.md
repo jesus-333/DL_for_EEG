@@ -2,19 +2,42 @@
 
 Source: `src/jade/training/classifier.py`
 
-The full classification training cycle. `train` runs the entire loop (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics; `wandb_train` is a thin wrapper that opens a wandb run around a call to `train`. Only the classification (finetuning) objective exists for now.
+The full classification training cycle. `train` is the standard entry point: it cross-checks the training/model configs, builds the model from a `model_config` with `jade.model.get_model`, and delegates to `train_model`. `train_model` runs the entire loop on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics. `wandb_train` is a thin wrapper that opens a wandb run around a call to `train_model`. Only the classification (finetuning) objective exists for now.
 
 ## Module-level facts
 
 - `wandb` is imported inside a `try/except ImportError` and set to `None` if absent (optional extra).
 - `training_config` from `jade.config.training` is imported under the alias `training_config_class` (used for `isinstance` checks and `from_dict` promotion).
+- `get_model` is imported from `jade.model` (used by `train` to build the model from its config).
 - Module logger: `logger = logging.getLogger(__name__)`.
 
 ---
 
-## `train(training_config, model, train_dataset, validation_dataset=None, wandb_model_artifact=None)`
+## `train(training_config, model_config, train_dataset, validation_dataset=None, wandb_model_artifact=None)`
 
-Trains a classifier and returns it together with the metrics collected during training.
+The standard entry point. It builds the model from `model_config` and delegates the actual training to `train_model`. Returns exactly what `train_model` returns.
+
+### Parameters
+
+| Name | Type | Default | Meaning |
+|---|---|---|---|
+| `training_config` | `training_config` or `dict` | — | Full run configuration (promoted from a dict if needed). |
+| `model_config` | `model_config` or `dict` | — | Model configuration (e.g. `EEGNet_config`; a dict is promoted via `get_model_config`). The model is built from it. |
+| `train_dataset` | `torch.utils.data.Dataset` | — | Training data; each item is a `(data, label)` pair. |
+| `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data (forwarded to `train_model`). |
+| `wandb_model_artifact` | `wandb.Artifact` | `None` | Artifact for checkpoints (forwarded to `train_model`). |
+
+### Flow
+
+1. `support_training.cross_check_config(training_config, model_config)` — fail fast on a training ↔ model mismatch (e.g. loss vs `use_softmax`).
+2. `model = get_model(model_config)` — the config `name` selects the class.
+3. `return train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)` — every argument forwarded (the earlier skeleton bug that dropped `validation_dataset`/`wandb_model_artifact` is fixed).
+
+---
+
+## `train_model(training_config, model, train_dataset, validation_dataset=None, wandb_model_artifact=None)`
+
+Trains an **already-built** classifier and returns it together with the metrics collected during training. This is the former `train` body (renamed); `train` and `wandb_train` both delegate here.
 
 ### Parameters
 
@@ -76,7 +99,7 @@ Trains a classifier and returns it together with the metrics collected during tr
 
 ## `wandb_train(training_config, model, train_dataset, validation_dataset=None, model_config=None)`
 
-Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional model `wandb.Artifact`), then calls `train` inside it. See [classifier_epoch.md](classifier_epoch.md) and this page's `train` for the training details.
+Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional model `wandb.Artifact`), then calls `train_model` inside it (it holds an already-built model). See [classifier_epoch.md](classifier_epoch.md) and this page's `train_model` for the training details.
 
 ### Parameters
 
@@ -86,7 +109,7 @@ Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional m
 | `model` | `torch.nn.Module` | — | Model to train. |
 | `train_dataset` | `torch.utils.data.Dataset` | — | Training data. |
 | `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data. |
-| `model_config` | `dict` | `None` | Not used during training — only logged to wandb (with the training config) for reproducibility. |
+| `model_config` | `model_config` or `dict` | `None` | Not used during training (an already-built `model` is passed) — only logged to wandb (with the training config) for reproducibility; a dataclass is serialized via `to_dict`. |
 
 ### Returns
 
@@ -96,13 +119,13 @@ Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional m
 
 1. Promote dict → config.
 2. Raise `ImportError` if `wandb is None`; raise `ValueError` if `training_config.wandb is None`.
-3. Build `config_to_log = {"training_config": training_config.to_dict()}`, adding `"model_config"` when provided.
+3. Build `config_to_log = {"training_config": training_config.to_dict()}`, adding `"model_config"` when provided (a dataclass is `to_dict`-ed first).
 4. `run_id = str(training_config.seed)` if a seed is set, else `None` — so a seeded run can be **resumed** under the same id.
 5. `with wandb.init(project=..., entity=..., name=..., job_type="train", config=config_to_log, notes=..., id=run_id, resume="allow") as run:`
    - Artifact name = `wandb.model_artifact_name + "_trained"`. If `log_model_artifact`, create a `wandb.Artifact(type="model", description=..., metadata=config_to_log)`, else `None`.
-   - Call `train(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)`.
+   - Call `train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)`.
    - If `log_model_artifact`, `run.log_artifact(wandb_model_artifact)`.
-6. Return `train`'s result.
+6. Return `train_model`'s result.
 
 ### Side effects / errors
 

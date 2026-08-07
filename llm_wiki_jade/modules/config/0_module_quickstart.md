@@ -21,6 +21,8 @@ config/
   optimizers/         optimizer_config + Adam/AdamW/SGD/RMSprop/LBFGS + registry + get_optimizer_config
   lr_schedulers/      lr_scheduler_config + ExponentialLR/StepLR/CosineAnnealingLR/…WarmRestarts/CyclicLR + registry + factory
   loss_functions/     loss_config + CrossEntropy/NLL + registry + get_loss_config
+  model/              model_config + EEGNet_config + the pooling config family + registries + get_model_config/get_pooling_config
+  default_config/     commented TOML skeleton configs (package data, copied by the `create-default-config` cli command)
 ```
 
 Everything is re-exported from `jade.config.__init__`, so the flat public API is `from jade.config import training_config, dataset_config, adam_config, ...`.
@@ -39,7 +41,7 @@ Every config inherits (directly or transitively) from `generic_config` (a fieldl
 Value **validation is per-subclass**, done in `__post_init__` (dataclasses call it automatically), which raises `ValueError` on bad values. A common idiom: `bool` is explicitly rejected wherever an `int` is expected (because `bool` subclasses `int`).
 
 ### 2. Registry + `get_*_config` factory for the polymorphic families
-Optimizers, schedulers and losses are **families** of interchangeable configs selected by a string `name` discriminator. Each subpackage defines:
+Optimizers, schedulers, losses and **models** are **families** of interchangeable configs selected by a string discriminator (`name`; the pooling family uses `pooling_type`). Each subpackage defines:
 
 - a base class (`optimizer_config` / `lr_scheduler_config` / `loss_config`) carrying only `name`, and overriding `from_dict` to **dispatch polymorphically**: when called on the base class it reads `name`, looks it up in the registry, and delegates to the concrete subclass; when called on a concrete subclass it behaves normally.
 - a `*_CONFIG_REGISTRY` dict mapping lowercase `name` → config class.
@@ -52,6 +54,8 @@ Configs hold other configs as fields:
 
 - `dataset_config.filter` → a `filter_config`
 - `training_config.{optimizer, lr_scheduler, loss, dataloader, wandb}` → the respective configs
+
+(The **model** config is not nested in `training_config`: `jade.training.train` takes `model_config` as a separate argument, so a model config lives on its own.)
 
 When a nested field arrives as a plain `dict` (e.g. from a TOML/JSON file), the parent's `__post_init__` **promotes** it to the proper dataclass (`filter_config.from_dict`, `get_optimizer_config`, etc.). This means a fully nested config tree survives a file round-trip and is always made of real dataclass instances, not dicts.
 
@@ -93,5 +97,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 | `loss_config` family | `…support_training.get_loss_function` | `torch.nn.*` (weights list → tensor) |
 | `wandb_training_config` | `jade.training.classifier.wandb_train` / `train` | wandb run + model artifact |
 | `training_config` | `jade.training.classifier` | the whole training run |
+| `model_config` family (`EEGNet_config`) | `jade.model.get_model`; `jade.training.train` | the `torch.nn.Module` to train |
+| pooling config family | `jade.model.pooling_1d.get_pooling_layer` | a 1D pooling layer (research subpackage) |
 
-Model configuration is **intentionally not implemented yet** (noted in the source).
+Model configuration now lives in the [`model/` subpackage](model/0_module_quickstart.md): `EEGNet_config` plus the 1D pooling config family, with the same registry + `get_*_config` pattern. `jade.model.get_model` and the `EEGNet` constructors consume these configs directly.

@@ -3,10 +3,11 @@ Full training cycle for a classifier model.
 
 This module implements the complete classification training loop:
 
-* :func:`train` runs the whole cycle (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics and optional wandb logging) and returns the trained model together with the metrics computed during training.
-* :func:`wandb_train` is a thin wrapper that opens a wandb run (and a model artifact) and then calls :func:`train` inside it.
+* :func:`train` is the standard entry point: it builds the model from a ``model_config`` (via :func:`~jade.model.get_model`), cross-checks the two configs, and then delegates to :func:`train_model`.
+* :func:`train_model` runs the whole cycle on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics and optional wandb logging) and returns the trained model together with the metrics computed during training.
+* :func:`wandb_train` is a thin wrapper that opens a wandb run (and a model artifact) and then calls :func:`train_model` inside it (it receives an already-built model).
 
-Both functions are driven by a :class:`~jade.config.training.training_config` instance (a plain dict is accepted too and promoted automatically).
+Every function is driven by a :class:`~jade.config.training.training_config` instance (a plain dict is accepted too and promoted automatically).
 The single-epoch logic lives in :mod:`jade.training.classifier_epoch`, the factories and helpers in :mod:`jade.training.support_training`, and the metrics in :mod:`jade.training.metrics`.
 
 Only the classification (finetuning) objective is implemented for now; a reconstruction/pretraining cycle may be added later in a sibling module.
@@ -37,6 +38,7 @@ import torch
 
 # Internal imports
 from jade.config.training import training_config as training_config_class
+from jade.model import get_model
 from jade.training import classifier_epoch, metrics, support_training
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -49,20 +51,50 @@ logger = logging.getLogger(__name__)
 
 def train(training_config, model_config, train_dataset, validation_dataset = None, wandb_model_artifact = None) :
     """
+    Train a classifier model built from its configuration.
 
+    This is the standard entry point of a training run: the model is created internally from ``model_config`` (through :func:`~jade.model.get_model`), the two configs are checked for consistency (:func:`~jade.training.support_training.cross_check_config`), and the actual training is delegated to :func:`train_model`.
+    Call :func:`train_model` directly instead when you already have a built model you want to train.
+
+    Parameters
+    ----------
+    training_config : training_config or dict
+        The training configuration, an instance of :class:`~jade.config.training.training_config` (a dict is accepted and promoted automatically).
+    model_config : model_config or dict
+        The model configuration, an instance of a :class:`~jade.config.model.generic.model_config` subclass (e.g. :class:`~jade.config.model.EEGNet_cfg.EEGNet_config`); a dict is accepted and promoted automatically.
+        The model to train is built from it.
+    train_dataset : torch.utils.data.Dataset
+        Dataset used for training. Each item must be a ``(data, label)`` pair.
+    validation_dataset : torch.utils.data.Dataset, optional
+        Dataset used for validation, by default None. If None no validation is performed (and no ``model_BEST.pth`` is saved).
+    wandb_model_artifact : wandb.Artifact, optional
+        The wandb model artifact the checkpoints are added to, by default None. It is normally created and passed by :func:`wandb_train`.
+
+    Returns
+    -------
+    model : torch.nn.Module
+        The trained model.
+    computed_metrics_during_training : dict
+        Dictionary mapping each tracked quantity (``train_loss``, ``validation_loss``, and the per-set metrics when enabled) to the list of its per-epoch values.
     """
-       
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # Model
-    
-    # TODO
-    
+
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Cross checks
 
-    # TODO
+    # Verify the training and model configs are mutually consistent (e.g. loss vs last-layer activation) before building anything, so a mismatch fails fast with a clear message.
+    support_training.cross_check_config(training_config, model_config)
 
-    return train_model(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None)
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Model
+
+    # Build the model from its config: the model name carried by the config selects the class.
+    model = get_model(model_config)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Training
+
+    # Delegate the actual training cycle to train_model, forwarding every argument.
+    return train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)
 
 def train_model(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None) :
     """
@@ -328,8 +360,8 @@ def wandb_train(training_config, model, train_dataset, validation_dataset = None
         Dataset used for training.
     validation_dataset : torch.utils.data.Dataset, optional
         Dataset used for validation, by default None.
-    model_config : dict, optional
-        Model configuration, by default None. It is not used during training, it is only logged on wandb (together with the training config) for reproducibility.
+    model_config : model_config or dict, optional
+        Model configuration, by default None. It is not used during training (this function receives an already-built ``model``), it is only logged on wandb (together with the training config) for reproducibility.
 
     Returns
     -------
@@ -360,7 +392,8 @@ def wandb_train(training_config, model, train_dataset, validation_dataset = None
     # The whole training config is logged; the model config is logged too when provided.
     config_to_log = dict(training_config = training_config.to_dict())
     if model_config is not None :
-        config_to_log["model_config"] = model_config
+        # Log a plain dict (a model_config dataclass is serialized through to_dict).
+        config_to_log["model_config"] = model_config.to_dict() if hasattr(model_config, "to_dict") else model_config
 
     # Use the seed (if any) as the wandb run id, so a run can be resumed with the same id.
     run_id = str(training_config.seed) if training_config.seed is not None else None
@@ -391,8 +424,8 @@ def wandb_train(training_config, model, train_dataset, validation_dataset = None
         else :
             wandb_model_artifact = None
 
-        # Train the model.
-        model, computed_metrics_during_training = train(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)
+        # Train the model. The model is already built, so call train_model directly (train would expect a model_config as its second argument).
+        model, computed_metrics_during_training = train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)
 
         # Log the model artifact.
         if wandb_config.log_model_artifact :

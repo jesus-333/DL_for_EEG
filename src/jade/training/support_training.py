@@ -33,10 +33,12 @@ import numpy as np
 import torch
 
 # Internal imports
+from jade.config.training import training_config as training_config_class
 from jade.config.dataloader import dataloader_config
 from jade.config.optimizers import get_optimizer_config
 from jade.config.lr_schedulers import get_lr_scheduler_config
 from jade.config.loss_functions import get_loss_config
+from jade.config.model import get_model_config
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Module logger
@@ -271,6 +273,65 @@ def get_loss_function(loss_config_to_use) -> torch.nn.Module :
         raise ValueError("unknown loss name {}".format(repr(config.name)))
 
     return loss_function
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Cross checks between configs
+
+def cross_check_config(training_config, model_config) -> None :
+    """
+    Check that a training config and a model config are mutually consistent.
+
+    Some parameters live in different configs but must agree with each other; this is the single place where those cross-config constraints are verified, so :func:`~jade.training.classifier.train` can fail fast with a clear message before building or training anything.
+
+    The checks currently enforced are:
+
+    * **loss vs last-layer activation** - a ``nll`` loss expects log-probabilities, so the classifier must end with a :class:`torch.nn.LogSoftmax` (model ``use_softmax = True``); a ``cross_entropy`` loss expects raw logits, so it must end with a :class:`torch.nn.Identity` (model ``use_softmax = False``). See :func:`get_loss_function` and :class:`~jade.model.EEGNet.EEGNet_Classifier`.
+    * **class weights vs number of classes** - when the loss carries a per-class ``weight`` list, its length must equal the model ``n_classes``.
+
+    New cross-config constraints should be added here.
+
+    Parameters
+    ----------
+    training_config : training_config or dict
+        The training configuration (an instance of :class:`~jade.config.training.training_config`; a dict is accepted and promoted automatically).
+    model_config : model_config or dict
+        The model configuration (an instance of a :class:`~jade.config.model.generic.model_config` subclass; a dict is accepted and promoted automatically).
+
+    Raises
+    ------
+    ValueError
+        If any cross-config constraint is violated.
+    """
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Normalize the inputs (accept a dict or an already-built config)
+
+    if isinstance(training_config, dict) :
+        training_config = training_config_class.from_dict(training_config)
+    model_config = get_model_config(model_config)
+
+    # The loss name is the discriminator carried by the loss config.
+    loss_name = training_config.loss.name
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Loss vs last-layer activation
+
+    # use_softmax is a classifier concern: a model that does not expose it (e.g. a pure feature extractor) simply skips this check.
+    use_softmax = getattr(model_config, "use_softmax", None)
+    if use_softmax is not None :
+        if loss_name == "nll" and not use_softmax :
+            raise ValueError("loss 'nll' expects log-probabilities: build the model with use_softmax = True (LogSoftmax head)")
+        if loss_name == "cross_entropy" and use_softmax :
+            raise ValueError("loss 'cross_entropy' expects raw logits: build the model with use_softmax = False (Identity head)")
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Class weights vs number of classes
+
+    # A per-class weight list must have exactly one entry per class.
+    weight = getattr(training_config.loss, "weight", None)
+    n_classes = getattr(model_config, "n_classes", None)
+    if weight is not None and n_classes is not None and len(weight) != n_classes :
+        raise ValueError("the loss has {} class weights but the model has {} classes".format(len(weight), n_classes))
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Helpers used during training

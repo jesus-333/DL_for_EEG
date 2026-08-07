@@ -11,14 +11,14 @@
 
 ## Top-level factory: `get_model` / `MODEL_REGISTRY`
 
-The single entry point for building a model is `get_model(config: dict) -> nn.Module` (in [`__init__.py`](__init__.md)). It reads `config["model_name"]` (case-insensitive), looks it up in `MODEL_REGISTRY`, and calls that class with a **copy** of the whole config dict (the caller's dict is never mutated). Every model class takes exactly one argument — the `config` dict — so the factory is uniform.
+The single entry point for building a model is `get_model(config) -> nn.Module` (in [`__init__.py`](__init__.md)). It takes a **model config** — an instance of a `jade.config.model.model_config` subclass (e.g. `EEGNet_config`), or a plain dict that is promoted to one via `get_model_config`. It reads `config.name` (case-insensitive), looks it up in `MODEL_REGISTRY`, and calls that class with the config. Every model class takes exactly one argument — the config — so the factory is uniform.
 
-| `model_name` alias | Class |
+| `name` alias | Class |
 |---|---|
 | `eegnet` | `EEGNet` |
 | `eegnet_classifier`, `eegnetclassifier` | `EEGNet_Classifier` |
 
-Raises `KeyError` if `model_name` is missing, `ValueError` if it is unknown. This mirrors the `get_pooling_layer` / `POOLING_REGISTRY` pattern one level down in `pooling_1d`, and the `get_optimizer` etc. registries elsewhere in `jade`.
+Raises `ValueError` if `name` is unknown. This mirrors the `get_pooling_layer` / `POOLING_REGISTRY` pattern one level down in `pooling_1d`, and the `get_optimizer` etc. registries elsewhere in `jade`. (The old `get_model({"model_name": ...})` dict interface is gone — the discriminator is `name`, matching the config families.)
 
 ## EEGNet at a high level
 
@@ -29,6 +29,8 @@ Raises `KeyError` if `model_name` is missing, `ValueError` if it is unknown. Thi
 3. **Separable convolution** — depthwise `Conv2d` + pointwise `1x1 Conv2d` + `BatchNorm2d` + activation + `AvgPool2d` + dropout.
 
 The final feedforward + softmax classification layer of the original paper is **not** part of `EEGNet` — it outputs features (optionally flattened via `flatten_output`). [`EEGNet_Classifier`](EEGNet.md) adds it: it wraps an `EEGNet`, infers the flattened feature count with a dummy forward pass (`compute_number_of_neurons`), then appends `Linear -> (LogSoftmax | Identity)`. It also exposes `classify(x)` returning predicted class indices, which `jade.training.metrics` prefers over `argmax(model(x))`.
+
+Both classes now consume an [`EEGNet_config`](../config/model/EEGNet_cfg.md) dataclass (a dict is still accepted and promoted via `get_model_config`); they call `get_model_config(config)` at the top of `__init__` and then read the attributes, so all defaulting and validation live in the config, not in the model.
 
 **Key fact:** EEGNet uses ordinary `nn.AvgPool2d` for its pooling stages. The `pooling_1d` family is *not* yet plugged into it — it exists as the research direction that a future `aEEGNet` would use. The pooling config aliases (`p_kernel`) were chosen to match EEGNet's `p_kernel_1`/`p_kernel_2` keys for eventual drop-in swapping.
 
@@ -74,5 +76,5 @@ model/
 ## How `model` connects to the rest of `jade`
 
 - **`jade.training`** consumes models as opaque `nn.Module`s. It builds/receives a model, calls `model.to(device)` and `model(x)`, and for metrics prefers `model.classify(x)` (which `EEGNet_Classifier` provides), falling back to `argmax(model(x))`. `get_model` is the intended construction path.
-- **`jade.config`** currently has **no** model config sub-package (it has optimizers, loss_functions, lr_schedulers, dataloader, dataset, filter, training). Model hyperparameters are passed as a plain dict to `get_model`. `config/optimizers/__init__.py` explicitly cites `MODEL_REGISTRY` / `get_model` as the convention its own registry mirrors.
+- **`jade.config`** now has a [`model/` sub-package](../config/model/0_module_quickstart.md) (`EEGNet_config` + the pooling config family), so model hyperparameters are a validated dataclass like everything else. `get_model` consumes a `model_config` instance (selecting on `config.name`); `config/optimizers/__init__.py` cites `MODEL_REGISTRY` / `get_model` as the convention its own registry mirrors, and the new `MODEL_CONFIG_REGISTRY` / `get_model_config` closes the loop on the config side.
 - **`jade.dataset`** produces the `(B, depth, C, T)` tensors EEGNet consumes.

@@ -1,0 +1,16 @@
+# AdamW optimizer (torch.optim.AdamW): Adam with decoupled weight decay.
+# Copy this [optimizer] table into training.toml to use AdamW.
+[optimizer]
+name = "adamw"
+# Learning rate (must be > 0).
+lr = 0.001
+# Coefficients for the running averages of gradient and its square, each in [0, 1).
+betas = [0.9, 0.999]
+# Term added to the denominator for numerical stability (must be > 0).
+eps = 1e-8
+# Weight decay (decoupled; must be >= 0). Note the default is larger than Adam's.
+weight_decay = 0.01
+# Use the AMSGrad variant.
+amsgrad = false
+# Maximize the objective instead of minimizing.
+maximize = false

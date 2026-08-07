@@ -14,10 +14,12 @@ Grouped exactly as in `__all__`:
 | Optimizers | `optimizer_config`, `adam_config`, `adamw_config`, `sgd_config`, `rmsprop_config`, `lbfgs_config`, `OPTIMIZER_CONFIG_REGISTRY`, `get_optimizer_config` |
 | LR schedulers | `lr_scheduler_config`, `exponential_lr_config`, `step_lr_config`, `cosine_annealing_lr_config`, `cosine_annealing_warm_restarts_config`, `cyclic_lr_config`, `LR_SCHEDULER_CONFIG_REGISTRY`, `get_lr_scheduler_config` |
 | Loss functions | `loss_config`, `cross_entropy_config`, `nll_config`, `LOSS_CONFIG_REGISTRY`, `get_loss_config` |
+| Model configs | `model_config`, `EEGNet_config`, `MODEL_CONFIG_REGISTRY`, `get_model_config` |
+| Pooling configs | `pooling_config`, `avg_pooling_config`, `blur_pooling_config`, `sinc_pooling_config`, `dwt_pooling_config`, `max_pooling_config`, `POOLING_CONFIG_REGISTRY`, `get_pooling_config` |
 
 ## Notes
 
-- The module docstring is the canonical high-level description of the package: it lists one file/subpackage per concern and states that **model configuration is intentionally not implemented yet**.
+- The module docstring is the canonical high-level description of the package: it lists one file/subpackage per concern, **including the `model/` subpackage** (model + pooling configs).
 - Import order matters for the family subpackages: importing `jade.config.optimizers` (etc.) triggers building of its `*_CONFIG_REGISTRY`. The base classes' `from_dict` methods import the registry **lazily** (inside the method) to avoid a circular import — see [optimizers/generic.md](optimizers/generic.md).
 - `__all__` is explicit, so `from jade.config import *` yields exactly the names above.
 

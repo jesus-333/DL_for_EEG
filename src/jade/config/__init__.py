@@ -16,7 +16,7 @@ The optimizer, learning-rate scheduler and loss configurations live in dedicated
 * :mod:`jade.config.lr_schedulers` (ExponentialLR, StepLR, CosineAnnealingLR, CosineAnnealingWarmRestarts, CyclicLR)
 * :mod:`jade.config.loss_functions` (CrossEntropy, NLL)
 
-Model configuration is intentionally not implemented yet.
+Model configuration lives in the :mod:`jade.config.model` subpackage, which follows the same registry + ``get_*_config`` pattern (one ``{model_name}_cfg.py`` file per model, plus a single file for the reusable 1D pooling configs).
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -61,6 +61,22 @@ from jade.config.loss_functions import (
     get_loss_config,
 )
 
+# Model subpackage (base class, concrete model configs, the 1D pooling config family, registries and factories).
+from jade.config.model import (
+    model_config,
+    EEGNet_config,
+    MODEL_CONFIG_REGISTRY,
+    get_model_config,
+    pooling_config,
+    avg_pooling_config,
+    blur_pooling_config,
+    sinc_pooling_config,
+    dwt_pooling_config,
+    max_pooling_config,
+    POOLING_CONFIG_REGISTRY,
+    get_pooling_config,
+)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public API
 
@@ -96,4 +112,18 @@ __all__ = [
     "nll_config",
     "LOSS_CONFIG_REGISTRY",
     "get_loss_config",
+    # Model configs
+    "model_config",
+    "EEGNet_config",
+    "MODEL_CONFIG_REGISTRY",
+    "get_model_config",
+    # Pooling configs
+    "pooling_config",
+    "avg_pooling_config",
+    "blur_pooling_config",
+    "sinc_pooling_config",
+    "dwt_pooling_config",
+    "max_pooling_config",
+    "POOLING_CONFIG_REGISTRY",
+    "get_pooling_config",
 ]

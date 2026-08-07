@@ -1,0 +1,45 @@
+# =====================================================================
+# Default dataset configuration (jade.config.dataset.dataset_config)
+# =====================================================================
+# Skeleton config for downloading + preprocessing an EEG dataset (moabb + MNE).
+# Load it with: dataset_config.from_toml("dataset.toml").
+
+# moabb dataset name (case-insensitive), e.g. "BNCI2014_001". REQUIRED (must be non-empty).
+dataset_name = "BNCI2014_001"
+
+# Subjects to load. Leave commented to load all the subjects.
+# subjects = [1, 2, 3]
+
+# Resample the signal. If true, resample_freq must be set (> 0).
+resample = false
+# resample_freq = 128.0
+
+# Normalization code: -1 (none), 1, 2 or 3 (see dataset_config for the exact scheme).
+normalize = -1
+
+# Where to store / read the downloaded data. Leave commented to use the moabb default (~/mne_data/).
+# dataset_folder = "/data/eeg"
+
+# ---------------------------------------------------------------------
+# Filtering (MNE), applied at preprocessing time
+# ---------------------------------------------------------------------
+[filter]
+# Filter type: "bandpass", "bandstop", "lowpass", "highpass" or "notch".
+filter_type = "bandpass"
+# Low cutoff (Hz). Required for bandpass/bandstop/highpass.
+l_freq = 8.0
+# High cutoff (Hz). Required for bandpass/bandstop/lowpass.
+h_freq = 32.0
+# Notch frequency/frequencies (Hz). Only for the "notch" filter.
+# freqs = 50.0
+# Filter method: "iir" or "fir".
+method = "iir"
+# FIR-only options (ignored by the IIR method).
+filter_length = "auto"
+l_trans_bandwidth = "auto"
+h_trans_bandwidth = "auto"
+phase = "zero"
+fir_window = "hamming"
+fir_design = "firwin"
+# Channels to filter (MNE "picks" selector).
+picks = "data"
