@@ -2,18 +2,14 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# The distribution (PyPI) name is "jade" (Just Another Deep-learning EEG package),
-# but the importable package name is "dl_eeg" (as in scikit-learn -> sklearn).
-# The code lives in src/dl_eeg, so point the wheel at that folder: hatchling then
-# exposes it as the top-level import package "dl_eeg".
+# The distribution (PyPI) name and the importable package name are both "jade"
+# (Just Another Deep-learning EEG package). The code lives in src/jade (src-layout),
+# so point the wheel at that folder: hatchling then exposes it as the top-level
+# import package "jade".
 [tool.hatch.build.targets.wheel]
-packages = ["src/dl_eeg"]
+packages = ["src/jade"]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[tool.hatch.build.targets.wheel.sources]
-"src" = "jade"
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 [project]
 name = "jade"
