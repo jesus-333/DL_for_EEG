@@ -13,6 +13,7 @@ import numpy as np
 # Internal imports
 from jade.model.pooling_1d.support_pooling import (
     _fir_decimation_pool_1d,
+    _multichannel_pool_1d,
     _binomial_kernel,
     _gaussian_kernel,
     _get,
@@ -92,4 +93,18 @@ class blur_pool_1d(_fir_decimation_pool_1d) :
             return _gaussian_kernel(length, _get(config, "sigma", None))
         if kind == "boxcar" :
             return np.ones(length, dtype = np.float64) / length
-        raise ValueError("unknown kernel {}; expected 'binomial', 'gaussian' or 'boxcar'".format(repr(kind)))
+        raise ValueError(f"unknown kernel {kind!r}; expected 'binomial', 'gaussian' or 'boxcar'")
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel variant
+
+class blur_pool_1d_multichannel(_multichannel_pool_1d) :
+    """
+    Channel-wise :class:`blur_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
+
+    Applies :class:`blur_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
+    Takes the same ``config`` dict as :class:`blur_pool_1d`.
+    """
+
+    def __init__(self, config : dict) :
+        super().__init__(blur_pool_1d(config))

@@ -7,7 +7,7 @@
 `jade.model` holds the PyTorch neural-network models of the `jade` package (Just Another Deep-learning EEG package) **plus** a self-contained research sub-package for anti-aliased 1D pooling. Two concerns live side by side:
 
 1. **EEG models** — an `EEGNet` implementation (and a classifier wrapper) plus small creation helpers. This is the production part used by `jade.training`.
-2. **`pooling_1d`** — a DSP-grounded family of 1D decimation ("pooling") layers (`avg` / `blur` / `sinc` / `dwt` / `max`) built for an anti-aliasing ablation study. This is research infrastructure, not yet wired into the models.
+2. **`pooling_1d`** — a DSP-grounded family of 1D decimation ("pooling") layers (`avg` / `blur` / `sinc` / `dwt` / `max`) built for an anti-aliasing ablation study. EEGNet consumes them channel-wise through its `[pooling]` config section (via `get_multichannel_pooling`); they also stand alone as research infrastructure.
 
 ## Top-level factory: `get_model` / `MODEL_REGISTRY`
 
@@ -32,7 +32,7 @@ The final feedforward + softmax classification layer of the original paper is **
 
 Both classes now consume an [`EEGNet_config`](../config/model/EEGNet_cfg.md) dataclass (a dict is still accepted and promoted via `get_model_config`); they call `get_model_config(config)` at the top of `__init__` and then read the attributes, so all defaulting and validation live in the config, not in the model.
 
-**Key fact:** EEGNet uses ordinary `nn.AvgPool2d` for its pooling stages. The `pooling_1d` family is *not* yet plugged into it — it exists as the research direction that a future `aEEGNet` would use. The pooling config aliases (`p_kernel`) were chosen to match EEGNet's `p_kernel_1`/`p_kernel_2` keys for eventual drop-in swapping.
+**Key fact:** EEGNet's two pooling stages are configured by the `[pooling]` section of `EEGNet_config` (fields `pooling_type_*`, `pooling_factor_*`, `params_*`) and built by `support_functions.get_multichannel_pooling`. `pooling_type='default'` reproduces the classic `nn.AvgPool2d`; `avg`/`max`/`blur`/`sinc`/`dwt` select a `pooling_1d` operator applied channel-wise. This replaced the old `p_kernel_1`/`p_kernel_2` fields.
 
 ## `aEEGNet` — attention variant (work in progress)
 

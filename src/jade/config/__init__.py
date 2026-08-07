@@ -65,6 +65,7 @@ from jade.config.loss_functions import (
 from jade.config.model import (
     model_config,
     EEGNet_config,
+    eegnet_pooling_config,
     MODEL_CONFIG_REGISTRY,
     get_model_config,
     pooling_config,
@@ -115,6 +116,7 @@ __all__ = [
     # Model configs
     "model_config",
     "EEGNet_config",
+    "eegnet_pooling_config",
     "MODEL_CONFIG_REGISTRY",
     "get_model_config",
     # Pooling configs

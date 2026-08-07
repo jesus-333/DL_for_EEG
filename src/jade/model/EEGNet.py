@@ -47,6 +47,11 @@ class EEGNet(nn.Module):
         activation = support_functions.get_activation(config.activation)
         dropout = support_functions.get_dropout(config.prob_dropout, config.use_dropout_2d)
 
+        # Pooling layers for the two pooling stages (see the [pooling] section of EEGNet_config).
+        # 'default' reproduces the classic nn.AvgPool2d; the 1D pooling operators are applied channel-wise.
+        pooling_layer_1 = support_functions.get_multichannel_pooling(config.pooling_layer_1_config)
+        pooling_layer_2 = support_functions.get_multichannel_pooling(config.pooling_layer_2_config)
+
         # NOT USED
         self.C = config.C
         self.T = config.T
@@ -70,7 +75,7 @@ class EEGNet(nn.Module):
             nn.Conv2d(config.filter_1, config.filter_1 * D, kernel_size = config.c_kernel_2, groups = config.filter_1, bias = use_bias),
             nn.BatchNorm2d(config.filter_1 * D),
             activation,
-            nn.AvgPool2d(config.p_kernel_1) if config.p_kernel_1 is not None else nn.Identity(),
+            pooling_layer_1,
             dropout
         )
 
@@ -80,7 +85,7 @@ class EEGNet(nn.Module):
             nn.Conv2d(config.filter_1 * D, config.filter_2, kernel_size = (1, 1), groups = 1, bias = use_bias),
             nn.BatchNorm2d(config.filter_2),
             activation,
-            nn.AvgPool2d(config.p_kernel_2) if config.p_kernel_2 is not None else nn.Identity(),
+            pooling_layer_2,
             dropout
         )
 
@@ -90,9 +95,9 @@ class EEGNet(nn.Module):
         # Print additional information after the creation of the network
         if config.print_var:
             print("EEGNet Created. Number of parameters:")
-            print("\tNumber of trainable parameters (Block 1 - Temporal) = {}".format(support_functions.count_trainable_parameters(self.temporal_filter)))
-            print("\tNumber of trainable parameters (Block 1 - Spatial)  = {}".format(support_functions.count_trainable_parameters(self.spatial_filter)))
-            print("\tNumber of trainable parameters (Block 2)            = {}\n".format(support_functions.count_trainable_parameters(self.separable_convolution)))
+            print(f"\tNumber of trainable parameters (Block 1 - Temporal) = {support_functions.count_trainable_parameters(self.temporal_filter)}")
+            print(f"\tNumber of trainable parameters (Block 1 - Spatial)  = {support_functions.count_trainable_parameters(self.spatial_filter)}")
+            print(f"\tNumber of trainable parameters (Block 2)            = {support_functions.count_trainable_parameters(self.separable_convolution)}\n")
             self.debug_shape(config.input_size)
 
     def forward(self, x : torch.tensor) -> torch.tensor :

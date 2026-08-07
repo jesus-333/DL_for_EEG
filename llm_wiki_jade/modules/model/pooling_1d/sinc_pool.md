@@ -50,3 +50,7 @@ Because the default `cutoff_scale=0.9` places the cutoff *below* `π/M`, `stopba
 ## Shapes
 
 Input `(B, D, T)` → output `(B, D, T // M)`. Zero trainable parameters.
+
+## Multichannel variant
+
+`sinc_pool_1d_multichannel(config)` wraps `sinc_pool_1d` for 4D EEG tensors `(B, D, C, T)`, applying it channel-wise (see [`_multichannel_pool_1d`](support_pooling.md#multichannel-wrapper)). Same `config` (and, like it, needs SciPy); output `(B, D, C, T // M)`.

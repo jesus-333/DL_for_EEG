@@ -30,6 +30,20 @@ Returns `nn.Dropout2d(prob_dropout)` if `use_droput_2d` else `nn.Dropout(prob_dr
 | `prob_dropout` | float | Dropout probability in `[0, 1]`. |
 | `use_droput_2d` | bool | Select 2D (channel-wise) vs plain dropout. (Note the parameter name is spelled `use_droput_2d` in the source.) |
 
+### `get_multichannel_pooling(config: dict) -> nn.Module`
+
+Maps a per-stage pooling config dict to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called twice in `EEGNet.__init__` (once per pooling stage). Analogue of `get_activation` / `get_dropout`.
+
+The `config` dict carries `pooling_type`, `decimation_factor` (alias `pooling_factor`), and any type-specific params. Behaviour by `pooling_type` (case-insensitive):
+
+| `pooling_type` | Returns |
+|---|---|
+| `default` | `nn.AvgPool2d((1, decimation_factor))` — the classic EEGNet pooling (time axis only). |
+| `avg` / `max` / `blur` / `sinc` / `dwt` (and aliases) | the matching `{name}_multichannel` wrapper from `MULTICHANNEL_POOLING_REGISTRY`, applied channel-wise. |
+| `identity` / `none`, or a `decimation_factor < 1` (e.g. a negative "disable" factor) | `nn.Identity()`. |
+
+For the `gaussian` / `binomial` aliases it also `setdefault`s the matching blur `kernel` family (mirrors `get_pooling_layer`). **Raises `ValueError`** for any other `pooling_type` (message lists the valid names). The registry import is done lazily inside the function to keep the dependency direction one-way.
+
 ### `count_trainable_parameters(torch_module: nn.Module) -> int`
 
 Returns `sum(p.numel() for p in torch_module.parameters() if p.requires_grad)` — the count of trainable parameters. Used by `EEGNet` when `print_var=True` to report per-block parameter counts.

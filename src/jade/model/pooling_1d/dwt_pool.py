@@ -20,6 +20,7 @@ import torch
 # Internal imports
 from jade.model.pooling_1d.support_pooling import (
     _fir_decimation_pool_1d,
+    _multichannel_pool_1d,
     _as_decimation_factor,
     _filter_and_subsample,
     _get,
@@ -111,9 +112,9 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
         factor = _as_decimation_factor(raw)
         if factor < 1 or (factor & (factor - 1)) != 0 :
             raise ValueError(
-                "dwt_pool_1d requires a power-of-two decimation factor, got {}. "
+                f"dwt_pool_1d requires a power-of-two decimation factor, got {factor}. "
                 "Each DWT level decimates by exactly 2. Use sinc_pool_1d or blur_pool_1d "
-                "for other factors.".format(factor)
+                "for other factors."
             )
         self.levels = int(round(math.log2(factor))) if factor > 1 else 0
         super().__init__(config)
@@ -145,8 +146,8 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
                 import pywt
             except ImportError as exc :
                 raise ValueError(
-                    "unknown wavelet {}. Built-in options: {}. "
-                    "Install PyWavelets for more.".format(repr(name), sorted(WAVELET_FILTERS))
+                    f"unknown wavelet {name!r}. Built-in options: {sorted(WAVELET_FILTERS)}. "
+                    "Install PyWavelets for more."
                 ) from exc
             rec_lo = np.asarray(pywt.Wavelet(name).rec_lo, dtype = np.float64)
 
@@ -170,7 +171,7 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
         """
 
         if x.dim() != 3 :
-            raise ValueError("expected (B, D, T), got {}".format(tuple(x.shape)))
+            raise ValueError(f"expected (B, D, T), got {tuple(x.shape)}")
 
         y = x
         for _ in range(self.levels) :
@@ -220,7 +221,23 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
         Short description used by :meth:`torch.nn.Module.__repr__`.
         """
 
-        return "M={} ({} levels), wavelet={}, L_stage={}, L_eff={}, padding_mode={}, gain={}".format(
-            self.decimation_factor, self.levels, getattr(self, "wavelet_name", "?"),
-            self.kernel.numel(), self.effective_kernel().size, self.padding_mode, self.gain
+        return (
+            f"M={self.decimation_factor} ({self.levels} levels), "
+            f"wavelet={getattr(self, 'wavelet_name', '?')}, "
+            f"L_stage={self.kernel.numel()}, L_eff={self.effective_kernel().size}, "
+            f"padding_mode={self.padding_mode}, gain={self.gain}"
         )
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel variant
+
+class dwt_pool_1d_multichannel(_multichannel_pool_1d) :
+    """
+    Channel-wise :class:`dwt_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
+
+    Applies :class:`dwt_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
+    Takes the same ``config`` dict as :class:`dwt_pool_1d` (the decimation factor must be a power of two).
+    """
+
+    def __init__(self, config : dict) :
+        super().__init__(dwt_pool_1d(config))

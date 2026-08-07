@@ -41,3 +41,7 @@ No kernel-specific keys.
 ## Shapes
 
 Input `(B, D, T)` → output `(B, D, T // M)`. Zero trainable parameters.
+
+## Multichannel variant
+
+`avg_pool_1d_multichannel(config)` wraps `avg_pool_1d` for 4D EEG tensors `(B, D, C, T)`, applying it channel-wise (see [`_multichannel_pool_1d`](support_pooling.md#multichannel-wrapper)). Same `config`; output `(B, D, C, T // M)`.

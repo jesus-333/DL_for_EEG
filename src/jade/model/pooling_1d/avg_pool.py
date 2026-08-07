@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 # Internal imports
-from jade.model.pooling_1d.support_pooling import _fir_decimation_pool_1d
+from jade.model.pooling_1d.support_pooling import _fir_decimation_pool_1d, _multichannel_pool_1d
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Average pooling - the boxcar baseline
@@ -70,3 +70,17 @@ class avg_pool_1d(_fir_decimation_pool_1d) :
         """
 
         return
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel variant
+
+class avg_pool_1d_multichannel(_multichannel_pool_1d) :
+    """
+    Channel-wise :class:`avg_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
+
+    Applies :class:`avg_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
+    Takes the same ``config`` dict as :class:`avg_pool_1d`.
+    """
+
+    def __init__(self, config : dict) :
+        super().__init__(avg_pool_1d(config))

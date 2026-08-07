@@ -36,4 +36,4 @@ Called on the base class, it reads `pooling_type`, looks it up in `POOLING_CONFI
 ## Notes / gotchas
 
 - Optional overrides default to `None` (`kernel_size`, `sigma`, `num_taps`, `window`, `stopband_attenuation_db`, `transition_width`, `max_taps`); on write `to_toml` drops them and on read the pooling layer applies its own `M`-scaled defaults (e.g. blur `4*M+1`, sinc `8*M+1`).
-- The pooling layers are **not yet wired into EEGNet** (it uses `nn.AvgPool2d`); this config family is authored now for the future anti-aliased consumer, matching the design intent noted in the `pooling_1d` docs.
+- The pooling layers are **wired into EEGNet**: its `[pooling]` section (`eegnet_pooling_config`) validates each stage's type-specific params by round-tripping them through `get_pooling_config` here, and `EEGNet` builds the layers via `support_functions.get_multichannel_pooling`. This config family is also usable standalone.

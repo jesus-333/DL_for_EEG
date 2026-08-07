@@ -12,7 +12,7 @@ import torch
 from torch import nn
 
 # Internal imports
-from jade.model.pooling_1d.support_pooling import _as_decimation_factor, _get
+from jade.model.pooling_1d.support_pooling import _as_decimation_factor, _get, _multichannel_pool_1d
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Max pooling - nonlinear reference arm
@@ -70,7 +70,7 @@ class max_pool_1d(nn.Module) :
         """
 
         if x.dim() != 3 :
-            raise ValueError("expected (B, D, T), got {}".format(tuple(x.shape)))
+            raise ValueError(f"expected (B, D, T), got {tuple(x.shape)}")
         return self.pool(x)
 
 
@@ -104,4 +104,18 @@ class max_pool_1d(nn.Module) :
         Short description used by :meth:`torch.nn.Module.__repr__`.
         """
 
-        return "M={} (nonlinear, no anti-aliasing)".format(self.decimation_factor)
+        return f"M={self.decimation_factor} (nonlinear, no anti-aliasing)"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel variant
+
+class max_pool_1d_multichannel(_multichannel_pool_1d) :
+    """
+    Channel-wise :class:`max_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
+
+    Applies :class:`max_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
+    Takes the same ``config`` dict as :class:`max_pool_1d`.
+    """
+
+    def __init__(self, config : dict) :
+        super().__init__(max_pool_1d(config))

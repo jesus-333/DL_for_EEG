@@ -17,7 +17,7 @@ Classic EEGNet **without** the final feedforward + classification layer of the o
 ### Tensor shapes
 
 - **Input:** 4D `(B, depth_first_layer, C, T)` — batch, input depth (1 for raw EEG; >1 for time-frequency data), EEG channels `C`, time samples `T`. Convolutions are `nn.Conv2d`, so the input must be 4D.
-- **Output:** 4D `(B, filter_2, 1, T')` where `T'` is the time axis after the two `AvgPool2d` stages — **unless** `flatten_output=True`, in which case `x.flatten(1)` gives `(B, filter_2 * T')`.
+- **Output:** 4D `(B, filter_2, 1, T')` where `T'` is the time axis after the two pooling stages — **unless** `flatten_output=True`, in which case `x.flatten(1)` gives `(B, filter_2 * T')`.
 
 ### Config attributes (read from the `EEGNet_config`)
 
@@ -33,10 +33,9 @@ The exhaustive field list, types, defaults and validation are on the [`EEGNet_co
 | `filter_1` | Number of temporal filters (block 1). |
 | `c_kernel_1` | Kernel size of the temporal conv. |
 | `c_kernel_2` | Kernel size of the spatial (depthwise) conv. |
-| `p_kernel_1` | First `AvgPool2d` kernel; `None` → `nn.Identity` (no pooling). |
 | `filter_2` | Output filters of the separable conv (block 2). |
 | `c_kernel_3` | Kernel size of the separable conv's depthwise part. |
-| `p_kernel_2` | Second `AvgPool2d` kernel; `None` → `nn.Identity`. |
+| `pooling_layer_1_config` / `pooling_layer_2_config` | Per-stage pooling config dicts derived from the `pooling` section (`{pooling_type, decimation_factor, **params}`) → each resolved by `support_functions.get_multichannel_pooling` into a pooling layer. See the [`EEGNet_config` pooling section](../config/model/EEGNet_cfg.md). |
 | `C` | EEG channel count. **Stored but NOT used** (`self.C`). |
 | `T` | Time samples. **Stored but NOT used** (`self.T`). |
 | `depth_first_layer` | Input depth of the first conv (>1 for time-frequency input). |
@@ -44,7 +43,7 @@ The exhaustive field list, types, defaults and validation are on the [`EEGNet_co
 | `print_var` | Print parameter counts and run `debug_shape(input_size)` at construction. |
 | `input_size` | `(batch, depth, C, T)`; drives `debug_shape` (and sizes the classifier head). |
 
-> **Note:** `C` and `T` are read into attributes but never used by the architecture (kernel sizes are given explicitly via the `c_kernel_*` / `p_kernel_*` attributes). Since the config is a validated dataclass, every attribute is always present with a valid value — no back-filling / dict mutation happens anymore.
+> **Note:** `C` and `T` are read into attributes but never used by the architecture (conv kernels are given explicitly via the `c_kernel_*` attributes; pooling comes from the `pooling` section). Since the config is a validated dataclass, every attribute is always present with a valid value — no back-filling / dict mutation happens anymore.
 
 ### Architecture (three `nn.Sequential` blocks)
 
@@ -55,17 +54,17 @@ The exhaustive field list, types, defaults and validation are on the [`EEGNet_co
    - `Conv2d(filter_1, filter_1*D, kernel_size=c_kernel_2, groups=filter_1, bias=use_bias)` — grouped conv = one spatial filter set per temporal channel; no `padding='same'`, so this conv shrinks the channel axis.
    - `BatchNorm2d(filter_1*D)`
    - `activation`
-   - `AvgPool2d(p_kernel_1)` or `nn.Identity()` if `p_kernel_1 is None`
+   - `pooling_layer_1` — `support_functions.get_multichannel_pooling(config.pooling_layer_1_config)` (`nn.AvgPool2d((1, factor))` for the `'default'` type, a channel-wise 1D pooling wrapper otherwise, or `nn.Identity` when disabled)
    - `dropout`
 3. **`self.separable_convolution`** — Block 2, separable convolution + feature extraction:
    - depthwise `Conv2d(filter_1*D, filter_1*D, kernel_size=c_kernel_3, groups=filter_1*D, padding='same', bias=use_bias)`
    - pointwise `Conv2d(filter_1*D, filter_2, kernel_size=(1,1), groups=1, bias=use_bias)`
    - `BatchNorm2d(filter_2)`
    - `activation`
-   - `AvgPool2d(p_kernel_2)` or `nn.Identity()` if `p_kernel_2 is None`
+   - `pooling_layer_2` — `support_functions.get_multichannel_pooling(config.pooling_layer_2_config)` (same rules as `pooling_layer_1`)
    - `dropout`
 
-> **Design note (pooling):** the pooling here is stock `nn.AvgPool2d`, **not** the [`pooling_1d`](pooling_1d/0_module_quickstart.md) layers. The layout order per block is `BatchNorm -> activation -> pool -> dropout`; this ordering is exactly the "no normalization after pool" scenario the pooling_1d docstring warns about (why DC gain must be controlled) — relevant if the anti-aliased layers are ever swapped in.
+> **Design note (pooling):** each pooling stage is chosen by the [`pooling` section](../config/model/EEGNet_cfg.md) of the config. The `'default'` type reproduces the classic stock `nn.AvgPool2d` (pooling along time only); any other type selects one of the [`pooling_1d`](pooling_1d/0_module_quickstart.md) operators applied **channel-wise** via its `*_multichannel` wrapper, resolved by [`get_multichannel_pooling`](support_functions.md). The layout order per block is `BatchNorm -> activation -> pool -> dropout`; this is exactly the "no normalization after pool" scenario the pooling_1d docstring warns about (why the 1D filters default to unit DC gain).
 
 ### `forward(x) -> torch.tensor`
 

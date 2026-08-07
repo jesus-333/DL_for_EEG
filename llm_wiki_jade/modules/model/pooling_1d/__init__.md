@@ -4,11 +4,11 @@ Source: `src/jade/model/pooling_1d/__init__.py`
 
 Sub-package init. Carries the long **motivation docstring** (the anti-aliasing theory summarized in the [quickstart](0_module_quickstart.md)), re-exports the public API, and hosts the `get_pooling_layer` factory plus `self_test`.
 
-Re-exports from the per-operator modules: `avg_pool_1d`, `blur_pool_1d`, `sinc_pool_1d`, `dwt_pool_1d`, `max_pool_1d`, `WAVELET_FILTERS`, and the internal helpers `_as_decimation_factor`, `_filter_and_subsample`, `_get` (used by the factory and self-test).
+Re-exports from the per-operator modules: the 1D layers `avg_pool_1d`, `blur_pool_1d`, `sinc_pool_1d`, `dwt_pool_1d`, `max_pool_1d`; their channel-wise `{name}_multichannel` wrappers; `WAVELET_FILTERS`; and the internal helpers `_as_decimation_factor`, `_filter_and_subsample`, `_get` (used by the factory and self-test).
 
 ## Public API (`__all__`)
 
-`avg_pool_1d`, `max_pool_1d`, `blur_pool_1d`, `sinc_pool_1d`, `dwt_pool_1d`, `get_pooling_layer`, `POOLING_REGISTRY`, `WAVELET_FILTERS`, `self_test`.
+The five 1D layers (`avg_pool_1d`, `max_pool_1d`, `blur_pool_1d`, `sinc_pool_1d`, `dwt_pool_1d`), the five multichannel wrappers (`avg_pool_1d_multichannel`, `max_pool_1d_multichannel`, `blur_pool_1d_multichannel`, `sinc_pool_1d_multichannel`, `dwt_pool_1d_multichannel`), `get_pooling_layer`, `POOLING_REGISTRY`, `MULTICHANNEL_POOLING_REGISTRY`, `WAVELET_FILTERS`, `self_test`.
 
 ## `POOLING_REGISTRY`
 
@@ -21,6 +21,10 @@ Lowercase alias → pooling class:
 | `blur`, `blurpool`, `binomial`, `gaussian` | `blur_pool_1d` |
 | `sinc`, `kaiser` | `sinc_pool_1d` |
 | `dwt`, `wavelet` | `dwt_pool_1d` |
+
+## `MULTICHANNEL_POOLING_REGISTRY`
+
+The same aliases mapped to the channel-wise wrappers (`avg` → `avg_pool_1d_multichannel`, `max` → `max_pool_1d_multichannel`, …). These operate on 4D `(B, D, C, T)` EEG tensors and are what [`jade.model.support_functions.get_multichannel_pooling`](../support_functions.md) dispatches through for a model such as EEGNet. See the [quickstart](0_module_quickstart.md#multichannel-4d-variants) and [`support_pooling`](support_pooling.md) (`_multichannel_pool_1d` base).
 
 ## `get_pooling_layer(config: dict) -> nn.Module`
 
@@ -55,7 +59,7 @@ get_pooling_layer({'pooling_type' : 'dwt',  'decimation_factor' : 8, 'wavelet' :
 
 ## `self_test(verbose: bool = True) -> None`
 
-Verifies the invariants the sub-package relies on; run once after installing (`assert`s each check; also called by [`__main__`](__main__.md)). Seeds `torch.manual_seed(0)`. The five checks:
+Verifies the invariants the sub-package relies on; run once after installing (`assert`s each check; also called by [`__main__`](__main__.md)). Seeds `torch.manual_seed(0)`. The six checks:
 
 | # | Check | What it proves |
 |---|---|---|
@@ -64,3 +68,4 @@ Verifies the invariants the sub-package relies on; run once after installing (`a
 | 3 | All DC-normalized layers pass a constant signal (value 3.7) unchanged (`err < 1e-4`). | unit DC gain. |
 | 4 | The DWT cascade matches its own `effective_kernel()` under circular padding (`max|diff| < 1e-9`), using the documented sampling offset. | the noble identity / effective-kernel collapse is correct. |
 | 5 | `blur`/`sinc`/`dwt` are gradient-transparent (finite grad flows), have **0 trainable params**, and an empty `state_dict()`. | no learnable state; kernel is a non-persistent buffer. |
+| 6 | Each `{name}_multichannel` wrapper on a 4D `(B, D, C, T)` tensor outputs `(B, D, C, T // M)` and is **bit-identical** to an explicit per-channel loop over the 1D layer (`max|diff| = 0`). | the vectorized `(D, C)`-flatten really is channel-wise pooling. |
