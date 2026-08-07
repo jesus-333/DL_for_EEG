@@ -9,8 +9,9 @@ This module holds the code that is used by more than one training file (or that 
 
 The configs are kept torch-free (so they stay lightweight and serializable); this module is the place where a config is actually materialized into a :mod:`torch` object.
 
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

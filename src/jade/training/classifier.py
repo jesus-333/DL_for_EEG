@@ -51,9 +51,16 @@ def train(training_config, model_config, train_dataset, validation_dataset = Non
     """
 
     """
+       
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Model
     
-    # To implement
-    model = None
+    # TODO
+    
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Cross checks
+
+    # TODO
 
     return train_model(training_config, model, train_dataset, validation_dataset = None, wandb_model_artifact = None)
 

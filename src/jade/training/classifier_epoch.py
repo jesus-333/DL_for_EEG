@@ -5,8 +5,9 @@ This module implements one epoch of the training process (:func:`train_epoch_fun
 Both accumulate the loss as a per-sample weighted average (``loss * batch_size`` summed, then divided by the number of samples) so that the value does not depend on how the last, possibly smaller, batch is sized.
 The full training cycle that calls these functions lives in :mod:`jade.training.classifier`.
 
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

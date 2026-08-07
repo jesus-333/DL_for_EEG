@@ -6,8 +6,9 @@ It reuses :func:`~jade.training.classifier_epoch.validation_epoch_function` for 
 
 The ``label`` argument prefixes/suffixes every logged key, so the same function can be reused to evaluate on different sets under different names (e.g. ``'test'`` here, or ``'server'`` for the central-server evaluation of a future federated-learning setting).
 
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

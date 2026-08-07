@@ -6,8 +6,9 @@ Specificity in particular is provided natively by torchmetrics, which avoids the
 
 The predicted labels are obtained through ``model.classify(x)`` when the model exposes such a method (as :class:`~jade.model.EEGNet.EEGNet_Classifier` does), otherwise they fall back to ``argmax(model(x))``.
 
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -1,7 +1,4 @@
 """
-@author: Alberto Zancanaro (Jesus)
-@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
-
 Support functions for the frequency domain plots of the EEG datasets defined in :mod:`~jade.dataset.dataset_time`.
 
 At the moment the module contains the routine used to move an EEG signal from the time domain to the frequency domain (i.e. the power spectral density estimation).
@@ -12,6 +9,10 @@ Three backends are provided:
 - ``numpy`` : a small implementation of the Welch method based on ``numpy.fft``. It is used as a backup when the torch backend fails (or when the user explicitly asks for it).
 
 Thanks to this chain the frequency plots keep working even without the optional scipy dependency, and every backend returns plain numpy arrays that matplotlib can plot directly.
+
+Authors
+-------
+Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
