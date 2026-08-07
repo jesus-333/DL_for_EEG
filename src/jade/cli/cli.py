@@ -64,3 +64,11 @@ def download_dataset_moabb() -> None :
     # Run the command
 
     download_dataset_moabb(args)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# default-config
+
+def default_config() -> None :
+    """
+
+    """

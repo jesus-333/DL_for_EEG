@@ -95,8 +95,7 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
     # Config check and setup
 
     # Accept a plain dict and promote it to a proper training_config.
-    if isinstance(training_config, dict) :
-        training_config = training_config_class.from_dict(training_config)
+    if isinstance(training_config, dict) : training_config = training_config_class.from_dict(training_config)
 
     # Convenience aliases used throughout the function.
     device    = training_config.device
@@ -107,13 +106,15 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
         raise ImportError('wandb logging was requested but wandb is not installed. Install it with "pip install wandb" (or the "extra" optional dependency of this package).')
 
     # (OPTIONAL) Seed numpy/torch for reproducibility.
-    if training_config.seed is not None :
-        support_training.set_seed(training_config.seed)
+    if training_config.seed is not None : support_training.set_seed(training_config.seed)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Dataloaders
-
+    
+    # Training set
     train_loader = support_training.get_dataloader(train_dataset, training_config.batch_size, training_config.dataloader)
+
+    # Validation set
     if validation_dataset is not None :
         validation_loader = support_training.get_dataloader(validation_dataset, training_config.batch_size, training_config.dataloader)
     else :
