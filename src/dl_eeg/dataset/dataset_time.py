@@ -1,6 +1,6 @@
 """
 @author: Alberto Zancanaro (Jesus)
-@organization: University of Padua (Italy)
+@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
 
 Function to the creation the PyTorch dataset with EEG data in format channels x time samples
 """
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 
 # Internal imports
-from dl_eeg.dataset.support_dataset import compute_frequency_spectrum
+from dl_eeg.dataset.support_plot_freq import compute_frequency_spectrum
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #%% Plot configuration
@@ -48,11 +48,10 @@ def check_plot_config(plot_config : dict = None) -> dict :
         - ``x_lim`` : tuple or None, the limits of the x-axis. Default ``None`` (automatic).
         - ``y_lim`` : tuple or None, the limits of the y-axis. Default ``None`` (automatic).
         - ``add_title`` : bool, whether to add the title to the plot. Default ``True``.
-        - ``title_prefix`` : str or None, the prefix used both for the title and (when ``plot_prefix`` is ``None``) for the file name. Default ``None``.
+        - ``title_prefix`` : str or None, the prefix used both for the title and for the file name. Default ``None``.
         - ``save_plot`` : bool, whether to save the figure on disk. Default ``False``.
         - ``plot_format`` : list of str, the extensions used to save the figure. Valid extensions are ``'png'``, ``'jpeg'``, ``'pdf'`` and ``'eps'``. Default ``['png']``.
         - ``plot_path`` : str, the folder where the figure is saved (created if it does not exist). Default ``'plot/'``.
-        - ``plot_prefix`` : str or None, an optional override of the prefix used for the file name. If ``None`` (default) the ``title_prefix`` is used instead.
 
     Returns
     -------
@@ -75,7 +74,6 @@ def check_plot_config(plot_config : dict = None) -> dict :
         save_plot    = False,
         plot_format  = ['png'],
         plot_path    = 'plot/',
-        plot_prefix  = None,
     )
 
     # If nothing (or an empty dict) is passed simply return a copy of the default configuration.
@@ -89,8 +87,8 @@ def check_plot_config(plot_config : dict = None) -> dict :
     checked_plot_config = dict(plot_config)
 
     # Add the missing keys with their default value.
-    # Note that x_lim, y_lim, title_prefix and plot_prefix accept None as a valid value, so they are not overwritten when explicitly set to None.
-    keys_that_allow_none = ('x_lim', 'y_lim', 'title_prefix', 'plot_prefix')
+    # Note that x_lim, y_lim and title_prefix accept None as a valid value, so they are not overwritten when explicitly set to None.
+    keys_that_allow_none = ('x_lim', 'y_lim', 'title_prefix')
     for key, default_value in default_plot_config.items() :
         if key not in checked_plot_config :
             checked_plot_config[key] = default_value
@@ -176,7 +174,7 @@ class EEG_Dataset(Dataset):
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Plot methods
 
-    def plot_trial_time(self, idx_sample : int, idx_ch, plot_config : dict = None) :
+    def plot_trial_time(self, idx_sample : int, idx_ch, fs : int = 1, plot_config : dict = None) :
         """
         Plot a single channel of a single trial in the time domain.
 
@@ -186,6 +184,8 @@ class EEG_Dataset(Dataset):
             The index of the trial to plot.
         idx_ch : int or str
             The channel to plot. It can be either the integer index of the channel or the channel name (in which case ``self.ch_list`` is used to retrieve the corresponding integer index).
+        fs : int, optional
+            The sampling frequency (in Hz) of the signal, used to convert the sample index into ms. Default is ``1`` (normalized frequency), in which case each sample is treated as 1 ms.
         plot_config : dict, optional
             The plot configuration. See :func:`~dl_eeg.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
 
@@ -202,9 +202,8 @@ class EEG_Dataset(Dataset):
         idx_ch_int, ch_label = self._resolve_channel(idx_ch)
 
         # Create the figure and draw the time signal.
-        # Note that the standalone time plot has no sampling frequency, so the normalized value fs = 1 is used (each sample is treated as 1 ms).
         fig, ax = plt.subplots(1, 1, figsize = plot_config['figsize'])
-        self._plot_time_on_ax(ax, idx_sample, idx_ch_int, fs = 1, plot_config = plot_config)
+        self._plot_time_on_ax(ax, idx_sample, idx_ch_int, fs = fs, plot_config = plot_config)
 
         # Add the title (if requested) and save the figure (if requested).
         if plot_config['add_title'] :
@@ -229,7 +228,7 @@ class EEG_Dataset(Dataset):
         plot_config : dict, optional
             The plot configuration. See :func:`~dl_eeg.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
         freq_config : dict, optional
-            The configuration of the time to frequency transformation. See :func:`~dl_eeg.dataset.support_dataset.check_freq_config` for the list of the accepted keys and their default value.
+            The configuration of the time to frequency transformation. See :func:`~dl_eeg.dataset.support_plot_freq.check_freq_config` for the list of the accepted keys and their default value.
 
         Returns
         -------
@@ -270,7 +269,7 @@ class EEG_Dataset(Dataset):
         plot_config : dict, optional
             The plot configuration. See :func:`~dl_eeg.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
         freq_config : dict, optional
-            The configuration of the time to frequency transformation. See :func:`~dl_eeg.dataset.support_dataset.check_freq_config` for the list of the accepted keys and their default value.
+            The configuration of the time to frequency transformation. See :func:`~dl_eeg.dataset.support_plot_freq.check_freq_config` for the list of the accepted keys and their default value.
 
         Returns
         -------
@@ -437,8 +436,8 @@ class EEG_Dataset(Dataset):
 
         Nothing is done when ``plot_config['save_plot']`` is ``False``.
         The destination folder is created if it does not exist.
-        The file name has the format ``{prefix}_{idx_trial}_{idx_ch}.{extension}`` where ``prefix`` is ``plot_prefix`` (or ``title_prefix`` when ``plot_prefix`` is ``None``).
-        When neither prefix is available the prefix (and the leading ``_``) is dropped.
+        The file name has the format ``{title_prefix}_{idx_trial}_{idx_ch}.{extension}``.
+        When ``title_prefix`` is ``None`` the prefix (and the leading ``_``) is dropped.
 
         Parameters
         ----------
@@ -458,10 +457,9 @@ class EEG_Dataset(Dataset):
         # Create the destination folder if needed.
         os.makedirs(plot_config['plot_path'], exist_ok = True)
 
-        # The file name prefix is plot_prefix when available, otherwise it falls back to title_prefix.
-        file_prefix = plot_config['plot_prefix'] if plot_config['plot_prefix'] is not None else plot_config['title_prefix']
-        if file_prefix is not None :
-            file_name = "{}_{}_{}".format(file_prefix, idx_sample, ch_label)
+        # The file name uses the title_prefix (dropped, together with its leading '_', when it is None).
+        if plot_config['title_prefix'] is not None :
+            file_name = "{}_{}_{}".format(plot_config['title_prefix'], idx_sample, ch_label)
         else :
             file_name = "{}_{}".format(idx_sample, ch_label)
 
