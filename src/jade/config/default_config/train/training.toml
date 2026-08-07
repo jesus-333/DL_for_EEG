@@ -1,0 +1,107 @@
+# =====================================================================
+# Default training configuration (jade.config.training.training_config)
+# =====================================================================
+# This is a skeleton: every parameter is present with a reasonable value so it
+# is easy to see what can be tuned. Edit the values, do not treat them as tuned.
+# Load it with: training_config.from_toml("training.toml")
+
+# Number of training epochs.
+epochs = 100
+
+# Mini-batch size (shared by every dataloader, so it lives here and not in [dataloader]).
+batch_size = 32
+
+# Torch device: "cpu", "cuda", "cuda:0", ...
+device = "cpu"
+
+# Folder where the model/optimizer checkpoints are written.
+path_to_save_model = "model_weights"
+
+# Save a periodic checkpoint every N epochs. 0 (or any non-positive value) disables periodic checkpoints.
+epoch_to_save_model = 0
+
+# If true, also overwrite an alternating A/B backup of the model every epoch (handy for long HPC runs).
+backup_model_every_epoch = false
+
+# If true, compute the classification metrics during training (adds a forward pass per epoch).
+measure_metrics_during_training = true
+
+# If true, emit the per-epoch INFO log lines.
+print_var = true
+
+# Random seed for numpy/torch. Uncomment to make a run reproducible (must be a non-negative integer).
+# seed = 42
+
+# Resume from a previous run. Uncomment and set the paths to the saved state dicts.
+# path_past_weights = "model_weights/model_END.pth"
+# path_past_optimizer = "model_weights/optimizer_END.pth"
+
+# ---------------------------------------------------------------------
+# Optimizer (REQUIRED, pick ONE)
+# ---------------------------------------------------------------------
+# The default below is Adam. To use another optimizer replace this whole
+# [optimizer] table with the content of one of the files in ./optimizer/
+# (adam.toml, adamw.toml, sgd.toml, rmsprop.toml, lbfgs.toml).
+[optimizer]
+name = "adam"
+lr = 0.001
+betas = [0.9, 0.999]
+eps = 1e-8
+weight_decay = 0.0
+decoupled_weight_decay = false
+amsgrad = false
+maximize = false
+
+# ---------------------------------------------------------------------
+# Learning-rate scheduler (OPTIONAL, pick at most ONE)
+# ---------------------------------------------------------------------
+# No scheduler is used unless a [lr_scheduler] table is present. To add one,
+# uncomment a block from one of the files in ./lr_scheduler/ (exponential_lr.toml,
+# step_lr.toml, cosine_annealing_lr.toml, cosine_annealing_warm_restarts.toml, cyclic_lr.toml).
+# [lr_scheduler]
+# name = "exponential_lr"
+# gamma = 0.95
+
+# ---------------------------------------------------------------------
+# Loss function (REQUIRED, pick ONE)
+# ---------------------------------------------------------------------
+# The default below is cross-entropy (expects raw logits -> build the model with
+# use_softmax = false). To use NLL (expects log-probabilities -> use_softmax = true)
+# replace this table with the content of ./loss/nll.toml. See ./loss/ for both.
+[loss]
+name = "cross_entropy"
+ignore_index = -100
+reduction = "mean"
+label_smoothing = 0.0
+# Optional per-class weights (a list with one entry per class, must match the model n_classes).
+# weight = [1.0, 1.0, 1.0, 1.0]
+
+# ---------------------------------------------------------------------
+# Dataloader (single option)
+# ---------------------------------------------------------------------
+[dataloader]
+# Worker processes for data loading. 0 loads in the main process.
+num_workers = 0
+# Batches prefetched per worker (only meaningful when num_workers > 0).
+# prefetch_factor = 2
+# Pin host memory (faster host -> GPU copies).
+pin_memory = false
+# Keep the worker processes alive between epochs (only meaningful when num_workers > 0).
+persistent_workers = false
+# Shuffle the training data every epoch.
+shuffle = true
+
+# ---------------------------------------------------------------------
+# wandb logging (OPTIONAL)
+# ---------------------------------------------------------------------
+# Present only if you want to track the run on Weights & Biases (needs the "extra"
+# optional dependency). Uncomment and fill in project_name / model_artifact_name.
+# [wandb]
+# project_name = "my_project"
+# model_artifact_name = "my_model"
+# entity = "my_entity"
+# name_training_run = "my_run"
+# notes = "some notes about this run"
+# log_model_artifact = true
+# log_freq = 1
+# debug = false

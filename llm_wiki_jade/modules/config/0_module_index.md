@@ -52,3 +52,18 @@ See the [loss_functions quickstart](loss_functions/0_module_quickstart.md) and [
 | `loss_functions/generic.py` | [loss_functions/generic.md](loss_functions/generic.md) | `loss_config` base + polymorphic `from_dict`. |
 | `loss_functions/cross_entropy.py` | [loss_functions/cross_entropy.md](loss_functions/cross_entropy.md) | `cross_entropy_config` → `torch.nn.CrossEntropyLoss` (logits). |
 | `loss_functions/nll.py` | [loss_functions/nll.md](loss_functions/nll.md) | `nll_config` → `torch.nn.NLLLoss` (log-probabilities). |
+
+## Subpackage `model/`
+
+See the [model-config quickstart](model/0_module_quickstart.md) and [index](model/0_module_index.md).
+
+| File | Page | Description |
+|---|---|---|
+| `model/__init__.py` | [model/__init__.md](model/__init__.md) | Registry `MODEL_CONFIG_REGISTRY` + factory `get_model_config`; re-exports the pooling config family. |
+| `model/generic.py` | [model/generic.md](model/generic.md) | `model_config` base + polymorphic `from_dict`. |
+| `model/EEGNet_cfg.py` | [model/EEGNet_cfg.md](model/EEGNet_cfg.md) | `EEGNet_config` → `jade.model.EEGNet.EEGNet` / `EEGNet_Classifier`. |
+| `model/pooling_1d_cfg.py` | [model/pooling_1d_cfg.md](model/pooling_1d_cfg.md) | 1D pooling config family + `POOLING_CONFIG_REGISTRY` + `get_pooling_config`. |
+
+## Package data `default_config/`
+
+Not a Python package: a tree of commented TOML skeleton configs (`train/`, `model/`, `dataset/`) shipped as package data and copied by the `create-default-config` cli command. See [cli/default_config.md](../cli/default_config.md).

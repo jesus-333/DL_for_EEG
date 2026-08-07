@@ -1,0 +1,27 @@
+# Sinc 1D pooling (Kaiser windowed-sinc low-pass) - the designed "principled ceiling".
+# jade.config.model.sinc_pooling_config -> jade.model.pooling_1d.sinc_pool_1d (needs SciPy).
+pooling_type = "sinc"
+# Decimation factor M (the time axis is reduced by this factor).
+decimation_factor = 2
+# Signal extension before filtering: "reflect", "replicate", "constant" or "circular".
+padding_mode = "reflect"
+# Which sample of each block of M is kept: "center", "first", or an int in [0, M).
+phase = "center"
+# Kernel normalization: "dc" (unit DC gain), "orthonormal" or "none".
+gain = "dc"
+# Warn at build time if the filter is worse than a plain boxcar of length M.
+warn_if_worse_than_boxcar = true
+# Cutoff as a fraction of the post-decimation Nyquist (pi / M), in (0, 1].
+cutoff_scale = 0.9
+# Kaiser beta used when no window/attenuation is given.
+beta = 8.6
+# Any scipy.signal.firwin window name. Leave commented to use a Kaiser window built from beta.
+# window = "hamming"
+# Filter length. Leave commented to let the layer use its default (8 * M + 1, forced odd).
+# num_taps = 17
+# Target stopband attenuation in dB (drives beta, and with transition_width the tap count).
+# stopband_attenuation_db = 60.0
+# Transition width as a fraction of the cutoff (with stopband_attenuation_db it sizes num_taps).
+# transition_width = 0.1
+# Optional cap on a derived num_taps.
+# max_taps = 201

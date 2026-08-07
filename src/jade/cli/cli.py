@@ -66,9 +66,42 @@ def download_dataset_moabb() -> None :
     download_dataset_moabb(args)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# default-config
+# create-default-config
 
 def default_config() -> None :
     """
+    Entry point of the ``create-default-config`` command.
 
+    It parses the command-line arguments and forwards them to :func:`jade.cli.default_config.default_config`, which writes a ``default_config`` folder of commented TOML skeleton configs (train / model / dataset) at the requested location.
     """
+
+    from jade.cli.default_config import default_config
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Command-line arguments parsing
+
+    parser = argparse.ArgumentParser(
+        prog        = "create-default-config",
+        description = "Create a 'default_config' folder with commented TOML skeleton configs that can be copied and edited.",
+    )
+
+    parser.add_argument(
+        "--path",
+        type    = str,
+        default = ".",
+        help    = "Directory where the 'default_config' folder is created. (str, default: current directory)",
+    )
+    parser.add_argument(
+        "--type",
+        type    = str,
+        choices = ["train", "model", "dataset", "all"],
+        default = "all",
+        help    = "Which configs to create: 'train', 'model', 'dataset' or 'all'. (str, default: all)",
+    )
+
+    args = parser.parse_args()
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Run the command
+
+    default_config(args)

@@ -1,0 +1,16 @@
+# CyclicLR scheduler (torch.optim.lr_scheduler.CyclicLR): the lr cycles between base_lr and max_lr.
+# Copy this [lr_scheduler] table into training.toml to use it.
+[lr_scheduler]
+name = "cyclic_lr"
+# Lower learning-rate boundary of the cycle.
+base_lr = 0.0001
+# Upper learning-rate boundary of the cycle.
+max_lr = 0.01
+# Number of training iterations in the increasing half of a cycle.
+step_size_up = 2000
+# Cycle policy: "triangular", "triangular2" or "exp_range".
+mode = "triangular"
+# Constant used only by the "exp_range" mode.
+gamma = 1.0
+# Cycle the momentum inversely to the learning rate (only for optimizers that support momentum).
+cycle_momentum = true

@@ -1,0 +1,16 @@
+# SGD optimizer (torch.optim.SGD).
+# Copy this [optimizer] table into training.toml to use SGD.
+[optimizer]
+name = "sgd"
+# Learning rate (must be > 0).
+lr = 0.001
+# Momentum factor (must be >= 0).
+momentum = 0.0
+# Dampening for momentum (must be >= 0).
+dampening = 0.0
+# L2 penalty (must be >= 0).
+weight_decay = 0.0
+# Enable Nesterov momentum (requires momentum > 0 and dampening = 0).
+nesterov = false
+# Maximize the objective instead of minimizing.
+maximize = false

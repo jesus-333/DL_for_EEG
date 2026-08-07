@@ -1,0 +1,14 @@
+# LBFGS optimizer (torch.optim.LBFGS). A quasi-Newton method; note it needs a closure to be called.
+# Copy this [optimizer] table into training.toml to use LBFGS.
+[optimizer]
+name = "lbfgs"
+# Learning rate (must be > 0).
+lr = 1.0
+# Maximum number of iterations per optimization step.
+max_iter = 20
+# Termination tolerance on the first-order optimality (gradient).
+tolerance_grad = 1e-7
+# Termination tolerance on the function/parameter change.
+tolerance_change = 1e-9
+# Update history size.
+history_size = 100

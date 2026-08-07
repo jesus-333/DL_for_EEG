@@ -1,0 +1,11 @@
+# Negative log-likelihood loss (torch.nn.NLLLoss).
+# IMPORTANT: it expects log-probabilities, so build the model with use_softmax = true (LogSoftmax head).
+# Copy this [loss] table into training.toml to use it.
+[loss]
+name = "nll"
+# Target value that is ignored and does not contribute to the gradient.
+ignore_index = -100
+# Reduction applied to the output: "none", "mean" or "sum".
+reduction = "mean"
+# Optional per-class weights (a list with one entry per class; its length must match the model n_classes).
+# weight = [1.0, 1.0, 1.0, 1.0]
