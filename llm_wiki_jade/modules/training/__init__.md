@@ -13,7 +13,7 @@ support_training  →  metrics  →  classifier_epoch  →  classifier  →  tes
 ```
 
 - `support_training` and `metrics` are bound as submodule objects (`from jade.training import support_training`, `... metrics`), so callers can do `jade.training.support_training.get_optimizer(...)` and `jade.training.metrics.compute_metrics(...)`.
-- `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `wandb_train` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
+- `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
 
 ## Package logger
 
@@ -29,7 +29,8 @@ Following the standard library-logging best practice, a `logging.NullHandler` is
 
 | Name | Origin | Kind |
 |---|---|---|
-| `train` | `classifier` | function — full training cycle |
+| `train` | `classifier` | function — builds the model from a `model_config`, cross-checks, delegates to `train_model` |
+| `train_model` | `classifier` | function — full training cycle on an already-built model |
 | `wandb_train` | `classifier` | function — wandb-wrapped training |
 | `train_epoch_function` | `classifier_epoch` | function — one training epoch |
 | `validation_epoch_function` | `classifier_epoch` | function — one validation epoch |

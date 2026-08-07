@@ -14,6 +14,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from jade.config.model import get_model_config
 from jade.model import support_functions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -24,99 +25,75 @@ class EEGNet(nn.Module):
     Implementation of EEGNet in PyTorch.
     
     Note that compared to the original EEGNet the last layer (feedforward + classification) it is not present.
-    The network offer the possibility to flatten the output (and obtain a vector of features of shape batch x n. features) or to mantain it as a tensor 
+    The network offer the possibility to flatten the output (and obtain a vector of features of shape batch x n. features) or to mantain it as a tensor
 
     The name of the variable respect the nomeclature of the original paper where it is possible.
 
     Parameters
     ----------
-    config : dict
-        Dictionary with the configuration of the network. The required keys are:
-        - use_bias : bool
-            If True, the convolutional layers will use bias, otherwise they will not.
-        - D : int
-            Number of spatial filters to learn within each temporal convolution. The total number of spatial filters will be D * filter_1.
-        - activation : str
-            String with the name of the activation function to use. Supported activation functions are: relu, elu, selu and gelu.
-        - prob_dropout : float
-            Probability of dropout. Must be between 0 and 1.
-        - use_dropout_2d : bool
-            If True, it will use nn.Dropout2d, otherwise it will use nn.Dropout.
-        - filter_1 : int
-            Number of filters for the first convolutional layer (temporal filters).
-        - c_kernel_1 : tuple
-            Kernel size for the first convolutional layer (temporal filters).
-        - c_kernel_2 : tuple
-            Kernel size for the second convolutional layer (spatial filters).
-        - p_kernel_1 : tuple or None
-            Kernel size for the first pooling layer. If None, it will not use pooling.
-        - filter_2 : int
-            Number of filters for the second convolutional layer (separable convolution).
-        - c_kernel_3 : tuple
-            Kernel size for the first convolutional layer of the separable convolution.
-        - p_kernel_2 : tuple or None
-            Kernel size for the second pooling layer. If None, it will not use pooling.
-        - flatten_output : bool (optional, default = False)
-            If True, the output of the network will be flattened, otherwise it will mantain its
+    config : EEGNet_config or dict
+        The network configuration, an instance of :class:`~jade.config.model.EEGNet_cfg.EEGNet_config` (a dict is accepted too and promoted automatically through :func:`~jade.config.model.get_model_config`).
+        Every field is documented on that config class; the fields validation (and defaulting) happens there, so this constructor just reads the already-validated attributes.
     """
-    
-    def __init__(self, config : dict):
+
+    def __init__(self, config):
         super().__init__()
-        
-        use_bias = config['use_bias']
-        D = config['D']
-        activation = support_functions.get_activation(config['activation'])
-        dropout = support_functions.get_dropout(config['prob_dropout'], config['use_dropout_2d'])
-        
+
+        # Accept a dict (or an already-built config) and promote it to a validated EEGNet_config.
+        config = get_model_config(config)
+
+        use_bias = config.use_bias
+        D = config.D
+        activation = support_functions.get_activation(config.activation)
+        dropout = support_functions.get_dropout(config.prob_dropout, config.use_dropout_2d)
+
         # NOT USED
-        self.C = config['C']
-        self.T = config['T']
-        
+        self.C = config.C
+        self.T = config.T
+
         # Used only if the EEGNet is used with time-frequency data
         # In this case the depth of the input is not 1
-        depth_first_layer = config['depth_first_layer'] if 'depth_first_layer' in config else 1
+        depth_first_layer = config.depth_first_layer
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Convolutional section
-        
+
         # Block 1 - Temporal filters
         self.temporal_filter = nn.Sequential(
-            nn.Conv2d(depth_first_layer, config['filter_1'], kernel_size = config['c_kernel_1'],
+            nn.Conv2d(depth_first_layer, config.filter_1, kernel_size = config.c_kernel_1,
                       padding = 'same', bias = use_bias),
-            nn.BatchNorm2d(config['filter_1']),
+            nn.BatchNorm2d(config.filter_1),
         )
-        
+
         # Block 1 - Spatial filters
         self.spatial_filter = nn.Sequential(
-            nn.Conv2d(config['filter_1'], config['filter_1'] * D, kernel_size = config['c_kernel_2'], groups = config['filter_1'], bias = use_bias),
-            nn.BatchNorm2d(config['filter_1'] * D),
+            nn.Conv2d(config.filter_1, config.filter_1 * D, kernel_size = config.c_kernel_2, groups = config.filter_1, bias = use_bias),
+            nn.BatchNorm2d(config.filter_1 * D),
             activation,
-            nn.AvgPool2d(config['p_kernel_1']) if config['p_kernel_1'] is not None else nn.Identity(),
+            nn.AvgPool2d(config.p_kernel_1) if config.p_kernel_1 is not None else nn.Identity(),
             dropout
         )
 
         # Block 2 - Features Extraction
         self.separable_convolution = nn.Sequential(
-            nn.Conv2d(config['filter_1'] * D, config['filter_1'] * D, kernel_size = config['c_kernel_3'], groups = config['filter_1'] * D, padding = 'same', bias = use_bias),
-            nn.Conv2d(config['filter_1'] * D, config['filter_2'], kernel_size = (1, 1), groups = 1, bias = use_bias),
-            nn.BatchNorm2d(config['filter_2']),
+            nn.Conv2d(config.filter_1 * D, config.filter_1 * D, kernel_size = config.c_kernel_3, groups = config.filter_1 * D, padding = 'same', bias = use_bias),
+            nn.Conv2d(config.filter_1 * D, config.filter_2, kernel_size = (1, 1), groups = 1, bias = use_bias),
+            nn.BatchNorm2d(config.filter_2),
             activation,
-            nn.AvgPool2d(config['p_kernel_2']) if config['p_kernel_2'] is not None else nn.Identity(),
+            nn.AvgPool2d(config.p_kernel_2) if config.p_kernel_2 is not None else nn.Identity(),
             dropout
         )
-        
-        if 'flatten_output' not in config: config['flatten_output'] = False
-        self.flatten_output = config['flatten_output']
+
+        self.flatten_output = config.flatten_output
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Print additional information after the creation of the network
-        if 'print_var' not in config: config['print_var'] = False
-        if config['print_var']:
+        if config.print_var:
             print("EEGNet Created. Number of parameters:")
             print("\tNumber of trainable parameters (Block 1 - Temporal) = {}".format(support_functions.count_trainable_parameters(self.temporal_filter)))
             print("\tNumber of trainable parameters (Block 1 - Spatial)  = {}".format(support_functions.count_trainable_parameters(self.spatial_filter)))
             print("\tNumber of trainable parameters (Block 2)            = {}\n".format(support_functions.count_trainable_parameters(self.separable_convolution)))
-            if 'input_size' in config: self.debug_shape(config['input_size'])
+            self.debug_shape(config.input_size)
 
     def forward(self, x : torch.tensor) -> torch.tensor :
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -164,19 +141,35 @@ class EEGNet(nn.Module):
 
 
 class EEGNet_Classifier(nn.Module):
+    """
+    EEGNet feature extractor plus a feedforward classification head.
 
-    def __init__(self, config : dict):
+    The head is a :class:`torch.nn.Linear` followed by a :class:`torch.nn.LogSoftmax` (when ``config.use_softmax`` is True, so the output are log-probabilities) or a :class:`torch.nn.Identity` (when False, so the output are raw logits).
+    The choice must stay consistent with the training loss, see :func:`~jade.training.support_training.cross_check_config`.
+
+    Parameters
+    ----------
+    config : EEGNet_config or dict
+        The network configuration, an instance of :class:`~jade.config.model.EEGNet_cfg.EEGNet_config` (a dict is accepted too and promoted automatically).
+        The classifier reads ``input_size`` (to size the feedforward layer with a dummy forward pass), ``n_classes`` and ``use_softmax`` on top of the fields used by :class:`~jade.model.EEGNet.EEGNet`.
+    """
+
+    def __init__(self, config):
         super().__init__()
-        """
-        EEGNet + classifier
-        """
-        
+
+        # Accept a dict (or an already-built config) and promote it to a validated EEGNet_config.
+        config = get_model_config(config)
+
         self.eegnet = EEGNet(config)
-        
-        input_neurons = self.compute_number_of_neurons(config['input_size'])
+
+        # The feedforward head needs flat (batch, features) input, so the wrapped extractor must flatten
+        # regardless of the config flatten_output (which only concerns the standalone EEGNet feature extractor).
+        self.eegnet.flatten_output = True
+
+        input_neurons = self.compute_number_of_neurons(config.input_size)
         self.classifier = nn.Sequential(
-            nn.Linear(input_neurons, config['n_classes']),
-            nn.LogSoftmax(dim = 1) if config['use_softmax'] else nn.Identity()
+            nn.Linear(input_neurons, config.n_classes),
+            nn.LogSoftmax(dim = 1) if config.use_softmax else nn.Identity()
         )
 
                 

@@ -74,6 +74,19 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [rmsprop.md](modules/config/optimizers/rmsprop.md) | `config/optimizers/rmsprop.py` |
 | [lbfgs.md](modules/config/optimizers/lbfgs.md) | `config/optimizers/lbfgs.py` |
 
+### Submodule: `config/model` — `modules/config/model/`
+
+| Page | Source `.py` |
+|---|---|
+| [0_module_quickstart.md](modules/config/model/0_module_quickstart.md) | — |
+| [0_module_index.md](modules/config/model/0_module_index.md) | — |
+| [__init__.md](modules/config/model/__init__.md) | `config/model/__init__.py` |
+| [generic.md](modules/config/model/generic.md) | `config/model/generic.py` |
+| [EEGNet_cfg.md](modules/config/model/EEGNet_cfg.md) | `config/model/EEGNet_cfg.py` |
+| [pooling_1d_cfg.md](modules/config/model/pooling_1d_cfg.md) | `config/model/pooling_1d_cfg.py` |
+
+> The commented TOML skeleton configs live under `config/default_config/` (shipped as package data, copied by the `create-default-config` command); see [cli/default_config.md](modules/cli/default_config.md).
+
 ## Module: `cli` — `modules/cli/`
 
 Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points in `cli.py` do argparse only and delegate to thematic implementation files; the cli adds no new behavior.
@@ -85,6 +98,7 @@ Thin command-line interface: exposes existing `jade` functionality as console sc
 | [__init__.md](modules/cli/__init__.md) | `cli/__init__.py` |
 | [cli.md](modules/cli/cli.md) | `cli/cli.py` |
 | [download_dataset.md](modules/cli/download_dataset.md) | `cli/download_dataset.py` |
+| [default_config.md](modules/cli/default_config.md) | `cli/default_config.py` |
 
 ## Module: `dataset` — `modules/dataset/`
 
