@@ -189,9 +189,9 @@ def _as_subject_list(subjects, dataset) -> list :
 # Public: download
 
 def download_dataset(
-    dataset_name : str,
-    subjects : Optional[Union[int, Sequence[int]]] = None,
-    dataset_folder : Optional[str] = None,
+    dataset_name   : str,
+    subjects       : Optional[Union[int, Sequence[int]]] = None,
+    dataset_folder : Optional[str]                       = None,
 ) :
     """
     Download a moabb dataset (all subjects, or a specific subset).
