@@ -37,3 +37,11 @@ dataset = [
 	"mne",
 	"moabb"
 ]
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Console scripts exposed by the cli subpackage (src/jade/cli). Each command maps
+# to an entry-point function in jade.cli.cli that only parses its arguments and
+# delegates to the matching implementation file.
+[project.scripts]
+download-dataset-moabb = "jade.cli.cli:download_dataset_moabb"
