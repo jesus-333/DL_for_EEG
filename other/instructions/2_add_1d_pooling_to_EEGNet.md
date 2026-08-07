@@ -50,6 +50,10 @@ pooling_layer_2 = support_functions.get_multichannel_pooling(config.pooling_laye
 ```
 And then you put these pooling layers inside the corresponding `nn.Sequential` blocks.
 
+# Last extra task
+
+Check all the files and subsitute the f-string in the format `f"The value of x is {}".format(x)` with the f-string in the format `f"The value of x is {x}`
+
 # Final remarks
 
 The complete description of the codebase are inside the folder `llm_wiki_jade`. You can start from the file `0_wiki_quickstart.md`
