@@ -74,6 +74,18 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [rmsprop.md](modules/config/optimizers/rmsprop.md) | `config/optimizers/rmsprop.py` |
 | [lbfgs.md](modules/config/optimizers/lbfgs.md) | `config/optimizers/lbfgs.py` |
 
+## Module: `cli` — `modules/cli/`
+
+Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points in `cli.py` do argparse only and delegate to thematic implementation files; the cli adds no new behavior.
+
+| Page | Source `.py` |
+|---|---|
+| [0_module_quickstart.md](modules/cli/0_module_quickstart.md) | — |
+| [0_module_index.md](modules/cli/0_module_index.md) | — |
+| [__init__.md](modules/cli/__init__.md) | `cli/__init__.py` |
+| [cli.md](modules/cli/cli.md) | `cli/cli.py` |
+| [download_dataset.md](modules/cli/download_dataset.md) | `cli/download_dataset.py` |
+
 ## Module: `dataset` — `modules/dataset/`
 
 Download / preprocess / torch `Dataset` wrapping (moabb + MNE, lazily imported) plus frequency plots.

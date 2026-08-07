@@ -1,5 +1,9 @@
 """
-Implementation the command-line interface (cli)
+Entry points of the command-line interface (cli).
+
+This module is the single place where the ``jade`` cli commands are declared. Every function here only builds its ``argparse`` parser and then hands the parsed arguments over to the matching implementation living in a thematic file of this subpackage (e.g. :mod:`jade.cli.download_dataset`).
+By convention the entry-point function and its implementation share the same name.
+The commands are wired to console scripts through the ``[project.scripts]`` table of ``pyproject.toml``.
 
 Authors
 -------
@@ -11,29 +15,52 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 
 from __future__ import annotations
 
+# Full module imports
 import argparse
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# download-dataset-moabb
 
-def download_dataset_moabb() :
+def download_dataset_moabb() -> None :
     """
-    Download a dataset from moabb
-    """
-    
-    from jade.cli.download_daset import download_dataset_moabb
+    Entry point of the ``download-dataset-moabb`` command.
 
-    # ***************************************
+    It parses the command-line arguments and forwards them to :func:`jade.cli.download_dataset.download_dataset_moabb`, which downloads the requested moabb dataset through :func:`jade.dataset.moabb_dataset.download_dataset`.
+    """
+
+    from jade.cli.download_dataset import download_dataset_moabb
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Command-line arguments parsing
-    
-    # Parse the command-line arguments
-    parser = argparse.ArgumentParser(prog = "nii-to-hdf5", description = "Convert all nii files in a folder to a single hdf5 files.")
-    parser.add_argument("--dataset_name", required = True, help = "Name of the dataset to download. It must be one of the dataset available through moabb.")
-    parser.add_argument("--subject", type = int, default = None, help = "The subject to download. If not specified, all the subjects will be downloaded.")
-    parser.add_argument("--dataset_type", default = None, help = "The type of the dataset to download, i.e train or test. If not specified, both will be downloaded.")
-    parser.add_argument("--dataset_folder", default = None, help = "Specify where store the downloaded dataset. If not specified, the dataset will be downloaded in default moabb folder (`~/mne_data/`). Note that moabb does not have an internal download registry, so if you change folder between different executions, only the last location will be used to check previously downloaded datasets.")
+
+    parser = argparse.ArgumentParser(
+        prog        = "download-dataset-moabb",
+        description = "Download one of the datasets provided by moabb (see https://moabb.neurotechx.com/docs/dataset_summary.html).",
+    )
+
+    parser.add_argument(
+        "--dataset_name",
+        type     = str,
+        required = True,
+        help     = "Name of the dataset to download. It must be one of the datasets available through moabb (case-insensitive).",
+    )
+    parser.add_argument(
+        "--subject",
+        type    = int,
+        default = None,
+        help    = "The subject to download. If not specified, all the subjects will be downloaded. (int, default: None)",
+    )
+    parser.add_argument(
+        "--dataset_folder",
+        type    = str,
+        default = None,
+        help    = "Where to store the downloaded dataset. If not specified, the dataset is downloaded in the default moabb folder (~/mne_data/). "
+                  "Note that moabb does not have an internal download registry, so if you change folder between different executions, only the last location will be used to check previously downloaded datasets. (str, default: None)",
+    )
+
     args = parser.parse_args()
 
-    # ***************************************
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Run the command
 
-    # Call the function that implements the cli command
     download_dataset_moabb(args)

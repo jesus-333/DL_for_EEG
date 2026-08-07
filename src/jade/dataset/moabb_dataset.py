@@ -80,6 +80,34 @@ def _import_moabb_mne() :
     return moabb_datasets, mne
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Download directory
+
+def _set_download_dir(dataset_folder : str) -> None :
+    """
+    Point moabb at a custom directory where the datasets are downloaded and looked up.
+
+    moabb has no download registry of its own: it stores (and searches for) everything under the MNE data directory (``~/mne_data`` by default).
+    :func:`moabb.utils.set_download_dir` overrides that path, creating the folder if it does not exist yet, by writing the ``MNE_DATA`` entry of the MNE config.
+    Because this is a single global setting, only the *last* directory set is consulted: a dataset downloaded into one folder is not seen by a later run pointing at a different one.
+
+    Parameters
+    ----------
+    dataset_folder : str
+        Filesystem path where the datasets should be stored. It is created if it does not exist.
+    """
+
+    try :
+        from moabb.utils import set_download_dir
+    except ImportError as exc :  # pragma: no cover - exercised only without the extra
+        raise ImportError(
+            "moabb_dataset needs the optional 'dataset' dependencies (moabb + mne). "
+            "Install them with:  pip install jade[dataset]  (or 'pip install moabb mne')."
+        ) from exc
+
+    # moabb writes the path into the MNE config (MNE_DATA) and creates the folder if needed.
+    set_download_dir(dataset_folder)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Dataset name resolution
 
 def _resolve_dataset_class(dataset_name : str) :
@@ -164,6 +192,7 @@ def _as_subject_list(subjects, dataset) -> list :
 def download_dataset(
     dataset_name : str,
     subjects : Optional[Union[int, Sequence[int]]] = None,
+    dataset_folder : Optional[str] = None,
 ) :
     """
     Download a moabb dataset (all subjects, or a specific subset).
@@ -177,12 +206,20 @@ def download_dataset(
     subjects : int, sequence of int or None, optional
         Which subject(s) to download.
         A single int or a list of ints selects those subjects; ``None`` (the default) downloads *every* subject of the dataset.
+    dataset_folder : str or None, optional
+        Directory where the dataset is stored (and looked up). When ``None`` (the default) moabb's own default location (``~/mne_data``) is used.
+        Otherwise the folder is created if needed and used as the download directory through :func:`_set_download_dir`.
+        Note that this is a single global setting for moabb, so only the *last* folder set is consulted when checking for already-downloaded data.
 
     Returns
     -------
     moabb.datasets.base.BaseDataset
         The instantiated dataset object (already pointing at the downloaded files), ready to be passed to ``get_data``.
     """
+
+    # Redirect the download directory before touching the dataset, so moabb both stores into and looks up the requested folder.
+    if dataset_folder is not None :
+        _set_download_dir(dataset_folder)
 
     dataset_cls = _resolve_dataset_class(dataset_name)
     dataset = dataset_cls()

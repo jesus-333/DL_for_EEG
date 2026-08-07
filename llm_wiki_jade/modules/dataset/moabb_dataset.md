@@ -26,6 +26,15 @@ Imports `mne` and `moabb.datasets` on demand. On `ImportError` re-raises a helpf
 
 ---
 
+## Internal: download directory
+
+### `_set_download_dir(dataset_folder : str) -> None`
+Points moabb (and the MNE backend it relies on) at a custom download directory, so datasets are both stored into and looked up under `dataset_folder`. Lazily imports `moabb.utils.set_download_dir` (same helpful `ImportError` as `_import_moabb_mne` if the extra is missing), which creates the folder if needed and writes the `MNE_DATA` entry of the MNE config.
+
+**Gotcha (single global setting):** moabb has no download registry of its own — this overrides *the* MNE data path, so only the **last** folder set is consulted. A dataset downloaded into one folder is invisible to a later run pointing at a different one.
+
+---
+
 ## Internal: dataset-name resolution
 
 ### `_resolve_dataset_class(dataset_name : str) -> type`
@@ -45,7 +54,7 @@ Normalizes the `subjects` argument to a list of ints:
 
 ---
 
-## Public: `download_dataset(dataset_name, subjects=None)`
+## Public: `download_dataset(dataset_name, subjects=None, dataset_folder=None)`
 
 Download a moabb dataset (all subjects, or a subset).
 
@@ -53,12 +62,15 @@ Download a moabb dataset (all subjects, or a subset).
 |-------|------|---------|---------|
 | `dataset_name` | str | moabb dataset name (case-insensitive), e.g. `"BNCI2014_001"`. | required |
 | `subjects` | int, sequence of int, or None | which subjects to download; `None` → every subject. | `None` |
+| `dataset_folder` | str or None | directory to store/look up the data; `None` → moabb's default (`~/mne_data`). Non-`None` routes through `_set_download_dir` (folder created if needed). | `None` |
 
 **Returns** the instantiated moabb dataset object (a `moabb.datasets.base.BaseDataset`), already pointing at the downloaded files and ready for `get_data`.
 
-**Side effect / disk:** calls `dataset.download(subject_list=...)`, which fetches the raw recordings into moabb's cache directory. **Idempotent** — moabb skips already-cached subjects, so repeated calls are cheap.
+**Side effect / disk:** if `dataset_folder` is given, `_set_download_dir(dataset_folder)` is called **first** (so moabb both stores into and searches the folder); then `dataset.download(subject_list=...)` fetches the raw recordings into that directory. **Idempotent** — moabb skips already-cached subjects, so repeated calls are cheap. Mind the single-global-folder gotcha noted under `_set_download_dir`.
 
-Internally: `_resolve_dataset_class(name)()` → instance, `_as_subject_list(subjects, dataset)` → id list, then `dataset.download(...)`.
+Internally: (optional) `_set_download_dir(dataset_folder)`, `_resolve_dataset_class(name)()` → instance, `_as_subject_list(subjects, dataset)` → id list, then `dataset.download(...)`.
+
+This is the function the `download-dataset-moabb` cli command wraps (see [`modules/cli/download_dataset.md`](../cli/download_dataset.md)).
 
 ---
 

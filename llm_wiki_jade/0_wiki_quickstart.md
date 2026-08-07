@@ -23,6 +23,7 @@ The library is organized around a clean separation of concerns: **describe** a r
 ```
 src/jade/                 <- the package (this wiki documents everything under here)
   __init__.py
+  cli/                    <- thin command-line interface: console scripts that wrap existing jade code
   config/                 <- dataclass-based configuration objects (+ optimizers/, lr_schedulers/, loss_functions/ subpackages)
   dataset/                <- download / preprocess / torch Dataset wrapping (moabb + MNE)
   model/                  <- torch EEG models (EEGNet) + pooling_1d/ anti-aliasing research subpackage
@@ -32,10 +33,11 @@ other/antialiased_pooling_theory.pdf   <- background theory for pooling_1d
 
 Everything outside `src/jade/` (notably anything under `test/` and secondary experiments) is **out of scope** for this wiki.
 
-## The four modules at a glance
+## The five modules at a glance
 
 | Module | Purpose | Read | Public API highlights |
 |---|---|---|---|
+| **cli** | Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points do argparse only and delegate to thematic implementation files; adds no new behavior. | [modules/cli/0_module_quickstart.md](modules/cli/0_module_quickstart.md) | command `download-dataset-moabb` → `download_dataset_moabb` (wraps `jade.dataset.download_dataset`) |
 | **config** | Validated, (de)serializable dataclasses that *describe* a run (dataset, optimizer, scheduler, loss, dataloader, wandb, training hyper-params). Data + validation only; imports no torch/moabb/mne/wandb. | [modules/config/0_module_quickstart.md](modules/config/0_module_quickstart.md) | `training_config`, `dataset_config`, `filter_config`, `dataloader_config`, `wandb_training_config`; `*_config` families + `get_optimizer_config` / `get_lr_scheduler_config` / `get_loss_config` + registries |
 | **dataset** | Data management: download public EEG (moabb), preprocess/filter/epoch (MNE), wrap as torch `Dataset`, plus time/freq inspection plots. | [modules/dataset/0_module_quickstart.md](modules/dataset/0_module_quickstart.md) | `EEG_Dataset`, `EEG_Dataset_ChWi`; `download_dataset`, `get_dataset` (lazy moabb/mne) |
 | **model** | torch EEG models (EEGNet family) **plus** a self-contained research subpackage on anti-aliased 1D pooling. | [modules/model/0_module_quickstart.md](modules/model/0_module_quickstart.md) | `get_model` / `MODEL_REGISTRY`; `EEGNet`, `EEGNet_Classifier`; `pooling_1d` (`get_pooling_layer`, avg/blur/max/sinc/dwt) |
@@ -81,6 +83,7 @@ The linchpin is **`jade.training.support_training`**: it is the *only* place whe
 - Core (`pyproject.toml`): `numpy`, `matplotlib`, `pandas`, `toml`, `torch`, `torchvision`, `torchmetrics`.
 - Optional extras: `extra` → `dtw-loss-functions`, `wandb`; `dataset` → `mne`, `moabb`.
 - Build backend: `hatchling`; wheel points at `src/jade` (exposes top-level import `jade`).
+- Console scripts: declared in `[project.scripts]` and implemented by the `cli` module. Currently `download-dataset-moabb` (→ `jade.cli.cli:download_dataset_moabb`).
 
 ## Known WIP / gotchas to keep in mind
 
