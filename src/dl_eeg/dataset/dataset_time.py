@@ -1,6 +1,6 @@
 """
 @author: Alberto Zancanaro (Jesus)
-@organization: University of Padua (Italy)
+@organization: Luxembourg Centre for Systems Biomedicine (LCSB)
 
 Function to the creation the PyTorch dataset with EEG data in format channels x time samples
 """
