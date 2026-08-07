@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/dataset.py`
 
-Defines `dataset_config`, which gathers everything needed to download and preprocess a moabb dataset before it is wrapped into `jade.dataset.dataset_time.EEG_Dataset`: which dataset/subjects to download, the filtering (a nested [`filter_config`](filter.md)), optional resampling, and the normalization scheme. Serialized to TOML, the nested filter becomes its own `[filter]` section.
+Defines `dataset_config`, which gathers everything needed to download and preprocess a moabb dataset before it is wrapped into `jade.dataset.dataset_time.EEG_Dataset`: which dataset/subjects to download, where to download it, the filtering (a nested [`filter_config`](filter.md)), optional resampling, and the normalization scheme. Serialized to TOML, the nested filter becomes its own `[filter]` section.
 
 ## Module constant
 
@@ -27,6 +27,7 @@ Default-factory for the `filter` field. Returns `filter_config(filter_type="band
 | `resample` | `bool` | `False` | Whether to resample after filtering. |
 | `resample_freq` | `float \| None` | `None` | Target sampling frequency (Hz). Required and positive when `resample=True`. |
 | `normalize` | `int` | `-1` | Normalization scheme forwarded to `EEG_Dataset`; one of `NORMALIZE_CODES`. |
+| `dataset_folder` | `str \| None` | `None` | Download/look-up folder, forwarded to [`download_dataset`](../dataset/moabb_dataset.md); `None` = moabb default (`~/mne_data`). Single global moabb setting — only the last folder set is consulted. |
 
 ## `__post_init__` — validation
 
@@ -37,6 +38,7 @@ Raises `ValueError` on any violation, in order:
 3. **`filter` promotion**: if `filter` is a `dict` (e.g. from a TOML/JSON file), it is promoted via `filter_config.from_dict`; if it is neither a dict nor a `filter_config`, `ValueError`. This guarantees the nested field is always a real dataclass instance.
 4. **`resample`/`resample_freq`**: when `resample` is truthy, `resample_freq` must be a positive number.
 5. **`normalize`**: must be in `NORMALIZE_CODES`.
+6. **`dataset_folder`**: if not `None`, must be a string path.
 
 ## Gotchas
 

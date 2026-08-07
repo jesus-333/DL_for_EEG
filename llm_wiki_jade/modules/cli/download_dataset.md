@@ -5,7 +5,7 @@ Source: `src/jade/cli/download_dataset.py`
 Implementation (thematic) file behind the `download-dataset-moabb` command. It receives the already-parsed `argparse` arguments from [`jade.cli.cli.download_dataset_moabb`](./cli.md) and forwards them to the existing dataset-module function — **no new behavior is added here**.
 
 ## Imports
-- `from jade.dataset import download_dataset` — the moabb loader (lazily re-exported by the `dataset` package; the heavy `moabb`/`mne` imports only fire when it actually runs).
+- `from jade.dataset import moabb_dataset` — the moabb loader module; the command calls `moabb_dataset.download_dataset(...)`. The heavy `moabb`/`mne` imports only fire when it actually runs.
 
 ---
 
@@ -23,7 +23,7 @@ Thin wrapper that pre-downloads a moabb dataset so the download does not block a
 
 **Body:** a single call —
 ```python
-download_dataset(
+moabb_dataset.download_dataset(
     dataset_name   = args.dataset_name,
     subjects       = args.subject,
     dataset_folder = args.dataset_folder,
