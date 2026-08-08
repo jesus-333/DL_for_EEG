@@ -85,17 +85,17 @@ def _as_decimation_factor(value) -> int :
             # (height, width) with height == 1 -> purely temporal pooling
             if values[0] != 1 :
                 raise ValueError(
-                    "2D pooling kernel {} pools across the non-temporal axis too; "
-                    "these 1D layers only decimate along time. Pass an int or (1, M).".format(tuple(values))
+                    f"2D pooling kernel {tuple(values)} pools across the non-temporal axis too; "
+                    "these 1D layers only decimate along time. Pass an int or (1, M)."
                 )
             factor = values[1]
         else :
-            raise ValueError("cannot interpret {} as a 1D decimation factor".format(repr(value)))
+            raise ValueError(f"cannot interpret {value!r} as a 1D decimation factor")
     else :
         factor = int(value)
 
     if factor < 1 :
-        raise ValueError("decimation factor must be >= 1, got {}".format(factor))
+        raise ValueError(f"decimation factor must be >= 1, got {factor}")
     return factor
 
 
@@ -244,11 +244,11 @@ class _fir_decimation_pool_1d(nn.Module) :
 
         self.padding_mode : str = _get(config, "padding_mode", "reflect")
         if self.padding_mode not in ("reflect", "replicate", "constant", "circular") :
-            raise ValueError("unsupported padding_mode {}".format(repr(self.padding_mode)))
+            raise ValueError(f"unsupported padding_mode {self.padding_mode!r}")
 
         self.gain : str = _get(config, "gain", "dc")
         if self.gain not in ("dc", "orthonormal", "none") :
-            raise ValueError("unsupported gain {}".format(repr(self.gain)))
+            raise ValueError(f"unsupported gain {self.gain!r}")
 
         phase = _get(config, "phase", "center")
         if phase == "center" :
@@ -258,10 +258,10 @@ class _fir_decimation_pool_1d(nn.Module) :
             self.offset = 0
         elif isinstance(phase, int) :
             if not 0 <= phase < self.decimation_factor :
-                raise ValueError("integer phase must lie in [0, {}), got {}".format(self.decimation_factor, phase))
+                raise ValueError(f"integer phase must lie in [0, {self.decimation_factor}), got {phase}")
             self.offset = phase
         else :
-            raise ValueError("unsupported phase {}".format(repr(phase)))
+            raise ValueError(f"unsupported phase {phase!r}")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Build the kernel (subclass responsibility)
@@ -337,14 +337,12 @@ class _fir_decimation_pool_1d(nn.Module) :
         box = _leakage_of(np.ones(M) / M, M)
         if mine > box :
             warnings.warn(
-                "{}: this configuration is a WORSE anti-aliasing filter than plain "
-                "average pooling at M={} (stopband leakage {:.2f}% vs boxcar {:.2f}%). "
+                f"{type(self).__name__}: this configuration is a WORSE anti-aliasing filter than plain "
+                f"average pooling at M={M} (stopband leakage {mine * 100:.2f}% vs boxcar {box * 100:.2f}%). "
                 "The kernel is too short for this decimation factor - the required "
-                "cutoff is pi/{}. Increase the kernel length (a useful rule of thumb is "
+                f"cutoff is pi/{M}. Increase the kernel length (a useful rule of thumb is "
                 "length >= 4*M+1) or use sinc_pool_1d, which designs the filter for the "
-                "cutoff directly. Set warn_if_worse_than_boxcar=False to silence this.".format(
-                    type(self).__name__, M, mine * 100, box * 100, M
-                ),
+                "cutoff directly. Set warn_if_worse_than_boxcar=False to silence this.",
                 RuntimeWarning,
                 stacklevel = 3,
             )
@@ -368,7 +366,7 @@ class _fir_decimation_pool_1d(nn.Module) :
         """
 
         if x.dim() != 3 :
-            raise ValueError("expected a 3D tensor (B, D, T), got shape {}".format(tuple(x.shape)))
+            raise ValueError(f"expected a 3D tensor (B, D, T), got shape {tuple(x.shape)}")
         return _filter_and_subsample(
             x,
             kernel = self.kernel,
@@ -562,8 +560,9 @@ class _fir_decimation_pool_1d(nn.Module) :
         Short description used by :meth:`torch.nn.Module.__repr__`.
         """
 
-        return "M={}, L={}, padding_mode={}, offset={}, gain={}".format(
-            self.decimation_factor, self.kernel.numel(), self.padding_mode, self.offset, self.gain
+        return (
+            f"M={self.decimation_factor}, L={self.kernel.numel()}, "
+            f"padding_mode={self.padding_mode}, offset={self.offset}, gain={self.gain}"
         )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -617,8 +616,8 @@ def _filter_and_subsample(
 
     if padding_mode == "reflect" and max(pad_left, pad_right) >= T :
         raise ValueError(
-            "reflect padding requires pad < T, but pad={} and T={}. Use a shorter "
-            "kernel or padding_mode='replicate'.".format(max(pad_left, pad_right), T)
+            f"reflect padding requires pad < T, but pad={max(pad_left, pad_right)} and T={T}. Use a shorter "
+            "kernel or padding_mode='replicate'."
         )
 
     xf = x.reshape(B * D, 1, T)
@@ -668,3 +667,53 @@ def _leakage_of(h : np.ndarray, factor : int, n_fft : int = 8192) -> float :
     if total <= 0 :
         return 0.0
     return float(power[w >= np.pi / factor].sum() / total)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel wrapper: apply a 1D pooling layer channel-wise to (B, D, C, T)
+
+class _multichannel_pool_1d(nn.Module) :
+    """
+    Apply a 1D pooling layer channel-wise to a multichannel EEG tensor.
+
+    The 1D pooling layers in this package operate on ``(B, D, T)`` signals, decimating the time axis of every ``(batch, depth)`` row independently.
+    Models such as EEGNet instead work on 4D tensors ``(B, D, C, T)`` (batch, depth, EEG channels, time) and need the pooling applied to each EEG channel independently.
+
+    This thin wrapper flattens the ``(D, C)`` axes into a single depthwise axis, runs the wrapped 1D layer once, and restores the original layout::
+
+        (B, D, C, T)  ->  reshape (B, D*C, T)  ->  pool  ->  (B, D*C, T // M)  ->  (B, D, C, T // M)
+
+    Because the 1D layer already pools every row of its second axis independently, flattening ``(D, C)`` makes it pool every ``(depth, channel)`` pair independently - exactly equivalent to looping over channels, but vectorized into a single call.
+
+    Subclasses (one per pooling operator, e.g. :class:`~jade.model.pooling_1d.avg_pool.avg_pool_1d_multichannel`) just build the wrapped 1D layer and hand it to ``super().__init__``.
+
+    Parameters
+    ----------
+    pool_1d : torch.nn.Module
+        The 1D pooling layer to apply channel-wise. It must map ``(B, D, T) -> (B, D, T // M)``.
+    """
+
+    def __init__(self, pool_1d : nn.Module) :
+        super().__init__()
+        self.pool = pool_1d
+
+    def forward(self, x : torch.Tensor) -> torch.Tensor :
+        """
+        Apply the wrapped 1D pooling layer to every EEG channel independently.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (B, D, C, T).
+
+        Returns
+        -------
+        torch.Tensor
+            Output tensor of shape (B, D, C, T // M).
+        """
+
+        if x.dim() != 4 :
+            raise ValueError(f"expected a 4D tensor (B, D, C, T), got shape {tuple(x.shape)}")
+        B, D, C, T = x.shape
+        x = x.reshape(B, D * C, T)
+        x = self.pool(x)
+        return x.reshape(B, D, C, x.shape[-1])

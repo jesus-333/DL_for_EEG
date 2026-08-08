@@ -72,6 +72,63 @@ def get_dropout(prob_dropout: float, use_droput_2d : bool) -> nn.Module :
     else :
         return nn.Dropout(prob_dropout)
 
+def get_multichannel_pooling(config : dict) -> nn.Module :
+    """
+    Build a channel-wise pooling layer for multichannel EEG tensors of shape ``[B x D x C x T]``.
+
+    Analogue of :func:`get_activation` and :func:`get_dropout`: it maps a small config dict to a ready-to-use ``nn.Module``.
+    It is the bridge between the EEGNet ``pooling`` config section and the 1D pooling family in :mod:`jade.model.pooling_1d`.
+
+    The ``pooling_type`` selects the behaviour:
+
+    - ``'default'`` reproduces the classic EEGNet pooling, ``nn.AvgPool2d((1, decimation_factor))`` (pooling along the time axis only).
+    - one of the 1D pooling names (``'avg'``, ``'max'``, ``'blur'``, ``'sinc'``, ``'dwt'`` and their aliases) returns the matching ``{name}_multichannel`` wrapper, applied channel-wise.
+    - ``'identity'`` / ``'none'``, or a non-positive ``decimation_factor``, returns ``nn.Identity`` (the pooling stage is disabled).
+
+    Any other value raises ``ValueError``.
+
+    Parameters
+    ----------
+    config : dict
+        Per-stage pooling config. It must contain ``pooling_type`` and ``decimation_factor`` (alias ``pooling_factor``), plus any parameters the chosen 1D pooling layer accepts (see :mod:`jade.model.pooling_1d`).
+
+    Returns
+    -------
+    pooling_module : nn.Module
+        The pooling layer to drop into the EEGNet ``nn.Sequential`` blocks.
+    """
+
+    # Import here (not at module load) to keep the dependency direction one-way and lazy.
+    from jade.model.pooling_1d import MULTICHANNEL_POOLING_REGISTRY
+
+    # Never mutate the caller's dict.
+    cfg = dict(config)
+
+    pooling_type = str(cfg.get('pooling_type', 'default')).lower()
+    factor = cfg.get('decimation_factor', cfg.get('pooling_factor', None))
+
+    # Disabled stage: explicit identity, or a non-positive / no-op decimation factor.
+    # A negative factor is the documented "skip this pooling layer" signal (the EEGNet config warns about it).
+    if pooling_type in ('identity', 'none') or (factor is not None and factor < 1) :
+        return nn.Identity()
+
+    # Classic EEGNet behaviour: 2D average pooling along the time axis only.
+    if pooling_type == 'default' :
+        return nn.AvgPool2d((1, int(factor)))
+
+    if pooling_type not in MULTICHANNEL_POOLING_REGISTRY :
+        valid = sorted(set(MULTICHANNEL_POOLING_REGISTRY)) + ['default', 'identity']
+        raise ValueError(f"pooling_type must be one of {valid}, got {pooling_type!r}")
+
+    # Convenience (mirrors get_pooling_layer): the 'gaussian'/'binomial' aliases select blur pooling
+    # *and* its kernel family, so the alias name is not silently ignored by blur_pool_1d.
+    if pooling_type == 'gaussian' :
+        cfg.setdefault('kernel', 'gaussian')
+    elif pooling_type == 'binomial' :
+        cfg.setdefault('kernel', 'binomial')
+
+    return MULTICHANNEL_POOLING_REGISTRY[pooling_type](cfg)
+
 
 def count_trainable_parameters(torch_module : nn.Module) -> int:
     """

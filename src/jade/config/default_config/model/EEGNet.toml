@@ -32,15 +32,11 @@ filter_1 = 8
 c_kernel_1 = [1, 64]
 # Spatial (depthwise) convolution kernel, usually (C, 1).
 c_kernel_2 = [22, 1]
-# First average-pooling kernel. Remove this line (or set to a null-like value) to disable the first pooling.
-p_kernel_1 = [1, 4]
 
 # Number of filters of the separable convolution (pointwise output).
 filter_2 = 16
 # Depthwise convolution kernel of the separable block.
 c_kernel_3 = [1, 16]
-# Second average-pooling kernel. Remove this line to disable the second pooling.
-p_kernel_2 = [1, 8]
 
 # Flatten the (plain) EEGNet output to (batch, n_features). Ignored by the classifier.
 flatten_output = false
@@ -56,3 +52,23 @@ use_softmax = true
 
 # Print the parameter count / shape tracking at build time.
 print_var = false
+
+# --- Pooling (the two pooling stages) ---
+# Replaces the old p_kernel_1 / p_kernel_2. Each stage is configured independently.
+[pooling]
+# Pooling operator per stage:
+#   "default"              -> classic EEGNet nn.AvgPool2d (average pooling along time only);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise.
+pooling_type_1 = "default"
+pooling_type_2 = "default"
+# Decimation factor M per stage: the number of time samples becomes T / M.
+# A negative value disables that pooling stage (a warning is printed when the config is built).
+pooling_factor_1 = 4
+pooling_factor_2 = 8
+
+# Optional type-specific parameters for each stage (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params_1]
+# wavelet = "db4"
+# [pooling.params_2]
+# cutoff_scale = 0.9

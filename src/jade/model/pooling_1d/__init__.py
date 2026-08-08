@@ -32,6 +32,12 @@ All layers consume and produce ``(B, D, T)``:
 Filtering is *depthwise*: the same ``h`` is applied independently to every one of the ``D`` channels.
 There are no trainable parameters in any of these layers.
 
+Multichannel (4D) variants
+--------------------------
+Multichannel EEG models such as EEGNet work on 4D tensors ``(B, D, C, T)`` (batch, depth, EEG channels, time).
+For each 1D layer there is a ``{name}_multichannel`` companion (``avg_pool_1d_multichannel``, ``max_pool_1d_multichannel``, ...) that applies the 1D pooling to every EEG channel independently and returns ``(B, D, C, T // M)``.
+They are collected in ``MULTICHANNEL_POOLING_REGISTRY`` (same string aliases as ``POOLING_REGISTRY``) and are what ``jade.model.support_functions.get_multichannel_pooling`` builds from an EEGNet config.
+
 Output length is ``T // M`` for every layer, exactly matching ``torch.nn.AvgPool1d(M, stride = M)``.
 This is deliberate: it guarantees that swapping the pooling operator does not change any downstream tensor shape, so the classifier head, parameter count and receptive field stay fixed across an ablation.
 
@@ -59,7 +65,8 @@ The implementation is split across one file per pooling operator:
     sinc_pool.py         sinc_pool_1d
     dwt_pool.py          dwt_pool_1d and the WAVELET_FILTERS coefficients
 
-This ``__init__`` re-exports the public API and hosts the factory (``get_pooling_layer`` / ``POOLING_REGISTRY``) and the ``self_test``.
+Each file also defines a ``{name}_multichannel`` wrapper for 4D EEG tensors (see below); the shared wrapper base ``_multichannel_pool_1d`` lives in ``support_pooling.py``.
+This ``__init__`` re-exports the public API and hosts the factories (``get_pooling_layer`` / ``POOLING_REGISTRY`` for 1D layers, ``MULTICHANNEL_POOLING_REGISTRY`` for the 4D wrappers) and the ``self_test``.
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -72,11 +79,11 @@ import torch
 from torch import nn
 
 # Internal imports
-from jade.model.pooling_1d.avg_pool import avg_pool_1d
-from jade.model.pooling_1d.blur_pool import blur_pool_1d
-from jade.model.pooling_1d.dwt_pool import WAVELET_FILTERS, dwt_pool_1d
-from jade.model.pooling_1d.max_pool import max_pool_1d
-from jade.model.pooling_1d.sinc_pool import sinc_pool_1d
+from jade.model.pooling_1d.avg_pool import avg_pool_1d, avg_pool_1d_multichannel
+from jade.model.pooling_1d.blur_pool import blur_pool_1d, blur_pool_1d_multichannel
+from jade.model.pooling_1d.dwt_pool import WAVELET_FILTERS, dwt_pool_1d, dwt_pool_1d_multichannel
+from jade.model.pooling_1d.max_pool import max_pool_1d, max_pool_1d_multichannel
+from jade.model.pooling_1d.sinc_pool import sinc_pool_1d, sinc_pool_1d_multichannel
 from jade.model.pooling_1d.support_pooling import (
     _as_decimation_factor,
     _filter_and_subsample,
@@ -92,8 +99,14 @@ __all__ = [
     "blur_pool_1d",
     "sinc_pool_1d",
     "dwt_pool_1d",
+    "avg_pool_1d_multichannel",
+    "max_pool_1d_multichannel",
+    "blur_pool_1d_multichannel",
+    "sinc_pool_1d_multichannel",
+    "dwt_pool_1d_multichannel",
     "get_pooling_layer",
     "POOLING_REGISTRY",
+    "MULTICHANNEL_POOLING_REGISTRY",
     "WAVELET_FILTERS",
     "self_test",
 ]
@@ -115,6 +128,23 @@ POOLING_REGISTRY = {
     "kaiser"   : sinc_pool_1d,
     "dwt"      : dwt_pool_1d,
     "wavelet"  : dwt_pool_1d,
+}
+
+# Same aliases -> the channel-wise wrappers for 4D (B, D, C, T) tensors (see _multichannel_pool_1d).
+# These are what models such as EEGNet consume via support_functions.get_multichannel_pooling.
+MULTICHANNEL_POOLING_REGISTRY = {
+    "avg"      : avg_pool_1d_multichannel,
+    "average"  : avg_pool_1d_multichannel,
+    "boxcar"   : avg_pool_1d_multichannel,
+    "max"      : max_pool_1d_multichannel,
+    "blur"     : blur_pool_1d_multichannel,
+    "blurpool" : blur_pool_1d_multichannel,
+    "binomial" : blur_pool_1d_multichannel,
+    "gaussian" : blur_pool_1d_multichannel,
+    "sinc"     : sinc_pool_1d_multichannel,
+    "kaiser"   : sinc_pool_1d_multichannel,
+    "dwt"      : dwt_pool_1d_multichannel,
+    "wavelet"  : dwt_pool_1d_multichannel,
 }
 
 
@@ -147,7 +177,7 @@ def get_pooling_layer(config : dict) -> nn.Module :
 
     # Input check
     if "pooling_type" not in config :
-        raise KeyError("config must contain 'pooling_type'; one of {}".format(sorted(set(POOLING_REGISTRY)) + ["identity"]))
+        raise KeyError(f"config must contain 'pooling_type'; one of {sorted(set(POOLING_REGISTRY)) + ['identity']}")
     name = str(config["pooling_type"]).lower()
 
     # Identity short-circuit
@@ -155,7 +185,7 @@ def get_pooling_layer(config : dict) -> nn.Module :
         return nn.Identity()
 
     if name not in POOLING_REGISTRY :
-        raise ValueError("unknown pooling_type {}; expected one of {}".format(repr(name), sorted(set(POOLING_REGISTRY)) + ["identity"]))
+        raise ValueError(f"unknown pooling_type {name!r}; expected one of {sorted(set(POOLING_REGISTRY)) + ['identity']}")
 
     # Never mutate the caller's dict.
     cfg = dict(config)
@@ -199,7 +229,7 @@ def self_test(verbose : bool = True) -> None :
     def _check(name, cond) :
         status = "OK  " if cond else "FAIL"
         if verbose :
-            print("  [{}] {}".format(status, name))
+            print(f"  [{status}] {name}")
         assert cond, name
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -219,7 +249,7 @@ def self_test(verbose : bool = True) -> None :
             }
             for name, layer in layers.items() :
                 got = layer(x).shape
-                _check("T={} M={} {}: {} vs (2,3,{})".format(T, M, name, tuple(got), T // M),
+                _check(f"T={T} M={M} {name}: {tuple(got)} vs (2,3,{T // M})",
                        got == (2, 3, T // M))
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -233,7 +263,7 @@ def self_test(verbose : bool = True) -> None :
         ref = nn.AvgPool1d(M, stride = M)(x)
         # Interior samples are unaffected by boundary handling.
         err = (mine[..., 1:-1] - ref[..., 1:-1]).abs().max().item()
-        _check("T={} M={}: max|diff|={:.2e}".format(T, M, err), err < 1e-5)
+        _check(f"T={T} M={M}: max|diff|={err:.2e}", err < 1e-5)
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # 3. unit DC gain (constant in -> same constant out)
@@ -251,7 +281,7 @@ def self_test(verbose : bool = True) -> None :
         x = torch.full((1, 2, 512), 3.7)
         y = layer(x)
         err = (y - 3.7).abs().max().item()
-        _check("{} {}: err={:.2e}".format(type(layer).__name__, layer.extra_repr()[:28], err),
+        _check(f"{type(layer).__name__} {layer.extra_repr()[:28]}: err={err:.2e}",
                err < 1e-4)
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -269,7 +299,7 @@ def self_test(verbose : bool = True) -> None :
         y_eq = _filter_and_subsample(x, h_eff, M, offset, "circular")
         n = min(y_cascade.shape[-1], y_eq.shape[-1])
         err = (y_cascade[..., :n] - y_eq[..., :n]).abs().max().item()
-        _check("M={} L_eff={} offset={}: max|diff|={:.2e}".format(M, h_eff.numel(), offset, err),
+        _check(f"M={M} L_eff={h_eff.numel()} offset={offset}: max|diff|={err:.2e}",
                err < 1e-9)
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -282,12 +312,35 @@ def self_test(verbose : bool = True) -> None :
                   dwt_pool_1d({"decimation_factor" : 4})) :
         x = torch.randn(2, 3, 256, requires_grad = True)
         layer(x).sum().backward()
-        _check("{} grad flows".format(type(layer).__name__),
+        _check(f"{type(layer).__name__} grad flows",
                x.grad is not None and torch.isfinite(x.grad).all().item())
-        _check("{} no trainable params".format(type(layer).__name__),
+        _check(f"{type(layer).__name__} no trainable params",
                sum(p.numel() for p in layer.parameters()) == 0)
-        _check("{} clean state_dict".format(type(layer).__name__),
+        _check(f"{type(layer).__name__} clean state_dict",
                len(layer.state_dict()) == 0)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # 6. multichannel wrappers == per-channel loop over the 1D layer
+
+    if verbose :
+        print("6. multichannel wrappers == per-channel loop")
+    for M in (2, 4, 8) :
+        x = torch.randn(2, 3, 5, 256)                      # (B, D, C, T)
+        wrappers = {
+            "avg"  : avg_pool_1d_multichannel({"decimation_factor" : M}),
+            "max"  : max_pool_1d_multichannel({"decimation_factor" : M}),
+            "blur" : blur_pool_1d_multichannel({"decimation_factor" : M}),
+            "sinc" : sinc_pool_1d_multichannel({"decimation_factor" : M}),
+            "dwt"  : dwt_pool_1d_multichannel({"decimation_factor" : M}),
+        }
+        for name, wrapper in wrappers.items() :
+            got = wrapper(x)
+            _check(f"M={M} {name}_multichannel: {tuple(got.shape)} vs (2,3,5,{256 // M})",
+                   tuple(got.shape) == (2, 3, 5, 256 // M))
+            # Compare against an explicit loop over the EEG-channel axis.
+            ref = torch.stack([wrapper.pool(x[:, :, c, :]) for c in range(x.shape[2])], dim = 2)
+            err = (got - ref).abs().max().item()
+            _check(f"M={M} {name}_multichannel == channel loop: max|diff|={err:.2e}", err < 1e-6)
 
     if verbose :
         print("\nAll self-tests passed.")

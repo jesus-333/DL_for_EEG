@@ -2,10 +2,11 @@
 
 Source: `src/jade/model/pooling_1d/support_pooling.py`
 
-The heaviest file in the sub-package (~670 lines). Everything the individual pooling layers share:
+The heaviest file in the sub-package (~730 lines). Everything the individual pooling layers share:
 - kernel/utility helpers (`_get`, `_as_decimation_factor`, `_binomial_kernel`, `_gaussian_kernel`, `_upsample_zeros`),
 - the functional core `_filter_and_subsample` and figure-of-merit helper `_leakage_of`,
-- the base class **`_fir_decimation_pool_1d`** implementing `pooling = dense FIR filtering → subsampling`.
+- the base class **`_fir_decimation_pool_1d`** implementing `pooling = dense FIR filtering → subsampling`,
+- the base class **`_multichannel_pool_1d`** for the channel-wise 4D wrappers.
 
 Imports `warnings`, `numpy`, `torch`, `torch.nn.functional as F`, `torch.nn`. Subclasses only supply the kernel; the base class owns padding, depthwise application, phase/offset, output-length guarantees, and the frequency-domain analysis utilities.
 
@@ -15,7 +16,7 @@ Imports `warnings`, `numpy`, `torch`, `torch.nn.functional as F`, `torch.nn`. Su
 
 ### `_get(config, key, default=None, aliases=()) -> Any`
 
-Fetch `key` from `config`, accepting alternative spellings; returns the **first non-`None`** value found among `(key, *aliases)`, else `default`. Rationale: EEGNet-style configs use names like `p_kernel_1`, so a pooling layer can be dropped into an existing config dict without renaming keys.
+Fetch `key` from `config`, accepting alternative spellings; returns the **first non-`None`** value found among `(key, *aliases)`, else `default`. Rationale: different configs spell the decimation factor differently (`pool_size`, `factor`, `p_kernel`), so a pooling layer can be dropped into an existing config dict without renaming keys.
 
 ### `_as_decimation_factor(value) -> int`
 
@@ -162,6 +163,25 @@ Depthwise FIR filtering at stride 1, then subsampling by `factor`. The single co
 ### `_leakage_of(h, factor, n_fft=8192) -> float`
 
 Stopband leakage of an arbitrary kernel (the math behind `stopband_leakage`): `rfft` the kernel, integrate `|H|²` over `w >= π/factor` divided by the total. Returns `0.0` if total power ≤ 0. Used both by the base class and by `_check_against_boxcar` (to score the boxcar reference).
+
+---
+
+## Multichannel wrapper
+
+### `class _multichannel_pool_1d(nn.Module)`
+
+Base class for applying a 1D pooling layer channel-wise to a **4D** multichannel EEG tensor `(B, D, C, T)` (batch, depth, EEG channels, time) — the shape used by [EEGNet](../EEGNet.md). The concrete `{name}_multichannel` wrappers (one per operator, defined in each pooling file) subclass this and just build the 1D layer to wrap.
+
+`__init__(self, pool_1d: nn.Module)` stores the wrapped 1D layer as `self.pool`. `forward(x)`:
+
+1. `ValueError` unless `x` is 4D.
+2. Flatten `(B, D, C, T) → (B, D*C, T)` so the `(D, C)` axes become one depthwise axis.
+3. Run `self.pool` once → `(B, D*C, T // M)`.
+4. Restore `→ (B, D, C, T // M)`.
+
+Because the wrapped 1D layer already pools every row of its second axis independently, flattening `(D, C)` makes it pool every `(depth, channel)` pair independently — **exactly equivalent to looping over channels, but vectorized** into a single call (asserted bit-identical by `self_test` check 6). No trainable parameters (inherited from the wrapped layer).
+
+- **Input:** `(B, D, C, T)`. **Output:** `(B, D, C, T // M)`.
 
 ---
 

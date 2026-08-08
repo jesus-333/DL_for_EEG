@@ -44,3 +44,7 @@ Same keys as the base class's `summary` so it slots into the same result table, 
 
 - Zero trainable parameters.
 - Does **not** implement `effective_kernel`, `stopband_leakage`, etc. — it is not an FIR filter, so those would be meaningless.
+
+## Multichannel variant
+
+`max_pool_1d_multichannel(config)` wraps `max_pool_1d` for 4D EEG tensors `(B, D, C, T)`, applying it channel-wise (see [`_multichannel_pool_1d`](support_pooling.md#multichannel-wrapper)). Same `config`; output `(B, D, C, T // M)`.

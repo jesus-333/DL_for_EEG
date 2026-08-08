@@ -27,7 +27,7 @@ Used by `jade.model.get_model`, both `EEGNet` constructors, and `jade.training.s
 
 ## Public API (`__all__`)
 
-- Model configs: `model_config`, `EEGNet_config`, `MODEL_CONFIG_REGISTRY`, `get_model_config`.
+- Model configs: `model_config`, `EEGNet_config`, `eegnet_pooling_config` (the EEGNet `[pooling]` section), `MODEL_CONFIG_REGISTRY`, `get_model_config`.
 - Pooling configs (re-exported from [`pooling_1d_cfg`](pooling_1d_cfg.md)): `pooling_config`, `avg_pooling_config`, `blur_pooling_config`, `sinc_pooling_config`, `dwt_pooling_config`, `max_pooling_config`, `POOLING_CONFIG_REGISTRY`, `get_pooling_config`.
 
 Everything here is also re-exported one level up from `jade.config.__init__`.

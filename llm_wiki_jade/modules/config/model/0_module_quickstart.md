@@ -25,6 +25,7 @@ A parallel family, all in [`pooling_1d_cfg.py`](pooling_1d_cfg.md), discriminate
 
 - `pooling_config` (base: `pooling_type`, `decimation_factor`, polymorphic `from_dict`) → `_fir_pooling_config` (shared FIR options: `padding_mode`, `phase`, `gain`, `warn_if_worse_than_boxcar`) → `avg_pooling_config` / `blur_pooling_config` / `sinc_pooling_config` / `dwt_pooling_config`; `max_pooling_config` inherits the minimal base only (the max layer has no FIR filter, just `ceil_mode`).
 - **`POOLING_CONFIG_REGISTRY`** maps every runtime alias (`avg`/`average`/`boxcar`, `max`, `blur`/`blurpool`/`binomial`/`gaussian`, `sinc`/`kaiser`, `dwt`/`wavelet`) to its config class, and **`get_pooling_config(config)`** promotes a dict. The canonical field names match the pooling layers' keys, so `config.to_dict()` can feed `jade.model.pooling_1d.get_pooling_layer` directly.
+- **Used by EEGNet.** `EEGNet_config`'s `[pooling]` section is its own dataclass, `eegnet_pooling_config` (two independently-typed stages), documented on the [EEGNet_cfg page](EEGNet_cfg.md). It reuses `get_pooling_config` here to validate each stage's type-specific params.
 
 ## Design notes
 

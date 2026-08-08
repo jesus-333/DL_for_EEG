@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 
 # Internal imports
-from jade.model.pooling_1d.support_pooling import _fir_decimation_pool_1d, _get
+from jade.model.pooling_1d.support_pooling import _fir_decimation_pool_1d, _get, _multichannel_pool_1d
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # SincPool - properly designed windowed-sinc (Kaiser) decimation filter
@@ -161,6 +161,20 @@ class sinc_pool_1d(_fir_decimation_pool_1d) :
         """
 
         base = super().extra_repr()
-        return "{}, window={}, cutoff={:.4f}*Nyquist".format(
-            base, getattr(self, "_design_window", None), getattr(self, "_cutoff_normalized", float("nan"))
-        )
+        window = getattr(self, "_design_window", None)
+        cutoff = getattr(self, "_cutoff_normalized", float("nan"))
+        return f"{base}, window={window}, cutoff={cutoff:.4f}*Nyquist"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Multichannel variant
+
+class sinc_pool_1d_multichannel(_multichannel_pool_1d) :
+    """
+    Channel-wise :class:`sinc_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
+
+    Applies :class:`sinc_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
+    Takes the same ``config`` dict as :class:`sinc_pool_1d` (and, like it, needs SciPy for filter design).
+    """
+
+    def __init__(self, config : dict) :
+        super().__init__(sinc_pool_1d(config))
