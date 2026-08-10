@@ -82,7 +82,6 @@ class dataset_config(generic_config) :
     normalize      : int = -1
     dataset_folder : Optional[str] = None
 
-
     def __post_init__(self) -> None :
         """
         Validate the dataset parameters after initialization.
@@ -91,21 +90,19 @@ class dataset_config(generic_config) :
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Check the dataset name
 
-        if not self.dataset_name :
-            raise ValueError("dataset_name must be a non-empty string")
+        if not self.dataset_name : raise ValueError("dataset_name must be a non-empty string")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Check the subjects list
 
         if self.subjects is not None :
-            if not isinstance(self.subjects, (list, tuple)) :
-                raise ValueError("subjects must be a list of ints or None, got {}".format(type(self.subjects)))
+            if not isinstance(self.subjects, (list, tuple)) : raise ValueError(f"subjects must be a list of ints or None, got {type(self.subjects)}")
 
             # Every subject must be a positive int (bool is explicitly rejected, since bool is a subclass of int).
             cleaned_subjects = []
             for subject in self.subjects :
                 if not isinstance(subject, int) or isinstance(subject, bool) or subject <= 0 :
-                    raise ValueError("every subject must be a positive int, got {}".format(repr(subject)))
+                    raise ValueError(f"every subject must be a positive int, got {repr(subject)}")
                 cleaned_subjects.append(int(subject))
             self.subjects = cleaned_subjects
 

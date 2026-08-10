@@ -144,19 +144,18 @@ def _resolve_dataset_class(dataset_name : str) :
     for attr in dir(moabb_datasets) :
         if attr.startswith("_") :
             continue
+
         obj = getattr(moabb_datasets, attr)
         if isinstance(obj, type) :  # a class
             matches[_norm(attr)] = obj
 
-    if target in matches :
-        return matches[target]
+    if target in matches : return matches[target]
 
     available = sorted(attr for attr in dir(moabb_datasets)
                        if not attr.startswith("_") and isinstance(getattr(moabb_datasets, attr), type))
-    raise ValueError(
-        "unknown moabb dataset {}. Available dataset classes under moabb.datasets "
-        "include: {}".format(repr(dataset_name), available)
-    )
+
+    error_message = f"unknown moabb dataset. Available dataset classes under moabb.datasets include: {repr(dataset_name), available}"
+    raise ValueError(error_message)
 
 def _as_subject_list(subjects, dataset) -> list :
     """
@@ -217,15 +216,15 @@ def download_dataset(
     """
 
     # Redirect the download directory before touching the dataset, so moabb both stores into and looks up the requested folder.
-    if dataset_folder is not None :
-        _set_download_dir(dataset_folder)
+    if dataset_folder is not None : _set_download_dir(dataset_folder)
 
-    dataset_cls = _resolve_dataset_class(dataset_name)
-    dataset = dataset_cls()
-    subject_list = _as_subject_list(subjects, dataset)
+    dataset_cls  = _resolve_dataset_class(dataset_name)
+    dataset      = dataset_cls()
+    subject_list = _as_subject_list(subjects, dataset) # Not that if the subjects are not specified this function will set the subjects list to all the subjects of the dataset
 
     # moabb's BaseDataset.download fetches every requested subject; already-cached ones are skipped.
     dataset.download(subject_list = subject_list)
+
     return dataset
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -249,14 +248,16 @@ def _session_matches(session_name : str, dataset_type : str) -> bool :
     bool
         Whether the session belongs to the requested split.
     """
+    
+    # Change session name to lower case
+    session_name = session_name.lower()
+    
+    # Check if is the test set
+    is_test = ("test" in session_name) or ("eval" in session_name) or session_name.endswith("_e") or session_name == "e"
+    if dataset_type == "test" : return is_test
 
-    low = session_name.lower()
-    is_test = ("test" in low) or ("eval" in low) or low.endswith("_e") or low == "e"
-    if dataset_type == "test" :
-        return is_test
-
-    # train
-    is_train = ("train" in low) or low.endswith("_t") or low == "t"
+    # Check if is the train set
+    is_train = ("train" in session_name) or session_name.endswith("_t") or session_name == "t"
     return is_train
 
 def _select_sessions(session_names : Sequence[str], dataset_type : str) -> list :
@@ -482,15 +483,18 @@ def get_dataset(
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Input check
-
+    
+    # Check if config is a dictionary.
     if isinstance(config, dict) :
+        # In this case convert it to dataset_config class
         config = dataset_config.from_dict(config)
     elif not isinstance(config, dataset_config) :
-        raise TypeError("config must be a dataset_config (or a dict), got {}".format(type(config)))
-
+        # Otherwise raise an erro
+        raise TypeError(f"config must be a dataset_config (or a dict), got {type(config)}")
+    
+    # Check if user specified a valid dataset_type
     dataset_type = str(dataset_type).lower()
-    if dataset_type not in ("train", "test") :
-        raise ValueError("dataset_type must be 'train' or 'test', got {}".format(repr(dataset_type)))
+    if dataset_type not in ("train", "test") : raise ValueError(f"dataset_type must be 'train' or 'test', got {repr(dataset_type)}")
 
     _, mne = _import_moabb_mne()
 
