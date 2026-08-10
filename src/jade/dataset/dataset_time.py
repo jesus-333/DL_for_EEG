@@ -53,6 +53,7 @@ def check_plot_config(plot_config : dict = None) -> dict :
         - ``save_plot`` : bool, whether to save the figure on disk. Default ``False``.
         - ``plot_format`` : list of str, the extensions used to save the figure. Valid extensions are ``'png'``, ``'jpeg'``, ``'pdf'`` and ``'eps'``. Default ``['png']``.
         - ``plot_path`` : str, the folder where the figure is saved (created if it does not exist). Default ``'plot/'``.
+        - ``time_in_ms`` : bool, whether to convert the time axis from samples to ms. Used only by the time domain plot. If False the time will be in seconds. Default ``True``.
 
     Returns
     -------
@@ -75,6 +76,7 @@ def check_plot_config(plot_config : dict = None) -> dict :
         save_plot    = False,
         plot_format  = ['png'],
         plot_path    = 'plot/',
+        time_in_ms   = True
     )
 
     # If nothing (or an empty dict) is passed simply return a copy of the default configuration.
@@ -406,16 +408,23 @@ class EEG_Dataset(Dataset):
 
         # Extract the signal (self.data has shape [Trials x 1 x channels x time samples]) and build the time axis in ms.
         signal = self.data[idx_sample, 0, idx_ch_int].detach().cpu().numpy()
-        time_axis_ms = np.arange(signal.shape[0]) / self.fs * 1000
+        time_axis = np.arange(signal.shape[0]) / self.fs
+
+        if plot_config['time_in_ms'] :
+            time_axis *= 1000
+            measurement_unit = "ms"
+        else :
+            measurement_unit = "s"
 
         # Draw the signal.
-        ax.plot(time_axis_ms, signal, color = plot_config['color'], linewidth = plot_config['linewidth'])
+        ax.plot(time_axis, signal, color = plot_config['color'], linewidth = plot_config['linewidth'])
 
         # Labels, grid, limits and ticks.
-        ax.set_xlabel("Time [ms]", fontsize = plot_config['fontsize'])
+        ax.set_xlabel(f"Time [{measurement_unit}]", fontsize = plot_config['fontsize'])
         ax.set_ylabel(r"Amplitude [$\mu V$]", fontsize = plot_config['fontsize'])
         ax.grid(True)
-        if plot_config['x_lim'] is not None : ax.set_xlim(plot_config['x_lim'])
+        x_lim = plot_config['x_lim'] if plot_config['x_lim'] is not None else [time_axis[0], time_axis[-1] * 1.002] # The 1.002 factor is used to avoid cutting the last time sample ticks label when the x-axis is set automatically.
+        ax.set_xlim(x_lim)
         if plot_config['y_lim'] is not None : ax.set_ylim(plot_config['y_lim'])
         ax.tick_params(labelsize = plot_config['fontsize'])
 
@@ -457,7 +466,8 @@ class EEG_Dataset(Dataset):
 
         # Grid, limits and ticks.
         ax.grid(True)
-        if plot_config['x_lim'] is not None : ax.set_xlim(plot_config['x_lim'])
+        x_lim = plot_config['x_lim'] if plot_config['x_lim'] is not None else [freqs[0], freqs[-1] * 1.002] # The 1.002 factor is used to avoid cutting the last frequency sample ticks label when the x-axis is set automatically.
+        ax.set_xlim(x_lim)
         if plot_config['y_lim'] is not None : ax.set_ylim(plot_config['y_lim'])
         ax.tick_params(labelsize = plot_config['fontsize'])
 
