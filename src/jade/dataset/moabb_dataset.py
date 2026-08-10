@@ -432,18 +432,21 @@ def _epoch_raw(raw, dataset, mne) :
     epochs = mne.Epochs(
         raw,
         events,
-        event_id = event_id,
-        tmin = tmin,
-        tmax = tmax,
-        proj = False,
-        baseline = None,
-        preload = True,
-        picks = picks,
+        event_id   = event_id,
+        tmin       = tmin,
+        tmax       = tmax,
+        proj       = False,
+        baseline   = None,
+        preload    = True,
+        picks      = picks,
         on_missing = "ignore",
-        verbose = False,
+        verbose    = False,
     )
 
-    X = epochs.get_data()                        # (n_trials, n_channels, n_times)
+    # Get data [n_trials x n_channels x n_times]
+    x = epochs.get_data()
+
+    # Get channels name
     ch_names = list(epochs.info["ch_names"])
 
     # Map raw event codes -> deterministic 0-based class labels (sorted by class name).
@@ -454,7 +457,7 @@ def _epoch_raw(raw, dataset, mne) :
         [name_to_label[inv_event_id[code]] for code in epochs.events[:, -1]],
         dtype = np.int64,
     )
-    return X, labels, ch_names
+    return x, labels, ch_names
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public: build an EEG_Dataset

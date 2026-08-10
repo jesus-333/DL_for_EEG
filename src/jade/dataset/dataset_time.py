@@ -12,12 +12,12 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 from __future__ import annotations
 
 # Full module imports
+import matplotlib.pyplot as plt
+import numpy as np
 import os
+import torch
 
 # Specific imports
-import numpy as np
-import torch
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 
 # Internal imports
@@ -78,8 +78,7 @@ def check_plot_config(plot_config : dict = None) -> dict :
     )
 
     # If nothing (or an empty dict) is passed simply return a copy of the default configuration.
-    if plot_config is None or len(plot_config) == 0 :
-        return dict(default_plot_config)
+    if plot_config is None or len(plot_config) == 0 : return default_plot_config
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Merge the input with the default values
@@ -110,7 +109,7 @@ def check_plot_config(plot_config : dict = None) -> dict :
     # Check that every requested extension is supported.
     for plot_format in checked_plot_config['plot_format'] :
         if plot_format not in VALID_PLOT_FORMATS :
-            raise ValueError("Invalid plot format {}. Valid formats are {}.".format(repr(plot_format), VALID_PLOT_FORMATS))
+            raise ValueError(f"Invalid plot format {repr(plot_format)}. Valid formats are {VALID_PLOT_FORMATS}.")
 
     return checked_plot_config
 
@@ -135,7 +134,7 @@ def _to_bool(value) -> bool :
         elif value.strip().lower() == 'false' :
             return False
         else :
-            raise ValueError("Cannot convert {} to a boolean. Use a bool or the strings 'True'/'False'.".format(repr(value)))
+            raise ValueError(f"Cannot convert {repr(value)} to a boolean. Use a bool or the strings 'True'/'False'.")
     return bool(value)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -150,7 +149,7 @@ class EEG_Dataset(Dataset):
         """
 
         if len(data.shape) != 4 or data.shape[1] != 1 :
-            raise ValueError("The input shape of data must be [Trials x 1 x channels x time samples]. Current shape {}".format(data.shape))
+            raise ValueError(f"The input shape of data must be [Trials x 1 x channels x time samples]. Current shape {data.shape}")
 
         # Transform data in torch array
         self.data = torch.from_numpy(data).float()
@@ -171,6 +170,46 @@ class EEG_Dataset(Dataset):
     
     def __len__(self) -> int :
         return len(self.labels)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    def minmax_normalize_all_dataset(self, a, b):
+        """
+        Normalize the entire dataset between the value a and the value b.
+        """
+        self.data = ((self.data - self.data.min()) / (self.data.max() - self.data.min())) * (b - a) + a
+
+    def normalize_trial_by_trial_channel_by_channel(self, a, b):
+        """
+        Normalize each channel of each trial so the value are between a and b
+        """
+        
+        # N.b. self.data.shape = [trials, 1 , channels, eeg samples]
+        # The dimension with the 1 is needed because the conv2d require a 3d tensor input
+        
+        for i in range(self.data.shape[0]): # Cycle over EEG trials
+            for j in range(self.data.shape[2]): # Cycle over channels
+                tmp_ch = self.data[i, 0, j]
+                
+                normalize_ch = ((tmp_ch - tmp_ch.min()) / (tmp_ch.max() - tmp_ch.min())) * (b - a) + a
+                
+                self.data[i, 0, j] = normalize_ch
+
+    def normalize_trial_by_trial(self, a, b):
+        """
+        Normalize each trial so the value are between a and b
+        """
+        
+        # N.b. self.data.shape = [trials, 1 , channels, eeg samples]
+        # The dimension with the 1 is needed because the conv2d require a 3d tensor input
+        
+        for i in range(self.data.shape[0]): # Cycle over EEG trials
+            tmp_trial = self.data[i, 0, :]
+            
+            normalize_trial = ((tmp_trial - tmp_trial.min()) / (tmp_trial.max() - tmp_trial.min())) * (b - a) + a
+            
+            self.data[i, 0, :] = normalize_trial
+
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Plot methods
@@ -207,8 +246,7 @@ class EEG_Dataset(Dataset):
         self._plot_time_on_ax(ax, idx_sample, idx_ch_int, fs = fs, plot_config = plot_config)
 
         # Add the title (if requested) and save the figure (if requested).
-        if plot_config['add_title'] :
-            ax.set_title(self._build_title(plot_config, idx_sample, ch_label), fontsize = plot_config['fontsize'])
+        if plot_config['add_title'] : ax.set_title(self._build_title(plot_config, idx_sample, ch_label), fontsize = plot_config['fontsize'])
         fig.tight_layout()
         self._save_figure(fig, plot_config, idx_sample, ch_label)
 
@@ -468,43 +506,6 @@ class EEG_Dataset(Dataset):
         for plot_format in plot_config['plot_format'] :
             full_path = os.path.join(plot_config['plot_path'], "{}.{}".format(file_name, plot_format))
             fig.savefig(full_path, format = plot_format, bbox_inches = 'tight')
-
-    def minmax_normalize_all_dataset(self, a, b):
-        """
-        Normalize the entire dataset between the value a and the value b.
-        """
-        self.data = ((self.data - self.data.min()) / (self.data.max() - self.data.min())) * (b - a) + a
-
-    def normalize_trial_by_trial_channel_by_channel(self, a, b):
-        """
-        Normalize each channel of each trial so the value are between a and b
-        """
-        
-        # N.b. self.data.shape = [trials, 1 , channels, eeg samples]
-        # The dimension with the 1 is needed because the conv2d require a 3d tensor input
-        
-        for i in range(self.data.shape[0]): # Cycle over EEG trials
-            for j in range(self.data.shape[2]): # Cycle over channels
-                tmp_ch = self.data[i, 0, j]
-                
-                normalize_ch = ((tmp_ch - tmp_ch.min()) / (tmp_ch.max() - tmp_ch.min())) * (b - a) + a
-                
-                self.data[i, 0, j] = normalize_ch
-
-    def normalize_trial_by_trial(self, a, b):
-        """
-        Normalize each trial so the value are between a and b
-        """
-        
-        # N.b. self.data.shape = [trials, 1 , channels, eeg samples]
-        # The dimension with the 1 is needed because the conv2d require a 3d tensor input
-        
-        for i in range(self.data.shape[0]): # Cycle over EEG trials
-            tmp_trial = self.data[i, 0, :]
-            
-            normalize_trial = ((tmp_trial - tmp_trial.min()) / (tmp_trial.max() - tmp_trial.min())) * (b - a) + a
-            
-            self.data[i, 0, :] = normalize_trial
 
 class EEG_Dataset_ChWi(Dataset):
 
