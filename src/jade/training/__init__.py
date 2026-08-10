@@ -11,8 +11,10 @@ Modules:
 * :mod:`jade.training.test_functions` - the generic evaluation function :func:`~jade.training.test_functions.test`.
 * :mod:`jade.training.support_training` - shared helpers and the config -> torch object factories.
 * :mod:`jade.training.metrics` - the (torchmetrics-based) classification metrics.
+* :mod:`jade.training.logging_utils` - logging helpers, in particular :func:`~jade.training.logging_utils.setup_logging` (an opt-in convenience for people who do not want to set up their own logger).
 
 Following the library logging best practice, a :class:`logging.NullHandler` is attached to the package logger so that importing the package never forces any logging configuration on the user; each module logs through ``logging.getLogger(__name__)``.
+Users who do not want to configure logging themselves can call :func:`~jade.training.logging_utils.setup_logging` to wire up a sensible root configuration in one call.
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -24,6 +26,7 @@ from __future__ import annotations
 import logging
 
 # Internal imports (leaf modules first, so the modules that depend on them find them already loaded)
+from jade.training.logging_utils import setup_logging
 from jade.training import support_training
 from jade.training import metrics
 from jade.training.classifier_epoch import train_epoch_function, validation_epoch_function
@@ -46,6 +49,7 @@ __all__ = [
     "train_epoch_function",
     "validation_epoch_function",
     "test",
+    "setup_logging",
     "support_training",
     "metrics",
 ]

@@ -158,3 +158,4 @@ Config-driven training loop (classification only, for now), metrics, optional wa
 | [test_functions.md](modules/training/test_functions.md) | `training/test_functions.py` |
 | [support_training.md](modules/training/support_training.md) | `training/support_training.py` |
 | [metrics.md](modules/training/metrics.md) | `training/metrics.py` |
+| [logging_utils.md](modules/training/logging_utils.md) | `training/logging_utils.py` |

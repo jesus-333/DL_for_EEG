@@ -9,11 +9,12 @@ Package initializer for the `training` subpackage. It performs three jobs: aggre
 The imports are ordered **leaf-first** so that dependent modules find their dependencies already loaded:
 
 ```
-support_training  →  metrics  →  classifier_epoch  →  classifier  →  test_functions
+logging_utils  →  support_training  →  metrics  →  classifier_epoch  →  classifier  →  test_functions
 ```
 
 - `support_training` and `metrics` are bound as submodule objects (`from jade.training import support_training`, `... metrics`), so callers can do `jade.training.support_training.get_optimizer(...)` and `jade.training.metrics.compute_metrics(...)`.
-- `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
+- `setup_logging` (from `logging_utils`), `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
+- `logging_utils` is torch-free (stdlib only), so it is listed first; the rest of the package pulls in torch.
 
 ## Package logger
 
@@ -35,6 +36,7 @@ Following the standard library-logging best practice, a `logging.NullHandler` is
 | `train_epoch_function` | `classifier_epoch` | function — one training epoch |
 | `validation_epoch_function` | `classifier_epoch` | function — one validation epoch |
 | `test` | `test_functions` | function — generic evaluation |
+| `setup_logging` | `logging_utils` | function — opt-in root-logger setup (console + optional file) |
 | `support_training` | submodule | factories + helpers |
 | `metrics` | submodule | classification metrics |
 
