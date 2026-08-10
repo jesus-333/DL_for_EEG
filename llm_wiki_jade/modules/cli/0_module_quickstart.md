@@ -77,7 +77,7 @@ create-default-config
 create-default-config --type model --path /tmp/configs
 ```
 
-This is the one command that does not wrap an existing `jade` function: it **copies package data** (the TOML tree shipped under `jade/config/default_config/`). The copy logic still lives in the thematic implementation file (`default_config.py`), so `cli.py` stays argparse-only — the two-layer pattern is preserved. Multi-choice sections (optimizer/scheduler/loss) come as one file per option, with the main `training.toml` pointing at them.
+This is the one command that does not wrap an existing `jade` function: it **copies package data** (the TOML tree shipped under `jade/config/default_config/`). The copy logic still lives in the thematic implementation file (`default_config.py`), so `cli.py` stays argparse-only — the two-layer pattern is preserved. Multi-choice sections (optimizer/scheduler/loss) come as one file per option, with the main `training_clf.toml` (the classifier training config) pointing at them.
 
 ## Adding a new command (checklist)
 
