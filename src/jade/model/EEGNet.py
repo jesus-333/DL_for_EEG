@@ -65,8 +65,7 @@ class EEGNet(nn.Module):
 
         # Block 1 - Temporal filters
         self.temporal_filter = nn.Sequential(
-            nn.Conv2d(depth_first_layer, config.filter_1, kernel_size = config.c_kernel_1,
-                      padding = 'same', bias = use_bias),
+            nn.Conv2d(depth_first_layer, config.filter_1, kernel_size = config.c_kernel_1, padding = 'same', bias = use_bias),
             nn.BatchNorm2d(config.filter_1),
         )
 
@@ -82,7 +81,7 @@ class EEGNet(nn.Module):
         # Block 2 - Features Extraction
         self.separable_convolution = nn.Sequential(
             nn.Conv2d(config.filter_1 * D, config.filter_1 * D, kernel_size = config.c_kernel_3, groups = config.filter_1 * D, padding = 'same', bias = use_bias),
-            nn.Conv2d(config.filter_1 * D, config.filter_2, kernel_size = (1, 1), groups = 1, bias = use_bias),
+            nn.Conv2d(config.filter_1 * D, config.filter_2    , kernel_size = (1, 1)           , groups = 1, bias = use_bias),
             nn.BatchNorm2d(config.filter_2),
             activation,
             pooling_layer_2,
@@ -144,7 +143,6 @@ class EEGNet(nn.Module):
 
         print("\t(OPTIONAL) Flatten :\t\t", x.flatten(1).shape, "\n")
 
-
 class EEGNet_Classifier(nn.Module):
     """
     EEGNet feature extractor plus a feedforward classification head.
@@ -177,7 +175,6 @@ class EEGNet_Classifier(nn.Module):
             nn.LogSoftmax(dim = 1) if config.use_softmax else nn.Identity()
         )
 
-                
     def forward(self, x):
         x = self.eegnet(x)
 

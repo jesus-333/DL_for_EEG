@@ -160,8 +160,7 @@ class training_config(generic_config) :
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Checkpoint / logging options
 
-        # A non-positive period disables the periodic checkpoints: pick a period the epoch loop can never hit,
-        # so only model_END.pth (and model_BEST.pth, when validating) are written.
+        # A non-positive period disables the periodic checkpoints: pick a period the epoch loop can never hit, so only model_END.pth (and model_BEST.pth, when validating) are written.
         if not isinstance(self.epoch_to_save_model, int) or isinstance(self.epoch_to_save_model, bool) or self.epoch_to_save_model <= 0 :
             self.epoch_to_save_model = self.epochs + 1
 
