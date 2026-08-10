@@ -45,7 +45,7 @@ Convert to bool, additionally accepting the strings `'True'`/`'False'` (case-ins
 
 Trial-level dataset for classification. Stores every trial as a 4-D tensor `[trials, 1, channels, time]`; the size-1 "depth" axis exists so the data feeds `torch.nn.Conv2d` directly.
 
-### `__init__(self, data, labels, ch_list, normalize = -1)`
+### `__init__(self, data, labels, ch_list, normalize = -1, fs = 1)`
 
 | Param | Type | Meaning | Default |
 |-------|------|---------|---------|
@@ -53,11 +53,12 @@ Trial-level dataset for classification. Stores every trial as a 4-D tensor `[tri
 | `labels` | `numpy.ndarray` | integer class labels, shape `[Trials]`. | required |
 | `ch_list` | list / sequence or None | channel names, used to resolve channel names in the plot methods and returned by `get_dataset`. | required (may be `None`) |
 | `normalize` | int | normalization code (see table below). | `-1` |
+| `fs` | float | sampling frequency (Hz) of the signal, stored as `self.fs` and used by the plot methods. `1` means a normalized frequency (each sample treated as 1 ms; frequency axis labeled as normalized). `get_dataset` fills it from the raw moabb recordings (or `resample_freq`). | `1` |
 
 Behavior:
 - **Shape check:** raises `ValueError` if `data.ndim != 4` or `data.shape[1] != 1`.
 - **Type conversion:** `self.data = torch.from_numpy(data).float()` (→ `torch.float32`), `self.labels = torch.from_numpy(labels).long()` (→ `torch.int64`). **`data`/`labels` must be numpy arrays** — unlike `EEG_Dataset_ChWi`, this class has no torch-tensor branch, so passing a torch tensor raises.
-- Stores `self.ch_list` verbatim.
+- Stores `self.ch_list` verbatim and `self.fs` (the sampling frequency).
 - Applies normalization by dispatching on `normalize` (see below). Note `normalize = -1` (and any value other than 1/2/3) means **no normalization**.
 
 ### Attributes stored
@@ -66,6 +67,7 @@ Behavior:
 | `self.data` | `torch.float32` | `[trials, 1, channels, time]` |
 | `self.labels` | `torch.int64` | `[trials]` |
 | `self.ch_list` | list or None | channel names |
+| `self.fs` | float | sampling frequency (Hz); `1` = normalized frequency |
 
 ### `__getitem__(self, idx) -> (Tensor, Tensor)`
 Returns the tuple `(self.data[idx], self.labels[idx])`, i.e. one trial `[1, channels, time]` and its scalar label. This is exactly the `(data, label)` pair the `jade.training` loops expect from a `DataLoader`.
@@ -98,20 +100,21 @@ Gotchas:
 
 ### Plotting methods
 
-All three public plot methods share the signature pattern `(idx_sample, idx_ch, fs=1, plot_config=None[, freq_config=None])` and return matplotlib objects. They call `check_plot_config` (so `plot_config=None` is fine), resolve the channel via `_resolve_channel`, draw, optionally title, `tight_layout`, and optionally save via `_save_figure`.
+All three public plot methods share the signature pattern `(idx_sample, idx_ch, plot_config=None[, freq_config=None])` and return matplotlib objects. The sampling frequency is **no longer a parameter**: it is read from `self.fs` (set at construction time). They call `check_plot_config` (so `plot_config=None` is fine), resolve the channel via `_resolve_channel`, draw, optionally title, `tight_layout`, and optionally save via `_save_figure`.
 
 | Method | Draws | Returns |
 |--------|-------|---------|
-| `plot_trial_time(idx_sample, idx_ch, fs=1, plot_config=None)` | time-domain signal of one channel of one trial | `(fig, ax)` |
-| `plot_trial_freq(idx_sample, idx_ch, fs=1, plot_config=None, freq_config=None)` | PSD of one channel of one trial | `(fig, ax)` |
-| `plot_trial_time_and_freq(idx_sample, idx_ch, fs=1, plot_config=None, freq_config=None)` | time + freq side by side (1×2) | `(fig, axs)` |
+| `plot_trial_time(idx_sample, idx_ch, plot_config=None)` | time-domain signal of one channel of one trial | `(fig, ax)` |
+| `plot_trial_freq(idx_sample, idx_ch, plot_config=None, freq_config=None)` | PSD of one channel of one trial | `(fig, ax)` |
+| `plot_trial_time_and_freq(idx_sample, idx_ch, plot_config=None, freq_config=None)` | time + freq side by side (1×2) | `(fig, axs)` |
 
 Common parameters:
 - `idx_sample : int` — trial index.
 - `idx_ch : int or str` — channel index, **or** channel name (resolved against `self.ch_list`).
-- `fs : int` — sampling frequency (Hz). Default `1` = normalized frequency: the time axis then treats each sample as 1 ms, and the frequency plot switches axis labels to "Normalized frequency" / drops the `/Hz` unit.
 - `plot_config` — see `check_plot_config`.
 - `freq_config` — see [`support_plot_freq.check_freq_config`](./support_plot_freq.md) (frequency methods only).
+
+The sampling frequency comes from `self.fs`. When it is `1` (the default, i.e. normalized frequency) the time axis treats each sample as 1 ms and the frequency plot switches axis labels to "Normalized frequency" / drops the `/Hz` unit.
 
 **Side effect:** when `plot_config['save_plot']` is truthy these methods write image files to disk (and create `plot_path`).
 
@@ -120,8 +123,8 @@ Common parameters:
 | Helper | Purpose / notes |
 |--------|-----------------|
 | `_resolve_channel(idx_ch) -> (idx_ch_int, ch_label)` | Turns an int index or a channel-name string into `(int index, label)`. Name lookup uses `self.ch_list`; raises `ValueError` if `ch_list is None` or the name is absent. For an int index the label is the channel name when available, else the int. |
-| `_plot_time_on_ax(ax, idx_sample, idx_ch_int, fs, plot_config)` | Extracts `self.data[idx_sample, 0, idx_ch_int]` → numpy, builds a ms time axis `arange(N)/fs*1000`, plots, labels ("Time [ms]" / "Amplitude [µV]"), grid, optional limits/ticks. |
-| `_plot_freq_on_ax(ax, idx_sample, idx_ch_int, fs, plot_config, freq_config)` | Extracts the signal, calls `compute_frequency_spectrum`, plots PSD. Axis labels depend on `fs`: `fs != 1` → "Frequency [Hz]" / "PSD [µV²/Hz]"; `fs == 1` → "Normalized frequency" / "PSD [µV²]". |
+| `_plot_time_on_ax(ax, idx_sample, idx_ch_int, plot_config)` | Extracts `self.data[idx_sample, 0, idx_ch_int]` → numpy, builds a ms time axis `arange(N)/self.fs*1000`, plots, labels ("Time [ms]" / "Amplitude [µV]"), grid, optional limits/ticks. |
+| `_plot_freq_on_ax(ax, idx_sample, idx_ch_int, plot_config, freq_config)` | Extracts the signal, calls `compute_frequency_spectrum(signal, fs=self.fs, ...)`, plots PSD. Axis labels depend on `self.fs`: `self.fs != 1` → "Frequency [Hz]" / "PSD [µV²/Hz]"; `self.fs == 1` → "Normalized frequency" / "PSD [µV²]". |
 | `_build_title(plot_config, idx_sample, ch_label) -> str` | `"{title_prefix} - {idx_trial} - {idx_ch}"`; drops the prefix (and its `-`) when `title_prefix is None`. |
 | `_save_figure(fig, plot_config, idx_sample, ch_label)` | No-op unless `save_plot`. Creates `plot_path` (`os.makedirs(..., exist_ok=True)`), builds file name `"{title_prefix}_{idx_trial}_{idx_ch}"` (prefix dropped when None), and `fig.savefig` in every requested format with `bbox_inches='tight'`. |
 

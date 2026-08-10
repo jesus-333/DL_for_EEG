@@ -142,10 +142,24 @@ def _to_bool(value) -> bool :
 
 class EEG_Dataset(Dataset):
 
-    def __init__(self, data, labels, ch_list, normalize = -1):
+    def __init__(self, data, labels, ch_list, normalize : int = -1, fs : float = 1):
         """
-        data = data used for the dataset. Must have shape [Trials x 1 x channels x time samples]
-        Note that if you use EEG data depth dimension (the second axis) has value 1.
+        PyTorch dataset wrapping EEG trials in the format channels x time samples.
+
+        Parameters
+        ----------
+        data : numpy.ndarray
+            The EEG data used for the dataset. Must have shape ``[Trials x 1 x channels x time samples]``.
+            Note that for EEG data the depth dimension (the second axis) has value 1 (it is required by the Conv2d layers).
+        labels : numpy.ndarray
+            The integer class labels, one per trial (shape ``[Trials]``).
+        ch_list : list of str or None
+            The channel names, used by the plot methods to resolve a channel passed by name.
+        normalize : int, default -1
+            Normalization scheme applied at construction time. ``-1`` none, ``1`` min-max over the whole dataset, ``2`` per-trial per-channel, ``3`` per-trial.
+        fs : float, default 1
+            The sampling frequency (in Hz) of the signal. It is stored as ``self.fs`` and used by the plot methods (both to convert samples into ms and to label the frequency axis).
+            The default ``1`` means a normalized frequency: each sample is treated as 1 ms and the frequency axis is labeled as normalized.
         """
 
         if len(data.shape) != 4 or data.shape[1] != 1 :
@@ -154,9 +168,12 @@ class EEG_Dataset(Dataset):
         # Transform data in torch array
         self.data = torch.from_numpy(data).float()
         self.labels = torch.from_numpy(labels).long()
-        
+
         self.ch_list = ch_list
-        
+
+        # Sampling frequency (in Hz). Kept as an attribute so the plot methods do not need it passed again.
+        self.fs = fs
+
         # (OPTIONAL) Normalize
         if normalize == 1:
             self.minmax_normalize_all_dataset(-1, 1)
@@ -214,9 +231,11 @@ class EEG_Dataset(Dataset):
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Plot methods
 
-    def plot_trial_time(self, idx_sample : int, idx_ch, fs : int = 1, plot_config : dict = None) :
+    def plot_trial_time(self, idx_sample : int, idx_ch, plot_config : dict = None) :
         """
         Plot a single channel of a single trial in the time domain.
+
+        The sampling frequency used to convert the sample index into ms is taken from ``self.fs`` (set at construction time).
 
         Parameters
         ----------
@@ -224,8 +243,6 @@ class EEG_Dataset(Dataset):
             The index of the trial to plot.
         idx_ch : int or str
             The channel to plot. It can be either the integer index of the channel or the channel name (in which case ``self.ch_list`` is used to retrieve the corresponding integer index).
-        fs : int, optional
-            The sampling frequency (in Hz) of the signal, used to convert the sample index into ms. Default is ``1`` (normalized frequency), in which case each sample is treated as 1 ms.
         plot_config : dict, optional
             The plot configuration. See :func:`~jade.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
 
@@ -243,7 +260,7 @@ class EEG_Dataset(Dataset):
 
         # Create the figure and draw the time signal.
         fig, ax = plt.subplots(1, 1, figsize = plot_config['figsize'])
-        self._plot_time_on_ax(ax, idx_sample, idx_ch_int, fs = fs, plot_config = plot_config)
+        self._plot_time_on_ax(ax, idx_sample, idx_ch_int, plot_config = plot_config)
 
         # Add the title (if requested) and save the figure (if requested).
         if plot_config['add_title'] : ax.set_title(self._build_title(plot_config, idx_sample, ch_label), fontsize = plot_config['fontsize'])
@@ -252,9 +269,11 @@ class EEG_Dataset(Dataset):
 
         return fig, ax
 
-    def plot_trial_freq(self, idx_sample : int, idx_ch, fs : int = 1, plot_config : dict = None, freq_config : dict = None) :
+    def plot_trial_freq(self, idx_sample : int, idx_ch, plot_config : dict = None, freq_config : dict = None) :
         """
         Plot a single channel of a single trial in the frequency domain (power spectral density).
+
+        The sampling frequency is taken from ``self.fs`` (set at construction time). When it is left at its default value of ``1`` the x-axis is labeled as a normalized frequency and the y-axis drops the ``/Hz`` unit.
 
         Parameters
         ----------
@@ -262,8 +281,6 @@ class EEG_Dataset(Dataset):
             The index of the trial to plot.
         idx_ch : int or str
             The channel to plot. It can be either the integer index of the channel or the channel name (in which case ``self.ch_list`` is used to retrieve the corresponding integer index).
-        fs : int, optional
-            The sampling frequency (in Hz) of the signal. Default is ``1`` (normalized frequency). When the default value is kept the x-axis is labeled as a normalized frequency and the y-axis drops the ``/Hz`` unit.
         plot_config : dict, optional
             The plot configuration. See :func:`~jade.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
         freq_config : dict, optional
@@ -283,7 +300,7 @@ class EEG_Dataset(Dataset):
 
         # Create the figure and draw the frequency spectrum.
         fig, ax = plt.subplots(1, 1, figsize = plot_config['figsize'])
-        self._plot_freq_on_ax(ax, idx_sample, idx_ch_int, fs = fs, plot_config = plot_config, freq_config = freq_config)
+        self._plot_freq_on_ax(ax, idx_sample, idx_ch_int, plot_config = plot_config, freq_config = freq_config)
 
         # Add the title (if requested) and save the figure (if requested).
         if plot_config['add_title'] :
@@ -293,9 +310,11 @@ class EEG_Dataset(Dataset):
 
         return fig, ax
 
-    def plot_trial_time_and_freq(self, idx_sample : int, idx_ch, fs : int = 1, plot_config : dict = None, freq_config : dict = None) :
+    def plot_trial_time_and_freq(self, idx_sample : int, idx_ch, plot_config : dict = None, freq_config : dict = None) :
         """
         Plot a single channel of a single trial in both the time and the frequency domain, side by side in a 1 x 2 layout.
+
+        The sampling frequency is taken from ``self.fs`` (set at construction time) and used both for the time axis (samples to ms conversion) and for the frequency axis. See :meth:`plot_trial_freq` for the behavior when it is left at its default value.
 
         Parameters
         ----------
@@ -303,8 +322,6 @@ class EEG_Dataset(Dataset):
             The index of the trial to plot.
         idx_ch : int or str
             The channel to plot. It can be either the integer index of the channel or the channel name (in which case ``self.ch_list`` is used to retrieve the corresponding integer index).
-        fs : int, optional
-            The sampling frequency (in Hz) of the signal. Default is ``1`` (normalized frequency). It is used both for the time axis (samples to ms conversion) and for the frequency axis. See :meth:`plot_trial_freq` for the behavior when the default value is kept.
         plot_config : dict, optional
             The plot configuration. See :func:`~jade.dataset.dataset_time.check_plot_config` for the list of the accepted keys and their default value.
         freq_config : dict, optional
@@ -324,8 +341,8 @@ class EEG_Dataset(Dataset):
 
         # Create the 1 x 2 figure and draw the two domains (the frequency plot uses the sampling frequency also on the time axis).
         fig, axs = plt.subplots(1, 2, figsize = plot_config['figsize'])
-        self._plot_time_on_ax(axs[0], idx_sample, idx_ch_int, fs = fs, plot_config = plot_config)
-        self._plot_freq_on_ax(axs[1], idx_sample, idx_ch_int, fs = fs, plot_config = plot_config, freq_config = freq_config)
+        self._plot_time_on_ax(axs[0], idx_sample, idx_ch_int, plot_config = plot_config)
+        self._plot_freq_on_ax(axs[1], idx_sample, idx_ch_int, plot_config = plot_config, freq_config = freq_config)
 
         # Add a single title for the whole figure (if requested) and save it (if requested).
         if plot_config['add_title'] :
@@ -369,9 +386,11 @@ class EEG_Dataset(Dataset):
             ch_label = self.ch_list[idx_ch_int] if self.ch_list is not None else idx_ch_int
             return idx_ch_int, ch_label
 
-    def _plot_time_on_ax(self, ax, idx_sample : int, idx_ch_int : int, fs : int, plot_config : dict) :
+    def _plot_time_on_ax(self, ax, idx_sample : int, idx_ch_int : int, plot_config : dict) :
         """
         Draw the time domain signal of a single channel of a single trial on a given axis.
+
+        The sampling frequency (used to convert the sample index into ms) is read from ``self.fs``.
 
         Parameters
         ----------
@@ -381,15 +400,13 @@ class EEG_Dataset(Dataset):
             The index of the trial.
         idx_ch_int : int
             The integer index of the channel.
-        fs : int
-            The sampling frequency, used to convert the sample index into ms.
         plot_config : dict
             The (already checked) plot configuration.
         """
 
         # Extract the signal (self.data has shape [Trials x 1 x channels x time samples]) and build the time axis in ms.
         signal = self.data[idx_sample, 0, idx_ch_int].detach().cpu().numpy()
-        time_axis_ms = np.arange(signal.shape[0]) / fs * 1000
+        time_axis_ms = np.arange(signal.shape[0]) / self.fs * 1000
 
         # Draw the signal.
         ax.plot(time_axis_ms, signal, color = plot_config['color'], linewidth = plot_config['linewidth'])
@@ -402,9 +419,11 @@ class EEG_Dataset(Dataset):
         if plot_config['y_lim'] is not None : ax.set_ylim(plot_config['y_lim'])
         ax.tick_params(labelsize = plot_config['fontsize'])
 
-    def _plot_freq_on_ax(self, ax, idx_sample : int, idx_ch_int : int, fs : int, plot_config : dict, freq_config : dict) :
+    def _plot_freq_on_ax(self, ax, idx_sample : int, idx_ch_int : int, plot_config : dict, freq_config : dict) :
         """
         Draw the frequency domain (power spectral density) of a single channel of a single trial on a given axis.
+
+        The sampling frequency is read from ``self.fs``. When it is left at the default value of 1 the axis are labeled as normalized.
 
         Parameters
         ----------
@@ -414,8 +433,6 @@ class EEG_Dataset(Dataset):
             The index of the trial.
         idx_ch_int : int
             The integer index of the channel.
-        fs : int
-            The sampling frequency. When it is left at the default value of 1 the axis are labeled as normalized.
         plot_config : dict
             The (already checked) plot configuration.
         freq_config : dict
@@ -424,13 +441,13 @@ class EEG_Dataset(Dataset):
 
         # Extract the signal and estimate its power spectral density.
         signal = self.data[idx_sample, 0, idx_ch_int].detach().cpu().numpy()
-        freqs, psd = compute_frequency_spectrum(signal, fs = fs, freq_config = freq_config)
+        freqs, psd = compute_frequency_spectrum(signal, fs = self.fs, freq_config = freq_config)
 
         # Draw the spectrum.
         ax.plot(freqs, psd, color = plot_config['color'], linewidth = plot_config['linewidth'])
 
-        # The unit of the axis depends on whether the sampling frequency was actually specified (fs != 1).
-        if fs != 1 :
+        # The unit of the axis depends on whether the sampling frequency was actually specified (self.fs != 1).
+        if self.fs != 1 :
             ax.set_xlabel("Frequency [Hz]", fontsize = plot_config['fontsize'])
             ax.set_ylabel(r"PSD [$\mu V^2 / Hz$]", fontsize = plot_config['fontsize'])
         else :
