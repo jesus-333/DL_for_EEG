@@ -54,7 +54,7 @@ The **model** config is *not* nested in `training_config`: `train` takes it as a
 
 Library best-practice: **no `print`**. Each module owns `logger = logging.getLogger(__name__)`, and the package `__init__` attaches a `logging.NullHandler` to the `jade.training` logger so importing never forces logging config on the user. Per-epoch summaries are emitted at INFO level, gated by `training_config.print_var`. `logging`'s lazy `%`-formatting is used throughout (`logger.info("... %s", value)`).
 
-For users who do not want to set up their own logger, [`logging_utils.setup_logging(level=logging.INFO, logfile=None)`](logging_utils.md) is an **opt-in** convenience: it configures the root logger with a `stdout` handler (and an optional file handler), a readable `asctime | level | name | message` format, and `force=True` so it can be re-called in a notebook without stacking duplicate handlers. It is torch-free (stdlib only).
+For users who do not want to set up their own logger, [`logging_utils.setup_logging(level=logging.INFO, logfile=None, format=None, datefmt=None)`](logging_utils.md) is an **opt-in** convenience: it configures the root logger with a `stdout` handler (and an optional file handler), a readable `asctime | level | name | message` format (overridable via `format`/`datefmt`, which default to `DEFAULT_LOG_FORMAT`/`DEFAULT_DATE_FORMAT` when left `None`), and `force=True` so it can be re-called in a notebook without stacking duplicate handlers. It is torch-free (stdlib only).
 
 ## Device handling
 

@@ -27,9 +27,16 @@ import sys
 from typing import Optional
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Module constants
+
+# Default log record format and date format, used by setup_logging when the caller does not provide their own.
+DEFAULT_LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Logging setup
 
-def setup_logging(level : int = logging.INFO, logfile : Optional[str] = None) -> None :
+def setup_logging(level : int = logging.INFO, logfile : Optional[str] = None, format : Optional[str] = None, datefmt : Optional[str] = None) -> None :
     """
     Configure the root logger with a console handler (and, optionally, a file handler).
 
@@ -45,7 +52,20 @@ def setup_logging(level : int = logging.INFO, logfile : Optional[str] = None) ->
         Path to a file where the logs are written too.
         ``None`` (the default) logs only to the console (``stdout``).
         When a path is given, its parent directory is created if it does not exist yet.
+    format : str or None, default None
+        The log record format string (see :class:`logging.Formatter`).
+        ``None`` (the default) uses :data:`DEFAULT_LOG_FORMAT` (``"%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"``).
+    datefmt : str or None, default None
+        The date/time format string used by ``%(asctime)s`` (see :func:`time.strftime`).
+        ``None`` (the default) uses :data:`DEFAULT_DATE_FORMAT` (``"%Y-%m-%d %H:%M:%S"``).
     """
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Resolve the (optional) format strings
+
+    # When the caller does not pass a format, fall back to the package defaults.
+    if format is None : format = DEFAULT_LOG_FORMAT
+    if datefmt is None : datefmt = DEFAULT_DATE_FORMAT
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Build the handlers
@@ -65,8 +85,8 @@ def setup_logging(level : int = logging.INFO, logfile : Optional[str] = None) ->
     # force = True removes any handler already attached to the root logger, so re-calling this function (e.g. in a notebook) does not stack duplicate handlers.
     logging.basicConfig(
         level    = level,
-        format   = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt  = "%Y-%m-%d %H:%M:%S",
+        format   = format,
+        datefmt  = datefmt,
         handlers = handlers,
         force    = True,
     )
