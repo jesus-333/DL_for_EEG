@@ -1,0 +1,11 @@
+# CosineAnnealingWarmRestarts scheduler (torch.optim.lr_scheduler.CosineAnnealingWarmRestarts):
+# cosine decay with periodic warm restarts.
+# Copy this [lr_scheduler] table into training.toml to use it.
+[lr_scheduler]
+name = "cosine_annealing_warm_restarts"
+# Number of iterations (epochs) until the first restart.
+T_0 = 10
+# Factor by which the restart period grows after each restart (T_i = T_{i-1} * T_mult).
+T_mult = 1
+# Minimum learning rate.
+eta_min = 0.0

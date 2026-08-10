@@ -1,0 +1,74 @@
+# =====================================================================
+# Default EEGNet model configuration (jade.config.model.EEGNet_config)
+# =====================================================================
+# Skeleton config for EEGNet / EEGNet_Classifier. The default values follow a
+# BCI IV-2a style setup (22 channels, 1000 time samples, 4 classes); edit them
+# to match your data. Load it with: EEGNet_config.from_toml("EEGNet.toml").
+
+# Which model to build: "eegnet" (feature extractor) or "eegnet_classifier" (extractor + head).
+name = "eegnet_classifier"
+
+# Convolutional layers use a bias term.
+use_bias = false
+# Number of spatial filters learned per temporal filter (total spatial filters = D * filter_1).
+D = 2
+# Activation function: "relu", "elu", "selu" or "gelu".
+activation = "elu"
+# Dropout probability, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = false
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# Number of temporal filters (first convolution).
+filter_1 = 8
+# Temporal convolution kernel (height, width) = (1, time).
+c_kernel_1 = [1, 64]
+# Spatial (depthwise) convolution kernel, usually (C, 1).
+c_kernel_2 = [22, 1]
+
+# Number of filters of the separable convolution (pointwise output).
+filter_2 = 16
+# Depthwise convolution kernel of the separable block.
+c_kernel_3 = [1, 16]
+
+# Flatten the (plain) EEGNet output to (batch, n_features). Ignored by the classifier.
+flatten_output = false
+
+# --- Classifier head (used only when name = "eegnet_classifier") ---
+# Shape (batch, depth, channels, time) of a dummy input used to size the feedforward layer.
+input_size = [1, 1, 22, 1000]
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+use_softmax = true
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the two pooling stages) ---
+# Replaces the old p_kernel_1 / p_kernel_2. Each stage is configured independently.
+[pooling]
+# Pooling operator per stage:
+#   "default"              -> classic EEGNet nn.AvgPool2d (average pooling along time only);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise.
+pooling_type_1 = "default"
+pooling_type_2 = "default"
+# Decimation factor M per stage: the number of time samples becomes T / M.
+# A negative value disables that pooling stage (a warning is printed when the config is built).
+pooling_factor_1 = 4
+pooling_factor_2 = 8
+
+# Optional type-specific parameters for each stage (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params_1]
+# wavelet = "db4"
+# [pooling.params_2]
+# cutoff_scale = 0.9

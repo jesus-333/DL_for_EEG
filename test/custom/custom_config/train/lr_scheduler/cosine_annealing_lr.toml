@@ -1,0 +1,8 @@
+# CosineAnnealingLR scheduler (torch.optim.lr_scheduler.CosineAnnealingLR): cosine decay over T_max epochs.
+# Copy this [lr_scheduler] table into training.toml to use it.
+[lr_scheduler]
+name = "cosine_annealing_lr"
+# Maximum number of iterations (epochs) of the cosine schedule.
+T_max = 50
+# Minimum learning rate reached at the end of the schedule.
+eta_min = 0.0

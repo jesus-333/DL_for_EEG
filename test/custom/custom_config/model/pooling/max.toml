@@ -1,0 +1,8 @@
+# Max 1D pooling (nonlinear, un-anti-aliased reference).
+# jade.config.model.max_pooling_config -> jade.model.pooling_1d.max_pool_1d
+# The max operator has no FIR filter, so it has no padding/phase/gain options.
+pooling_type = "max"
+# Decimation factor M (the time axis is reduced by this factor).
+decimation_factor = 2
+# Use ceil instead of floor to compute the output length (see torch.nn.MaxPool1d).
+ceil_mode = false

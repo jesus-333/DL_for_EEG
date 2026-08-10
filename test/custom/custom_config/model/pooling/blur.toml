@@ -1,0 +1,19 @@
+# Blur 1D pooling (fixed heuristic kernel) - the 1D analogue of Zhang's BlurPool.
+# jade.config.model.blur_pooling_config -> jade.model.pooling_1d.blur_pool_1d
+pooling_type = "blur"
+# Decimation factor M (the time axis is reduced by this factor).
+decimation_factor = 2
+# Signal extension before filtering: "reflect", "replicate", "constant" or "circular".
+padding_mode = "reflect"
+# Which sample of each block of M is kept: "center", "first", or an int in [0, M).
+phase = "center"
+# Kernel normalization: "dc" (unit DC gain), "orthonormal" or "none".
+gain = "dc"
+# Warn at build time if the filter is worse than a plain boxcar of length M.
+warn_if_worse_than_boxcar = true
+# Fixed kernel family: "binomial", "gaussian" or "boxcar".
+kernel = "binomial"
+# Kernel length L. Leave commented to let the layer use its default (4 * M + 1, which scales with M).
+# kernel_size = 9
+# Standard deviation of the Gaussian kernel (only used when kernel = "gaussian"). Default: kernel_size / 6.
+# sigma = 1.5
