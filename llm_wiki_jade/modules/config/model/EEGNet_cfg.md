@@ -32,7 +32,7 @@ Defines `EEGNet_config`, the validated dataclass consumed by [`EEGNet` and `EEGN
 | `flatten_output` | bool | `False` | Flatten the plain-EEGNet output (ignored by the classifier). |
 | `input_size` | tuple | `(1, 1, 22, 1000)` | `(batch, depth, C, T)` dummy input to size the classifier head. |
 | `n_classes` | int | `4` | Classifier output classes. |
-| `use_softmax` | bool | `True` | `True` → `LogSoftmax` head (log-probs, pair with `nll`); `False` → `Identity` head (logits, pair with `cross_entropy`). |
+| `use_softmax` | bool | `False` | `False` (default) → `Identity` head (raw logits, pair with `cross_entropy` — the numerically more stable default and the recommended default for any classifier); `True` → `LogSoftmax` head (log-probs, pair with `nll`). |
 | `print_var` | bool | `False` | Print param counts / shape tracking at build time. |
 | `pooling` | `eegnet_pooling_config` | `eegnet_pooling_config()` | The two pooling stages (the `[pooling]` section). **Replaces** the old `p_kernel_1` / `p_kernel_2`. A dict is accepted and promoted. See below. |
 

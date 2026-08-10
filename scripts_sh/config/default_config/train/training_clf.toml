@@ -3,7 +3,7 @@
 # =====================================================================
 # This is a skeleton: every parameter is present with a reasonable value so it
 # is easy to see what can be tuned. Edit the values, do not treat them as tuned.
-# Load it with: training_config.from_toml("training.toml")
+# Load it with: training_config.from_toml("training_clf.toml")
 
 # Number of training epochs.
 epochs = 100

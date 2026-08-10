@@ -1,6 +1,6 @@
 # CosineAnnealingWarmRestarts scheduler (torch.optim.lr_scheduler.CosineAnnealingWarmRestarts):
 # cosine decay with periodic warm restarts.
-# Copy this [lr_scheduler] table into training.toml to use it.
+# Copy this [lr_scheduler] table into training_clf.toml to use it.
 [lr_scheduler]
 name = "cosine_annealing_warm_restarts"
 # Number of iterations (epochs) until the first restart.

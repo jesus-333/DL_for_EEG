@@ -248,9 +248,10 @@ class EEGNet_config(model_config) :
         Shape ``(batch, depth, C, T)`` of a dummy input used by :class:`~jade.model.EEGNet.EEGNet_Classifier` to size its feedforward layer.
     n_classes : int, default 4
         Number of output classes of the classifier head.
-    use_softmax : bool, default True
-        If True the classifier head ends with :class:`torch.nn.LogSoftmax` (log-probabilities, pair with an NLL loss);
-        if False it ends with :class:`torch.nn.Identity` (raw logits, pair with a cross-entropy loss).
+    use_softmax : bool, default False
+        If False (the default) the classifier head ends with :class:`torch.nn.Identity` (raw logits, pair with a cross-entropy loss);
+        if True it ends with :class:`torch.nn.LogSoftmax` (log-probabilities, pair with an NLL loss).
+        The default is False because raw logits combined with the (default) cross-entropy loss are numerically more stable for training; this is the recommended default for any classifier.
         See :func:`~jade.training.support_training.cross_check_config`.
     print_var : bool, default False
         If True print the parameter count (and, when ``input_size`` is given, the shape tracking) at build time.
@@ -282,7 +283,7 @@ class EEGNet_config(model_config) :
     # Classifier head
     input_size        : Tuple[int, int, int, int] = (1, 1, 22, 1000)
     n_classes         : int = 4
-    use_softmax       : bool = True
+    use_softmax       : bool = False
 
     # Misc
     print_var         : bool = False

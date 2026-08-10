@@ -1,5 +1,5 @@
 # ExponentialLR scheduler (torch.optim.lr_scheduler.ExponentialLR): lr is multiplied by gamma every epoch.
-# Copy this [lr_scheduler] table into training.toml to use it.
+# Copy this [lr_scheduler] table into training_clf.toml to use it.
 [lr_scheduler]
 name = "exponential_lr"
 # Multiplicative decay factor applied to the learning rate every epoch (0 < gamma <= 1).

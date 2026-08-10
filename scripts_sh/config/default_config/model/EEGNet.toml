@@ -48,7 +48,7 @@ input_size = [1, 1, 22, 1000]
 n_classes = 4
 # true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
 # false -> Identity head (raw logits, pair with the "cross_entropy" loss).
-use_softmax = true
+use_softmax = false
 
 # Print the parameter count / shape tracking at build time.
 print_var = false

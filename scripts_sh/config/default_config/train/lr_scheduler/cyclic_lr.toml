@@ -1,5 +1,5 @@
 # CyclicLR scheduler (torch.optim.lr_scheduler.CyclicLR): the lr cycles between base_lr and max_lr.
-# Copy this [lr_scheduler] table into training.toml to use it.
+# Copy this [lr_scheduler] table into training_clf.toml to use it.
 [lr_scheduler]
 name = "cyclic_lr"
 # Lower learning-rate boundary of the cycle.
