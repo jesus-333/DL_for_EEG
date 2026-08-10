@@ -1,5 +1,5 @@
 # StepLR scheduler (torch.optim.lr_scheduler.StepLR): lr is multiplied by gamma every step_size epochs.
-# Copy this [lr_scheduler] table into training.toml to use it.
+# Copy this [lr_scheduler] table into training_clf.toml to use it.
 [lr_scheduler]
 name = "step_lr"
 # Period (in epochs) between two decays.

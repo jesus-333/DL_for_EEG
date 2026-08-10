@@ -1,5 +1,5 @@
 # SGD optimizer (torch.optim.SGD).
-# Copy this [optimizer] table into training.toml to use SGD.
+# Copy this [optimizer] table into training_clf.toml to use SGD.
 [optimizer]
 name = "sgd"
 # Learning rate (must be > 0).
