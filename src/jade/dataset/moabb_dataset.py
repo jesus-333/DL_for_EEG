@@ -29,7 +29,8 @@ Configuration
     )
     train_set = get_dataset(config, dataset_type = "train")
 
-The filtering is applied by calling MNE's own routines (``Raw.filter`` for band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters carried by the ``filter_config`` - the same routines moabb uses; no custom filter is implemented here.
+The filtering is optional: when the ``dataset_config`` leaves it unspecified (``filter = None``, the default) no filter is applied and the raw signal is kept.
+When it is set, the filtering is applied by calling MNE's own routines (``Raw.filter`` for band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters carried by the ``filter_config`` - the same routines moabb uses; no custom filter is implemented here.
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -468,7 +469,7 @@ def get_dataset(
     Parameters
     ----------
     config : dataset_config or dict
-        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the filtering (nested ``filter_config``), the resampling, the normalization and the download folder.
+        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the optional filtering (nested ``filter_config``; ``None`` means no filtering), the resampling, the normalization and the download folder.
         A plain dict is accepted for convenience and promoted via ``dataset_config.from_dict``.
         If the requested data is not on disk it is downloaded automatically through :func:`~jade.dataset.moabb_dataset.download_dataset` (into ``config.dataset_folder`` when set, otherwise moabb's default location).
     dataset_type : {'train', 'test'}, default 'train'

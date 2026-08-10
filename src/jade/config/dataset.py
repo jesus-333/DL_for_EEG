@@ -4,11 +4,12 @@ Dataset configuration.
 :class:`~jade.config.dataset.dataset_config` gathers everything needed to download and preprocess a moabb dataset before it is wrapped into an :class:`~jade.dataset.dataset_time.EEG_Dataset`:
 
 * which dataset and which subject(s) to download,
-* the (band-pass / notch / ...) filtering, as a nested :class:`~jade.config.filter.filter_config`,
+* the (optional) (band-pass / notch / ...) filtering, as a nested :class:`~jade.config.filter.filter_config`,
 * optional resampling (a flag plus the target frequency),
 * the normalization scheme forwarded to :class:`~jade.dataset.dataset_time.EEG_Dataset`.
 
-Serialized to TOML the nested filter becomes its own ``[filter]`` section.
+The filtering is optional: when it is left unspecified (``filter = None``, the default) no filter is applied and the raw signal is kept.
+Serialized to TOML the nested filter becomes its own ``[filter]`` section (which is simply omitted when no filter is set).
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -17,7 +18,7 @@ Serialized to TOML the nested filter becomes its own ``[filter]`` section.
 from __future__ import annotations
 
 # Specific imports
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 # Internal imports
@@ -30,21 +31,6 @@ from jade.config.generic import generic_config
 # Normalization codes understood by jade.dataset.dataset_time.EEG_Dataset.
 # -1 = none, 1 = min-max over the whole dataset, 2 = per-trial per-channel, 3 = per-trial.
 NORMALIZE_CODES = (-1, 1, 2, 3)
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Helper functions
-
-def _default_filter() -> filter_config :
-    """
-    Build the default filter (a sensible band-pass close to moabb's motor-imagery default of 7-35 Hz).
-
-    Returns
-    -------
-    filter_config
-        An 8-32 Hz band-pass filter config.
-    """
-
-    return filter_config(filter_type = "bandpass", l_freq = 8.0, h_freq = 32.0)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Dataset config class
@@ -61,8 +47,10 @@ class dataset_config(generic_config) :
     subjects : list of int or None, default None
         Subjects to download. ``None`` means every subject of the dataset.
         Each entry must be a positive integer.
-    filter : filter_config
-        Filtering to apply to the raw signal (nested config). Defaults to an 8-32 Hz band-pass.
+    filter : filter_config, dict or None, default None
+        Filtering to apply to the raw signal (nested config).
+        ``None`` (the default) means no filtering: the raw signal is kept as-is.
+        A dict is promoted to a :class:`~jade.config.filter.filter_config`; an empty dict is treated as ``None`` (no filtering).
     resample : bool, default False
         Whether to resample the signal after filtering.
     resample_freq : float or None, default None
@@ -76,7 +64,7 @@ class dataset_config(generic_config) :
 
     dataset_name   : str = ""
     subjects       : Optional[List[int]] = None
-    filter         : filter_config = field(default_factory = _default_filter)
+    filter         : Optional[filter_config] = None
     resample       : bool = False
     resample_freq  : Optional[float] = None
     normalize      : int = -1
@@ -107,13 +95,15 @@ class dataset_config(generic_config) :
             self.subjects = cleaned_subjects
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # Promote a dict filter to a filter_config
+        # Normalize the (optional) filter
 
-        # A dict coming from a TOML/JSON file is promoted to a filter_config so the nested config is always a proper dataclass instance.
+        # The filter is optional: when it is None no filter is applied and the raw signal is kept.
+        # A dict coming from a TOML/JSON file is promoted to a filter_config so the nested config is always a proper dataclass instance (or None).
+        # An empty dict carries no filter parameters, so it is treated as None (no filtering) too.
         if isinstance(self.filter, dict) :
-            self.filter = filter_config.from_dict(self.filter)
-        elif not isinstance(self.filter, filter_config) :
-            raise ValueError("filter must be a filter_config (or a dict), got {}".format(type(self.filter)))
+            self.filter = filter_config.from_dict(self.filter) if self.filter else None
+        elif self.filter is not None and not isinstance(self.filter, filter_config) :
+            raise ValueError("filter must be a filter_config, a dict or None, got {}".format(type(self.filter)))
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Check resampling and normalization

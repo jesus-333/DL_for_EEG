@@ -2,7 +2,7 @@
 
 Source: `src/jade/dataset/moabb_dataset.py`
 
-Turns the EEG datasets bundled with [`moabb`](https://moabb.neurotechx.com/) into `torch`-ready [`EEG_Dataset`](./dataset_time.md) objects: download → preprocess (MNE filter + resample) → epoch → wrap. Two public functions (`download_dataset`, `get_dataset`) plus internal helpers. `moabb`/`mne` are optional (the `dataset` extra) and imported lazily inside the functions that need them.
+Turns the EEG datasets bundled with [`moabb`](https://moabb.neurotechx.com/) into `torch`-ready [`EEG_Dataset`](./dataset_time.md) objects: download → preprocess (optional MNE filter + optional resample) → epoch → wrap. Two public functions (`download_dataset`, `get_dataset`) plus internal helpers. `moabb`/`mne` are optional (the `dataset` extra) and imported lazily inside the functions that need them.
 
 ## Public API
 ```python
@@ -15,7 +15,7 @@ Both are re-exported lazily from the package via `__init__.__getattr__` (see [`_
 - Third-party eager: `numpy`, `warnings`.
 - `moabb`/`mne`: imported **only** through `_import_moabb_mne()`.
 
-`get_dataset` is driven by a `dataset_config`, which declares the dataset name, subject(s), filtering (a nested `filter_config`), resampling, and normalization. No custom DSP is implemented here — filtering/resampling/epoching all call MNE's own routines (the same ones moabb uses).
+`get_dataset` is driven by a `dataset_config`, which declares the dataset name, subject(s), the **optional** filtering (a nested `filter_config`; `None` = no filtering, the raw signal is kept), resampling, and normalization. No custom DSP is implemented here — filtering/resampling/epoching all call MNE's own routines (the same ones moabb uses).
 
 ---
 
@@ -104,10 +104,10 @@ Note: the actual filter *kind* is inferred by MNE from `l_freq`/`h_freq` (band-p
 ### `_apply_preprocess(raw, config : dataset_config) -> raw`
 Full preprocessing of one `Raw`, **in place**:
 1. `raw.load_data(verbose=False)` (filtering/resampling need data in memory).
-2. If `config.filter is not None` → `_apply_filter`.
+2. If `config.filter is not None` → `_apply_filter`. When no filter is set (`config.filter is None`, the default) this step is skipped entirely and the raw signal is kept unfiltered.
 3. If `config.resample` → `raw.resample(sfreq=float(config.resample_freq), verbose=False)`.
 
-Resampling runs **last**, so it acts on the already band-limited signal.
+Both steps are optional and independent: an unspecified filter leaves the signal unfiltered; resampling runs **last**, so when a filter *is* set it acts on the already band-limited signal.
 
 ### `_epoch_raw(raw, dataset, mne) -> (X, labels, ch_names)`
 Cuts a preprocessed `Raw` into trials, mirroring moabb's event logic.
@@ -127,7 +127,7 @@ The one-call pipeline: config → ready `EEG_Dataset`.
 
 | Param | Type | Meaning | Default |
 |-------|------|---------|---------|
-| `config` | `dataset_config` **or** `dict` | dataset name, subject(s), filtering (nested `filter_config`), resampling, normalization, and `dataset_folder`. A dict is promoted via `dataset_config.from_dict`. | required |
+| `config` | `dataset_config` **or** `dict` | dataset name, subject(s), optional filtering (nested `filter_config`; `None` = no filtering), resampling, normalization, and `dataset_folder`. A dict is promoted via `dataset_config.from_dict`. | required |
 | `dataset_type` | `{'train', 'test'}` | which split to return. | `"train"` |
 
 **Returns** an [`EEG_Dataset`](./dataset_time.md) with trials of shape **`[n_trials, 1, n_channels, n_times]`** (`float32`), integer labels, and channel names attached (`.ch_list`).

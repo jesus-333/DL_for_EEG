@@ -9,7 +9,7 @@ Compact table of contents for the `config` module. Start with the [module quicks
 | `__init__.py` | [__init__.md](__init__.md) | Package aggregator: re-exports every config, registry and factory; declares `__all__`. |
 | `generic.py` | [generic.md](generic.md) | `generic_config` base class + (de)serialization helpers (`to_dict`/`from_dict`/`to_toml`/`from_toml`/`to_json`/`from_json`) and private helpers. |
 | `filter.py` | [filter.md](filter.md) | `filter_config`: parameters of one moabb/MNE filtering operation (bandpass/bandstop/lowpass/highpass/notch). |
-| `dataset.py` | [dataset.md](dataset.md) | `dataset_config`: moabb dataset download + preprocessing; holds a nested `filter_config`. |
+| `dataset.py` | [dataset.md](dataset.md) | `dataset_config`: moabb dataset download + preprocessing; holds an optional nested `filter_config` (`None` = no filtering). |
 | `dataloader.py` | [dataloader.md](dataloader.md) | `dataloader_config`: parameters forwarded to `torch.utils.data.DataLoader` (no `batch_size`). |
 | `wandb_training.py` | [wandb_training.md](wandb_training.md) | `wandb_training_config`: Weights & Biases logging parameters. |
 | `training.py` | [training.md](training.md) | `training_config`: training hyper-parameters; holds the nested optimizer/scheduler/loss/dataloader/wandb configs. |

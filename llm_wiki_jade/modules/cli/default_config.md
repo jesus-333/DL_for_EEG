@@ -36,10 +36,10 @@ model/
   EEGNet.toml                   # from EEGNet_config() defaults
   pooling/{avg,blur,sinc,dwt,max}.toml
 dataset/
-  dataset.toml                  # dataset_config incl. its [filter] section
+  dataset.toml                  # dataset_config incl. its (optional) [filter] section
 ```
 
-Multi-choice sections (optimizer / lr_scheduler / loss) get one file per option; the main `training.toml` carries a filled-in default section plus a comment pointing at the alternatives. Each file's values track the corresponding config's defaults, and every shipped TOML round-trips through the matching `from_toml`.
+Multi-choice sections (optimizer / lr_scheduler / loss) get one file per option; the main `training.toml` carries a filled-in default section plus a comment pointing at the alternatives. Each file's values track the corresponding config's defaults, and every shipped TOML round-trips through the matching `from_toml`. One deliberate exception: `dataset.toml` keeps a filled-in `[filter]` section (an 8–32 Hz band-pass) as a ready-to-edit reference even though `dataset_config.filter` now defaults to `None` (no filtering) — the section is explicitly marked **optional** in a comment, so removing/commenting it out keeps the raw data.
 
 ## Packaging note
 

@@ -39,7 +39,7 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
 |---|---|---|---|
 | **cli** | Thin command-line interface: exposes existing `jade` functionality as console scripts (declared in `[project.scripts]`). Entry points do argparse only and delegate to thematic implementation files; adds no new behavior. | [modules/cli/0_module_quickstart.md](modules/cli/0_module_quickstart.md) | `download-dataset-moabb` → `download_dataset_moabb` (wraps `jade.dataset.download_dataset`); `create-default-config` → `default_config` (copies the skeleton TOML tree) |
 | **config** | Validated, (de)serializable dataclasses that *describe* a run (dataset, optimizer, scheduler, loss, dataloader, wandb, training, **and now models**). Data + validation only; imports no torch/moabb/mne/wandb. | [modules/config/0_module_quickstart.md](modules/config/0_module_quickstart.md) | `training_config`, `dataset_config`, `filter_config`, `dataloader_config`, `wandb_training_config`; `*_config` families + `get_optimizer_config` / `get_lr_scheduler_config` / `get_loss_config` / `get_model_config` / `get_pooling_config` + registries (incl. `model/`: `EEGNet_config`, the pooling config family) |
-| **dataset** | Data management: download public EEG (moabb), preprocess/filter/epoch (MNE), wrap as torch `Dataset`, plus time/freq inspection plots. | [modules/dataset/0_module_quickstart.md](modules/dataset/0_module_quickstart.md) | `EEG_Dataset`, `EEG_Dataset_ChWi`; `download_dataset`, `get_dataset` (lazy moabb/mne) |
+| **dataset** | Data management: download public EEG (moabb), preprocess (optional filter + resample) / epoch (MNE), wrap as torch `Dataset`, plus time/freq inspection plots. | [modules/dataset/0_module_quickstart.md](modules/dataset/0_module_quickstart.md) | `EEG_Dataset`, `EEG_Dataset_ChWi`; `download_dataset`, `get_dataset` (lazy moabb/mne) |
 | **model** | torch EEG models (EEGNet family) **plus** a self-contained research subpackage on anti-aliased 1D pooling. | [modules/model/0_module_quickstart.md](modules/model/0_module_quickstart.md) | `get_model` / `MODEL_REGISTRY` (now config-instance driven); `EEGNet`, `EEGNet_Classifier` (consume an `EEGNet_config`); `pooling_1d` (`get_pooling_layer`, avg/blur/max/sinc/dwt) |
 | **training** | Config-driven orchestration of the training loop (classification only, for now); metrics; optional wandb run + model artifact. | [modules/training/0_module_quickstart.md](modules/training/0_module_quickstart.md) | `train` (builds the model from a `model_config`), `train_model` (trains a prebuilt model), `wandb_train`; `train_epoch_function`, `validation_epoch_function`; `test`; `support_training` (incl. `cross_check_config`), `metrics` |
 
@@ -51,10 +51,10 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
         │ (dataclasses)│                            │ below reads it │
         └──────────────┘                            └───────────────┘
                 │                                            │
-   dataset_config (+ filter_config)      training_config                 model_config
+   dataset_config (+ optional filter_config)   training_config             model_config
                 │                    (+ optimizer/scheduler/loss/dataloader/wandb)  (e.g. EEGNet_config)
                 ▼                                            │                            │
-     jade.dataset: download → filter/epoch (MNE)            │                            │
+     jade.dataset: download → optional filter/epoch (MNE)   │                            │
                 → EEG_Dataset  [trials, 1, channels, time]  │        jade.model.get_model(model_config) ─▶ nn.Module
                 │                                            │                            │  (e.g. EEGNet_Classifier)
                 └──────────────┐              ┌─────────────┴──────────────┬─────────────┘

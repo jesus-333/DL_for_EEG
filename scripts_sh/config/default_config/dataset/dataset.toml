@@ -23,6 +23,9 @@ normalize = -1
 # ---------------------------------------------------------------------
 # Filtering (MNE), applied at preprocessing time
 # ---------------------------------------------------------------------
+# This whole [filter] section is OPTIONAL. Remove it (or comment it out) to keep the
+# raw data: when no filter is specified no filtering is applied (this is the default).
+# Leave it as-is to apply the band-pass described below.
 [filter]
 # Filter type: "bandpass", "bandstop", "lowpass", "highpass" or "notch".
 filter_type = "bandpass"
