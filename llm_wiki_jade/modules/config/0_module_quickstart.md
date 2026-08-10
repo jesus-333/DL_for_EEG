@@ -14,7 +14,7 @@ The whole module is data + validation only. It has **no runtime side effects** b
 config/
   generic.py          generic_config      -> base class: (de)serialization helpers
   filter.py           filter_config       -> moabb/MNE filtering parameters
-  dataset.py          dataset_config      -> dataset download + preprocessing (holds a filter_config)
+  dataset.py          dataset_config      -> dataset download + preprocessing (holds an optional filter_config)
   dataloader.py       dataloader_config   -> torch.utils.data.DataLoader parameters (NO batch_size)
   wandb_training.py   wandb_training_config -> wandb logging parameters
   training.py         training_config     -> training hyper-params (holds optimizer/scheduler/loss/dataloader/wandb)
@@ -52,7 +52,7 @@ Concrete subclasses **freeze** their `name` in `__post_init__`, so a config alwa
 ### 3. Nested configs compose, and dicts are promoted
 Configs hold other configs as fields:
 
-- `dataset_config.filter` → a `filter_config`
+- `dataset_config.filter` → a `filter_config` (optional; `None` = no filtering)
 - `training_config.{optimizer, lr_scheduler, loss, dataloader, wandb}` → the respective configs
 
 (The **model** config is not nested in `training_config`: `jade.training.train` takes `model_config` as a separate argument, so a model config lives on its own.)
@@ -78,7 +78,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 ## Key relationships between the configs
 
 - `training_config` is the **root** for a training run. `batch_size` lives here (not in `dataloader_config`) because it is shared by every loader. Defaults: `optimizer = adam_config()`, `loss = cross_entropy_config()`, `dataloader = dataloader_config()`, `lr_scheduler = None`, `wandb = None`.
-- `dataset_config` is the **root** for data preparation; its default `filter` is an 8–32 Hz band-pass (motor-imagery style).
+- `dataset_config` is the **root** for data preparation; `filter` is **optional** and defaults to `None`, i.e. no filtering (the raw signal is kept). Set a `filter_config` (e.g. an 8–32 Hz band-pass, motor-imagery style) to enable filtering.
 - **Loss ↔ model coupling** (important gotcha): `cross_entropy_config` expects logits → pair with a model built `use_softmax = False`; `nll_config` expects log-probabilities → pair with `use_softmax = True`. Choosing the wrong one applies `log_softmax` twice or not at all.
 
 ## Dependencies
@@ -90,7 +90,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 
 | Config | Consumed by | Produces / drives |
 |---|---|---|
-| `dataset_config` (+`filter_config`) | `jade.dataset` (moabb download, MNE filtering, `EEG_Dataset`) | preprocessed EEG dataset |
+| `dataset_config` (+ optional `filter_config`) | `jade.dataset` (moabb download, optional MNE filtering, `EEG_Dataset`) | preprocessed EEG dataset |
 | `dataloader_config` | `jade.training.support_training.get_dataloader` | `torch.utils.data.DataLoader` |
 | `optimizer_config` family | `…support_training.get_optimizer` | `torch.optim.*` |
 | `lr_scheduler_config` family | `…support_training.get_lr_scheduler` | `torch.optim.lr_scheduler.*` |

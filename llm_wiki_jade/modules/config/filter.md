@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/filter.py`
 
-Defines `filter_config`, the parameters of **one** moabb/MNE filtering operation. moabb filters a raw signal via MNE's `Raw.filter` (band-pass by default, `method="iir"`, `picks="data"`) or `Raw.notch_filter`; this config mirrors those parameters. Used as the nested `filter` field of [`dataset_config`](dataset.md).
+Defines `filter_config`, the parameters of **one** moabb/MNE filtering operation. moabb filters a raw signal via MNE's `Raw.filter` (band-pass by default, `method="iir"`, `picks="data"`) or `Raw.notch_filter`; this config mirrors those parameters. Used as the **optional** nested `filter` field of [`dataset_config`](dataset.md) — a `dataset_config` may leave `filter = None` (its default) to skip filtering and keep the raw signal; a `filter_config` is only needed when filtering is wanted. This page describes the cutoffs required *within* one filtering operation (e.g. a band-pass needs `l_freq`/`h_freq`), which is separate from whether a `dataset_config` sets a filter at all.
 
 ## Module constants
 
