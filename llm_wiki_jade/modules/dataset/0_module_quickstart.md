@@ -33,7 +33,7 @@ dataset_config  ──►  get_dataset(config, dataset_type)          [moabb_dat
                         ├─ _epoch_raw()        → mne.Epochs → X (trials, ch, time) + int labels + ch_names
                         └─ np.concatenate + add depth axis → X (trials, 1, ch, time)
                         ▼
-                   EEG_Dataset(X, labels, ch_list, normalize)    [dataset_time.py]
+                   EEG_Dataset(X, labels, ch_list, normalize, fs)    [dataset_time.py]
                         ▼
    jade.training.support_training.get_dataloader(dataset, ...) → torch DataLoader
                         ▼
@@ -101,6 +101,6 @@ These codes match `jade.config.dataset.NORMALIZE_CODES = (-1, 1, 2, 3)`.
 
 ## How `dataset` connects to the rest of `jade`
 
-- **`jade.config`** → drives it. `dataset_config` (which nests an optional `filter_config`; `None` = no filtering) is the single input object to `get_dataset`; `dataset_config.normalize` is forwarded straight to `EEG_Dataset`.
+- **`jade.config`** → drives it. `dataset_config` (which nests an optional `filter_config`; `None` = no filtering) is the single input object to `get_dataset`; `dataset_config.normalize` is forwarded straight to `EEG_Dataset`, and the sampling frequency (from the raw moabb data, or `resample_freq` when resampling) is forwarded to `EEG_Dataset.fs`.
 - **`jade.training`** → consumes it. `jade.training.support_training.get_dataloader(dataset, batch_size, …)` wraps any of these `Dataset` objects into a `torch` `DataLoader`; the classifier training loop then pulls `(data, label)` batches — exactly the tuple `EEG_Dataset.__getitem__` yields.
 - **`jade.model`** → the shapes here are chosen for it: the depth-1 axis feeds `Conv2d` models (e.g. `EEGNet`), and the ChWi flattening feeds the channel-wise autoencoder.

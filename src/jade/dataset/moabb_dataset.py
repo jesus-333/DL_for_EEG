@@ -6,7 +6,7 @@ This module turns the EEG datasets bundled with moabb into ``torch``-ready datas
 It exposes two public functions:
 
 * :func:`~jade.dataset.moabb_dataset.download_dataset` - download the raw recordings of a moabb dataset (all subjects, or a specific subset).
-* :func:`~jade.dataset.moabb_dataset.get_dataset` - load a moabb dataset, preprocess it (filtering + resampling through moabb/MNE's own routines), epoch it into trials and wrap it in an :class:`~jade.dataset.dataset_time.EEG_Dataset` (channel names included).
+* :func:`~jade.dataset.moabb_dataset.get_dataset` - load a moabb dataset, preprocess it (filtering + resampling through moabb/MNE's own routines), epoch it into trials and wrap it in an :class:`~jade.dataset.dataset_time.EEG_Dataset` (channel names and sampling frequency included).
   If the data is not on disk yet it is downloaded automatically via :func:`~jade.dataset.moabb_dataset.download_dataset`.
 
 ``moabb`` and ``mne`` are heavy, optional dependencies (declared in the ``dataset`` extra of ``pyproject.toml``).
@@ -479,7 +479,8 @@ def get_dataset(
     Returns
     -------
     EEG_Dataset
-        Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels and the EEG channel names attached (``.ch_list``).
+        Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels, the EEG channel names attached (``.ch_list``) and the sampling frequency attached (``.fs``).
+        The sampling frequency is the one read from the raw moabb recordings, or ``config.resample_freq`` when resampling is enabled.
     """
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -515,12 +516,20 @@ def get_dataset(
     x_all, y_all = [], []
     ch_list = None
 
+    # Sampling frequency of the recordings, read from the raw moabb data (before any resampling).
+    # moabb/MNE store it in raw.info["sfreq"] and it is the same across the runs of a dataset, so the first recording is enough.
+    sampling_freq = None
+
     for subject in subject_list :
         sessions = data[subject]
         selected = _select_sessions(list(sessions.keys()), dataset_type)
 
         for session_name in selected :
             for _run_name, raw in sessions[session_name].items() :
+                # Capture the original sampling frequency before preprocessing (resampling would change it).
+                if sampling_freq is None :
+                    sampling_freq = float(raw.info["sfreq"])
+
                 raw = _apply_preprocess(raw, config)
                 x, labels, ch_names = _epoch_raw(raw, dataset, mne)
                 if x.shape[0] == 0 :
@@ -553,4 +562,8 @@ def get_dataset(
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
     x = x[:, np.newaxis, :, :]
 
-    return EEG_Dataset(x, labels, ch_list, normalize = config.normalize)
+    # The sampling frequency stored in the dataset must match the returned signal.
+    # If the data was resampled, the user-provided resample_freq replaces the original moabb sampling frequency.
+    fs = float(config.resample_freq) if config.resample else sampling_freq
+
+    return EEG_Dataset(x, labels, ch_list, normalize = config.normalize, fs = fs)

@@ -130,13 +130,13 @@ The one-call pipeline: config → ready `EEG_Dataset`.
 | `config` | `dataset_config` **or** `dict` | dataset name, subject(s), optional filtering (nested `filter_config`; `None` = no filtering), resampling, normalization, and `dataset_folder`. A dict is promoted via `dataset_config.from_dict`. | required |
 | `dataset_type` | `{'train', 'test'}` | which split to return. | `"train"` |
 
-**Returns** an [`EEG_Dataset`](./dataset_time.md) with trials of shape **`[n_trials, 1, n_channels, n_times]`** (`float32`), integer labels, and channel names attached (`.ch_list`).
+**Returns** an [`EEG_Dataset`](./dataset_time.md) with trials of shape **`[n_trials, 1, n_channels, n_times]`** (`float32`), integer labels, channel names attached (`.ch_list`), and the sampling frequency attached (`.fs`).
 
 ### Pipeline steps
 1. **Input check:** dict → `dataset_config.from_dict`; else must be a `dataset_config` (`TypeError` otherwise). `dataset_type` lowercased and validated to `train`/`test` (`ValueError` otherwise). `_import_moabb_mne()` (fails early with the install hint if the extra is missing).
 2. **Download + load:** `download_dataset(config.dataset_name, config.subjects, config.dataset_folder)` (idempotent; also yields the dataset object; `config.dataset_folder` redirects the download/look-up directory when set). `dataset.get_data(subjects=...)` → nested dict `{subject: {session: {run: Raw}}}`.
-3. **Per-recording preprocess + epoch:** for each subject → `_select_sessions` → for each selected session/run → `_apply_preprocess` then `_epoch_raw`. Empty-epoch recordings (`X.shape[0] == 0`) are skipped. Channel names from the first recording are kept; a mismatch across recordings emits a `RuntimeWarning` (keeps the first set).
-4. **Assemble:** if nothing was extracted → `RuntimeError`. Else `np.concatenate` all `X` (`float32`) and labels (`int64`), add the depth-1 axis `X = X[:, np.newaxis, :, :]` → `[trials, 1, channels, time]`, and return `EEG_Dataset(X, labels, ch_list, normalize=config.normalize)`.
+3. **Per-recording preprocess + epoch:** for each subject → `_select_sessions` → for each selected session/run → `_apply_preprocess` then `_epoch_raw`. The **original sampling frequency** is captured once from the first recording (`raw.info["sfreq"]`) *before* preprocessing. Empty-epoch recordings (`X.shape[0] == 0`) are skipped. Channel names from the first recording are kept; a mismatch across recordings emits a `RuntimeWarning` (keeps the first set).
+4. **Assemble:** if nothing was extracted → `RuntimeError`. Else `np.concatenate` all `X` (`float32`) and labels (`int64`), add the depth-1 axis `X = X[:, np.newaxis, :, :]` → `[trials, 1, channels, time]`. The sampling frequency for the dataset is `float(config.resample_freq)` when resampling is enabled, otherwise the captured original one; then `EEG_Dataset(X, labels, ch_list, normalize=config.normalize, fs=fs)` is returned.
 
 ### Side effects
 - May download data to disk (via `download_dataset`).
@@ -152,5 +152,6 @@ The one-call pipeline: config → ready `EEG_Dataset`.
 
 ### Connection notes
 - `config.normalize` flows straight into `EEG_Dataset`'s `normalize` argument (codes `-1/1/2/3`; see [`dataset_time.md`](./dataset_time.md)).
+- The sampling frequency is forwarded into `EEG_Dataset`'s `fs` argument, so the returned dataset knows its own `fs` (used by the plot methods). It is `config.resample_freq` when resampling, else the original moabb sampling frequency.
 - The `[trials, 1, channels, time]` shape is chosen for `Conv2d` models in `jade.model`.
 - The returned dataset is meant to be handed to `jade.training.support_training.get_dataloader`.
