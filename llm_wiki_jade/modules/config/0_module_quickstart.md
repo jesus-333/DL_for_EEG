@@ -30,13 +30,14 @@ Everything is re-exported from `jade.config.__init__`, so the flat public API is
 ## The three big design decisions
 
 ### 1. One base class with (de)serialization: `generic_config`
-Every config inherits (directly or transitively) from `generic_config` (a fieldless `@dataclass`). It provides six helpers, all recursive over nested configs:
+Every config inherits (directly or transitively) from `generic_config` (a fieldless `@dataclass`). It provides six (de)serialization helpers, all recursive over nested configs, plus a pretty multi-line `__str__`:
 
 | Method | Direction | Notes |
 |---|---|---|
 | `to_dict()` / `from_dict(data)` | dict ↔ config | `from_dict` ignores unknown keys (forward/backward compatible files); rebuilds nested configs into the proper subclass |
 | `to_toml(path)` / `from_toml(path)` | TOML file ↔ config | nested config → its own `[section]`; `None` fields are dropped on write (TOML has no null) and fall back to defaults on read; needs the optional `toml` package |
 | `to_json(path)` / `from_json(path)` | JSON file ↔ config | `indent=4` by default |
+| `__str__()` | config → str | pretty, human-readable printing: one parameter per line, aligned, nested configs indented one level further. Used by `print(config)`/`str(config)`; `repr(config)` stays the compact single line |
 
 Value **validation is per-subclass**, done in `__post_init__` (dataclasses call it automatically), which raises `ValueError` on bad values. A common idiom: `bool` is explicitly rejected wherever an `int` is expected (because `bool` subclasses `int`).
 
