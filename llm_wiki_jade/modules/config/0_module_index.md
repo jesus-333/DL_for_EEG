@@ -7,7 +7,7 @@ Compact table of contents for the `config` module. Start with the [module quicks
 | File | Page | One-line description |
 |---|---|---|
 | `__init__.py` | [__init__.md](__init__.md) | Package aggregator: re-exports every config, registry and factory; declares `__all__`. |
-| `generic.py` | [generic.md](generic.md) | `generic_config` base class + (de)serialization helpers (`to_dict`/`from_dict`/`to_toml`/`from_toml`/`to_json`/`from_json`) and private helpers. |
+| `generic.py` | [generic.md](generic.md) | `generic_config` base class + (de)serialization helpers (`to_dict`/`from_dict`/`to_toml`/`from_toml`/`to_json`/`from_json`), a pretty multi-line `__str__`, and private helpers. |
 | `filter.py` | [filter.md](filter.md) | `filter_config`: parameters of one moabb/MNE filtering operation (bandpass/bandstop/lowpass/highpass/notch). |
 | `dataset.py` | [dataset.md](dataset.md) | `dataset_config`: moabb dataset download + preprocessing; holds an optional nested `filter_config` (`None` = no filtering). |
 | `dataloader.py` | [dataloader.md](dataloader.md) | `dataloader_config`: parameters forwarded to `torch.utils.data.DataLoader` (no `batch_size`). |

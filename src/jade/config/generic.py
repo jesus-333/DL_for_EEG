@@ -255,3 +255,65 @@ class generic_config :
         with open(path, "r", encoding = "utf-8") as file_handler :
             data = json.load(file_handler)
         return cls.from_dict(data)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Pretty representation
+
+    def __str__(self) -> str :
+        """
+        Human-readable multi-line representation of the config.
+
+        Every parameter is printed on its own line, aligned under the class opening parenthesis, and a nested config (e.g. the ``filter`` of a :class:`~jade.config.dataset.dataset_config` or the ``pooling`` of a model config) is indented one level further, aligned under its own name.
+        This is what ``print(config)`` and ``str(config)`` show; the compact single-line ``repr(config)`` (the dataclass default) is intentionally left untouched.
+
+        Returns
+        -------
+        str
+            The formatted, multi-line representation of the config.
+        """
+
+        return self._pretty_str()
+
+
+    def _pretty_str(self, indent : int = 0) -> str :
+        """
+        Build the multi-line representation used by :meth:`__str__`, recursing into nested configs.
+
+        Each field is written as ``name=value`` on its own line; the fields (and every continuation line) are aligned to the column right after the opening parenthesis.
+        A nested :class:`~jade.config.generic.generic_config` is formatted recursively and aligned under its own name, so nested configs are indented one level further; every other value uses its plain :func:`repr`.
+
+        Parameters
+        ----------
+        indent : int, default 0
+            The column at which this config starts, i.e. the number of leading spaces already present on its first line.
+            It is used to align the fields of nested configs.
+
+        Returns
+        -------
+        str
+            The formatted representation.
+        """
+
+        # The class name followed by the opening parenthesis (e.g. "EEGNet_config(").
+        prefix = "{}(".format(type(self).__name__)
+
+        # Column where every field (and every continuation line) is aligned: right after the opening parenthesis.
+        field_indent = indent + len(prefix)
+        pad = " " * field_indent
+
+        # Format every field as "name=value". A nested config is recursed into (aligned under its own name), every other value uses its plain repr.
+        formatted_fields = []
+        for field in fields(self) :
+            value = getattr(self, field.name)
+            key = "{}=".format(field.name)
+
+            if isinstance(value, generic_config) :
+                formatted_value = value._pretty_str(field_indent + len(key))
+            else :
+                formatted_value = repr(value)
+
+            formatted_fields.append(key + formatted_value)
+
+        # Join the fields one per line, aligned under the first one.
+        separator = ",\n" + pad
+        return prefix + separator.join(formatted_fields) + ")"

@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/generic.py`
 
-Defines `generic_config`, the fieldless `@dataclass` base class that **every** config in `jade.config` inherits from (directly, or via the family bases `optimizer_config` / `lr_scheduler_config` / `loss_config`). It supplies the shared (de)serialization helpers and nothing else — field definitions and validation are left to subclasses.
+Defines `generic_config`, the fieldless `@dataclass` base class that **every** config in `jade.config` inherits from (directly, or via the family bases `optimizer_config` / `lr_scheduler_config` / `loss_config`). It supplies the shared (de)serialization helpers plus a human-readable multi-line `__str__`; field definitions and validation are left to subclasses.
 
 ## Module-level
 
@@ -28,7 +28,7 @@ Recursively removes `None` entries from dicts/lists. Used only by `to_toml`, bec
 
 ## Class `generic_config`
 
-`@dataclass` with **no fields**. Provides three symmetric (de)serialization pairs.
+`@dataclass` with **no fields**. Provides three symmetric (de)serialization pairs plus a pretty multi-line `__str__` (for human-readable printing).
 
 ### `to_dict() -> dict`
 Thin wrapper over `dataclasses.asdict(self)`. Recurses into nested config fields (they become nested dicts), mirroring the section structure used by the TOML/JSON writers.
@@ -53,7 +53,25 @@ Gotcha: the recursion dispatches on `nested_cls.from_dict`, so the family base c
 - `to_json`: `json.dump(self.to_dict(), file, indent=indent)`. **No `_strip_none`** — JSON keeps `null`, so `None` fields survive the round-trip (unlike TOML).
 - `from_json`: `json.load`, then `cls.from_dict(data)`.
 
+### `__str__() -> str` (pretty multi-line printing)
+Human-readable representation used by `print(config)` / `str(config)`: **one parameter per line**, aligned to the column right after the class opening parenthesis, with **nested configs indented one level further** (aligned under their own name). Delegates to the private recursive helper `_pretty_str(indent=0)`, which walks `dataclasses.fields(self)`, recurses (`value._pretty_str(...)`) when a field value `isinstance(..., generic_config)` and uses `repr(value)` otherwise.
+
+- Only `__str__` is overridden; **`repr(config)` is left as the compact single-line dataclass default** (so REPL/Jupyter bare display and logging stay one line). `@dataclass` never generates `__str__`, so defining it once on the base is inherited by every config without being shadowed.
+- Values are shown with their plain `repr` (no spaces around `=`), e.g. `name='eegnet_classifier'`, `c_kernel_1=(1, 64)`, `params_1={}`, `filter=None`.
+
+Example (`print(EEGNet_config())`):
+```
+EEGNet_config(name='eegnet_classifier',
+              use_bias=False,
+              ...
+              pooling=eegnet_pooling_config(pooling_type_1='default',
+                                            pooling_type_2='default',
+                                            ...
+                                            params_2={}))
+```
+
 ## Design notes / gotchas
 
 - Validation contract: subclasses implement `__post_init__` and raise `ValueError` on bad values. `generic_config` itself validates nothing.
 - `from_dict` tolerating unknown keys + `to_toml` dropping `None` means the on-disk representation is intentionally lossy in a forward-compatible way; do not rely on TOML files preserving explicit `None` fields.
+- `str(config)` (pretty, multi-line) and `repr(config)` (compact, single-line) differ on purpose: `print(config)` is readable, while `repr` stays terse for logs and REPL/Jupyter display. Both remain valid, reconstructable Python.
