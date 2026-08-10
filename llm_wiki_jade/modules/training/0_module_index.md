@@ -11,3 +11,4 @@ Table of contents for the `training` subpackage wiki. Start with the [quickstart
 | [test_functions.md](test_functions.md) | `src/jade/training/test_functions.py` | `test` — generic loss+metrics evaluation on any dataset. |
 | [support_training.md](support_training.md) | `src/jade/training/support_training.py` | Config→torch factories (`get_dataloader`, `get_optimizer`, `get_lr_scheduler`, `get_loss_function`), training helpers (`backup_every_epoch`, `update_log_dict_metrics`, `set_seed`), memory-profiling utilities. |
 | [metrics.md](metrics.md) | `src/jade/training/metrics.py` | torchmetrics-based classification metrics and confusion matrix. |
+| [logging_utils.md](logging_utils.md) | `src/jade/training/logging_utils.py` | `setup_logging` — opt-in root-logger configuration (console + optional file) for users who do not set up their own logger. |
