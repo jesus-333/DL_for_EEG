@@ -118,15 +118,15 @@ def plot_random_sample(eeg_dataset : dataset_time.EEG_Dataset, plot_type : str, 
     """
 
     # Get a random sample from the dataset
-    random_idx = np.random.randint(0, len(eeg_dataset))
+    idx_random = np.random.randint(0, len(eeg_dataset))
     
     # Create plot and return it
     if plot_type == 'time' :
-        fig, ax = eeg_dataset.plot_trial_time(random_idx, idx_ch, plot_config)
+        fig, ax = eeg_dataset.plot_trial_time(idx_random, idx_ch, plot_config)
     elif plot_type == 'freq' :
-        fig, ax = eeg_dataset.plot_trial_freq(random_idx, idx_ch, plot_config)
+        fig, ax = eeg_dataset.plot_trial_freq(idx_random, idx_ch, plot_config)
     elif plot_type == 'both' :
-        fig, ax = eeg_dataset.plot_trial_time_and_freq(random_idx, idx_ch, plot_config)
+        fig, ax = eeg_dataset.plot_trial_time_and_freq(idx_random, idx_ch, plot_config)
     return fig, ax
 
 fig_time, ax_time = plot_random_sample(eeg_dataset_train, 'time', idx_ch, plot_config = plot_config)
