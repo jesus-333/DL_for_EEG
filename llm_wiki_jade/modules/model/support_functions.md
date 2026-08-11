@@ -30,11 +30,11 @@ Returns `nn.Dropout2d(prob_dropout)` if `use_droput_2d` else `nn.Dropout(prob_dr
 | `prob_dropout` | float | Dropout probability in `[0, 1]`. |
 | `use_droput_2d` | bool | Select 2D (channel-wise) vs plain dropout. (Note the parameter name is spelled `use_droput_2d` in the source.) |
 
-### `get_multichannel_pooling(config: dict) -> nn.Module`
+### `get_multichannel_pooling(config: pooling_config | dict) -> nn.Module`
 
-Maps a per-stage pooling config dict to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called twice in `EEGNet.__init__` (once per pooling stage). Analogue of `get_activation` / `get_dropout`.
+Maps a per-stage pooling config to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called twice in `EEGNet.__init__` (once per pooling stage). Analogue of `get_activation` / `get_dropout`.
 
-The `config` dict carries `pooling_type`, `decimation_factor` (alias `pooling_factor`), and any type-specific params. Behaviour by `pooling_type` (case-insensitive):
+`config` may be a [`pooling_config`](../config/model/pooling_1d_cfg.md) **dataclass** or a plain **dict** — accepting both mirrors `get_pooling_config` / `get_model_config` and the other `get_*_config` factories (a dataclass is normalized through its `to_dict()`). It carries `pooling_type`, `decimation_factor` (alias `pooling_factor`), and any type-specific params. Behaviour by `pooling_type` (case-insensitive):
 
 | `pooling_type` | Returns |
 |---|---|

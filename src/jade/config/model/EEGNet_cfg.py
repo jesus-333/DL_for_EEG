@@ -138,24 +138,61 @@ class eegnet_pooling_config(generic_config) :
 
 
     @property
-    def pooling_layer_1_config(self) -> dict :
+    def pooling_layer_1_config(self) :
         """
-        Per-stage config dict for the first pooling stage.
+        Per-stage pooling config for the first pooling stage.
 
-        Consumed by :func:`jade.model.support_functions.get_multichannel_pooling`.
+        For an active 1D pooling operator it is a :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass;
+        for the EEGNet-only ``'default'`` / ``'identity'`` / ``'none'`` types (and a disabled stage, i.e. a negative factor), which have no config dataclass, it is a plain ``{pooling_type, decimation_factor, **params}`` dict.
+        Consumed by :func:`jade.model.support_functions.get_multichannel_pooling`, which accepts either.
         """
 
-        return {"pooling_type" : self.pooling_type_1, "decimation_factor" : self.pooling_factor_1, **self.params_1}
+        return self._stage_pooling_config(self.pooling_type_1, self.pooling_factor_1, self.params_1)
 
     @property
-    def pooling_layer_2_config(self) -> dict :
+    def pooling_layer_2_config(self) :
         """
-        Per-stage config dict for the second pooling stage.
+        Per-stage pooling config for the second pooling stage.
 
+        See :meth:`pooling_layer_1_config` for the return type (a ``pooling_config`` dataclass, or a dict for the EEGNet-only pooling types).
         Consumed by :func:`jade.model.support_functions.get_multichannel_pooling`.
         """
 
-        return {"pooling_type" : self.pooling_type_2, "decimation_factor" : self.pooling_factor_2, **self.params_2}
+        return self._stage_pooling_config(self.pooling_type_2, self.pooling_factor_2, self.params_2)
+
+
+    def _stage_pooling_config(self, pooling_type : str, factor : int, params : dict) :
+        """
+        Build the per-stage pooling config consumed by :func:`~jade.model.support_functions.get_multichannel_pooling`.
+
+        An active 1D pooling operator (``factor >= 1`` and a type registered in ``POOLING_CONFIG_REGISTRY``) is returned as a proper :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass (built through :func:`~jade.config.model.pooling_1d_cfg.get_pooling_config`), keeping the whole flow dataclass-based.
+        The EEGNet-only ``'default'`` / ``'identity'`` / ``'none'`` types and any disabled stage (``factor < 1``) have no config dataclass (and a negative factor would not pass ``pooling_config`` validation), so they are returned as a plain ``{pooling_type, decimation_factor, **params}`` dict.
+
+        Parameters
+        ----------
+        pooling_type : str
+            The (already lower-cased) pooling type of the stage.
+        factor : int
+            The decimation factor of the stage (a negative value disables it).
+        params : dict
+            The type-specific parameters of the stage.
+
+        Returns
+        -------
+        pooling_config or dict
+            The per-stage pooling configuration (a dataclass for an active 1D operator, a dict otherwise).
+        """
+
+        merged = {"pooling_type" : pooling_type, "decimation_factor" : factor, **params}
+
+        # Lazy import to avoid an import cycle (see __post_init__).
+        from jade.config.model.pooling_1d_cfg import POOLING_CONFIG_REGISTRY, get_pooling_config
+
+        # A real, active 1D operator has a config dataclass -> return it as a dataclass.
+        # 'default'/'identity'/'none' and disabled (factor < 1) stages have none -> keep the plain dict.
+        if factor >= 1 and pooling_type in POOLING_CONFIG_REGISTRY :
+            return get_pooling_config(merged)
+        return merged
 
 
     def __post_init__(self) -> None :
@@ -366,21 +403,22 @@ class EEGNet_config(model_config) :
 
 
     @property
-    def pooling_layer_1_config(self) -> dict :
+    def pooling_layer_1_config(self) :
         """
-        Per-stage config dict for the first pooling stage (delegates to :attr:`pooling`).
+        Per-stage pooling config for the first pooling stage (delegates to :attr:`pooling`).
 
+        A :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass for an active 1D operator, or a plain dict for the EEGNet-only ``'default'`` / ``'identity'`` / ``'none'`` types (and a disabled stage).
         This is what :class:`~jade.model.EEGNet.EEGNet` passes to :func:`~jade.model.support_functions.get_multichannel_pooling`.
         """
 
         return self.pooling.pooling_layer_1_config
 
     @property
-    def pooling_layer_2_config(self) -> dict :
+    def pooling_layer_2_config(self) :
         """
-        Per-stage config dict for the second pooling stage (delegates to :attr:`pooling`).
+        Per-stage pooling config for the second pooling stage (delegates to :attr:`pooling`).
 
-        This is what :class:`~jade.model.EEGNet.EEGNet` passes to :func:`~jade.model.support_functions.get_multichannel_pooling`.
+        See :meth:`pooling_layer_1_config` for the return type. This is what :class:`~jade.model.EEGNet.EEGNet` passes to :func:`~jade.model.support_functions.get_multichannel_pooling`.
         """
 
         return self.pooling.pooling_layer_2_config

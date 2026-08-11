@@ -35,7 +35,7 @@ The exhaustive field list, types, defaults and validation are on the [`EEGNet_co
 | `c_kernel_2` | Kernel size of the spatial (depthwise) conv. |
 | `filter_2` | Output filters of the separable conv (block 2). |
 | `c_kernel_3` | Kernel size of the separable conv's depthwise part. |
-| `pooling_layer_1_config` / `pooling_layer_2_config` | Per-stage pooling config dicts derived from the `pooling` section (`{pooling_type, decimation_factor, **params}`) → each resolved by `support_functions.get_multichannel_pooling` into a pooling layer. See the [`EEGNet_config` pooling section](../config/model/EEGNet_cfg.md). |
+| `pooling_layer_1_config` / `pooling_layer_2_config` | Per-stage pooling config derived from the `pooling` section — a [`pooling_config`](../config/model/pooling_1d_cfg.md) dataclass for an active 1D operator, or a `{pooling_type, decimation_factor, **params}` dict for the EEGNet-only `default`/`identity`/disabled cases → each resolved by `support_functions.get_multichannel_pooling` (which accepts either) into a pooling layer. See the [`EEGNet_config` pooling section](../config/model/EEGNet_cfg.md). |
 | `C` | EEG channel count. **Stored but NOT used** (`self.C`). |
 | `T` | Time samples. **Stored but NOT used** (`self.T`). |
 | `depth_first_layer` | Input depth of the first conv (>1 for time-frequency input). |
