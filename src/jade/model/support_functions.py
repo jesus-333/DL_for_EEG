@@ -11,6 +11,8 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 
 from __future__ import annotations
 
+from typing import Union
+
 import torch
 from torch import nn
 
@@ -72,11 +74,11 @@ def get_dropout(prob_dropout: float, use_droput_2d : bool) -> nn.Module :
     else :
         return nn.Dropout(prob_dropout)
 
-def get_multichannel_pooling(config : dict) -> nn.Module :
+def get_multichannel_pooling(config : Union["pooling_config", dict]) -> nn.Module :
     """
     Build a channel-wise pooling layer for multichannel EEG tensors of shape ``[B x D x C x T]``.
 
-    Analogue of :func:`get_activation` and :func:`get_dropout`: it maps a small config dict to a ready-to-use ``nn.Module``.
+    Analogue of :func:`get_activation` and :func:`get_dropout`: it maps a small pooling config to a ready-to-use ``nn.Module``.
     It is the bridge between the EEGNet ``pooling`` config section and the 1D pooling family in :mod:`jade.model.pooling_1d`.
 
     The ``pooling_type`` selects the behaviour:
@@ -89,8 +91,10 @@ def get_multichannel_pooling(config : dict) -> nn.Module :
 
     Parameters
     ----------
-    config : dict
-        Per-stage pooling config. It must contain ``pooling_type`` and ``decimation_factor`` (alias ``pooling_factor``), plus any parameters the chosen 1D pooling layer accepts (see :mod:`jade.model.pooling_1d`).
+    config : pooling_config or dict
+        Per-stage pooling config, either a :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass or a plain dict.
+        Accepting both mirrors :func:`~jade.config.model.pooling_1d_cfg.get_pooling_config` and the other ``get_*_config`` factories; a dataclass is normalized through its ``to_dict()``.
+        It must carry ``pooling_type`` and ``decimation_factor`` (alias ``pooling_factor``), plus any parameters the chosen 1D pooling layer accepts (see :mod:`jade.model.pooling_1d`).
 
     Returns
     -------
@@ -100,6 +104,11 @@ def get_multichannel_pooling(config : dict) -> nn.Module :
 
     # Import here (not at module load) to keep the dependency direction one-way and lazy.
     from jade.model.pooling_1d import MULTICHANNEL_POOLING_REGISTRY
+    from jade.config.model.pooling_1d_cfg import pooling_config
+
+    # Accept a pooling_config dataclass too (uniform with get_pooling_config / get_model_config): normalize it to its canonical dict.
+    if isinstance(config, pooling_config) :
+        config = config.to_dict()
 
     # Never mutate the caller's dict.
     cfg = dict(config)
