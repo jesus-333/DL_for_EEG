@@ -74,6 +74,9 @@ This ``__init__`` re-exports the public API and hosts the factories (``get_pooli
 
 from __future__ import annotations
 
+# Specific imports
+from typing import Union
+
 # Third party imports
 import torch
 from torch import nn
@@ -148,19 +151,20 @@ MULTICHANNEL_POOLING_REGISTRY = {
 }
 
 
-def get_pooling_layer(config : dict) -> nn.Module :
+def get_pooling_layer(config : Union["pooling_config", dict]) -> nn.Module :
     """
-    Build a pooling layer from a config dict - the single entry point for ablations.
+    Build a pooling layer from a pooling config - the single entry point for ablations.
 
-    The dict needs a ``pooling_type`` key naming the operator, plus whatever that operator requires.
-    Passing one dict per experimental arm keeps the sweep declarative (easy to serialize to YAML/JSON and log alongside results).
+    The config needs a ``pooling_type`` key/attribute naming the operator, plus whatever that operator requires.
+    Passing one config per experimental arm keeps the sweep declarative (easy to serialize to YAML/JSON and log alongside results).
 
     ``pooling_type='identity'`` (or a decimation factor of 1) yields ``nn.Identity``, which is convenient for ablating a pooling stage away entirely.
 
     Parameters
     ----------
-    config : dict
-        Must contain ``pooling_type`` (one of ``POOLING_REGISTRY`` or ``'identity'``), plus the keys the chosen operator requires.
+    config : pooling_config or dict
+        Either a :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass or a plain dict (mirroring :func:`~jade.config.model.pooling_1d_cfg.get_pooling_config`; a dataclass is normalized through its ``to_dict()``).
+        Must carry ``pooling_type`` (one of ``POOLING_REGISTRY`` or ``'identity'``), plus the keys the chosen operator requires.
 
     Returns
     -------
@@ -174,6 +178,12 @@ def get_pooling_layer(config : dict) -> nn.Module :
     >>> get_pooling_layer({'pooling_type' : 'sinc', 'decimation_factor' : 8, 'stopband_attenuation_db' : 60, 'transition_width' : 0.25})
     >>> get_pooling_layer({'pooling_type' : 'dwt',  'decimation_factor' : 8, 'wavelet' : 'sym4'})
     """
+
+    # Accept a pooling_config dataclass too (uniform with get_pooling_config): normalize it to its canonical dict.
+    # Lazy import to keep this standalone subpackage import-light and dependency direction one-way (model -> config).
+    from jade.config.model.pooling_1d_cfg import pooling_config
+    if isinstance(config, pooling_config) :
+        config = config.to_dict()
 
     # Input check
     if "pooling_type" not in config :

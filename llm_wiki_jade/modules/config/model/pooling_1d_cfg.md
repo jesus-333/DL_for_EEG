@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/model/pooling_1d_cfg.py`
 
-The whole configuration family for the [`jade.model.pooling_1d`](../../model/pooling_1d/0_module_quickstart.md) layers, deliberately kept in a **single file** (pooling is reused several times inside a model and the operators share most parameters). Discriminated on `pooling_type` — the exact key the runtime `get_pooling_layer` reads — and the canonical field names match the layer keys, so `config.to_dict()` feeds `get_pooling_layer` directly.
+The whole configuration family for the [`jade.model.pooling_1d`](../../model/pooling_1d/0_module_quickstart.md) layers, deliberately kept in a **single file** (pooling is reused several times inside a model and the operators share most parameters). Discriminated on `pooling_type` — the exact key the runtime `get_pooling_layer` reads — and the canonical field names match the layer keys, so `config.to_dict()` feeds `get_pooling_layer` directly. As of the dataclass-consistency pass, both `get_pooling_layer` and [`get_multichannel_pooling`](../../model/support_functions.md) also accept a `pooling_config` dataclass directly (they normalize it via `to_dict()` internally), so you no longer have to pre-convert to a dict.
 
 ## Module constants
 

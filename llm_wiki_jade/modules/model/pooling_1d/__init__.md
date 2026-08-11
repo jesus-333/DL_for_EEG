@@ -26,13 +26,13 @@ Lowercase alias → pooling class:
 
 The same aliases mapped to the channel-wise wrappers (`avg` → `avg_pool_1d_multichannel`, `max` → `max_pool_1d_multichannel`, …). These operate on 4D `(B, D, C, T)` EEG tensors and are what [`jade.model.support_functions.get_multichannel_pooling`](../support_functions.md) dispatches through for a model such as EEGNet. See the [quickstart](0_module_quickstart.md#multichannel-4d-variants) and [`support_pooling`](support_pooling.md) (`_multichannel_pool_1d` base).
 
-## `get_pooling_layer(config: dict) -> nn.Module`
+## `get_pooling_layer(config: pooling_config | dict) -> nn.Module`
 
-Single entry point, designed for declarative ablation sweeps (one dict per experimental arm, easy to serialize to YAML/JSON and log with results).
+Single entry point, designed for declarative ablation sweeps (one config per experimental arm, easy to serialize to YAML/JSON and log with results).
 
 | Parameter | Type | Meaning |
 |---|---|---|
-| `config` | `dict` | Must contain `pooling_type` (an alias above or `'identity'`/`'none'`), plus whatever keys the chosen operator needs (see each operator page). |
+| `config` | [`pooling_config`](../../config/model/pooling_1d_cfg.md) or `dict` | A pooling-config dataclass **or** a plain dict (a dataclass is normalized via `to_dict()`, mirroring `get_pooling_config`). Must carry `pooling_type` (an alias above or `'identity'`/`'none'`), plus whatever keys the chosen operator needs (see each operator page). |
 
 **Returns:** the built pooling layer, or `nn.Identity`.
 
