@@ -20,7 +20,7 @@ import torch
 from jade.config import dataset_config, EEGNet_config, training_config
 from jade.dataset import EEG_Dataset
 from jade.model import EEGNet_Classifier
-from jade.training import classifier
+from jade.training import classifier, logging_utils
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Settings
@@ -71,6 +71,11 @@ def generate_dataset(N, C, T, n_classes) :
 # Create synthetic datasets (train and validation)
 train_dataset      = generate_dataset(N, C, T, n_classes)
 validation_dataset = generate_dataset(N, C, T, n_classes)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Logger setup
+
+logging_utils.setup_logging()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Training
