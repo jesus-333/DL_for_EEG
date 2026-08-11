@@ -111,7 +111,6 @@ class pooling_config(generic_config) :
 
         return super().from_dict(data)
 
-
     def __post_init__(self) -> None :
         """
         Validate the decimation factor (shared by every pooling operator).
@@ -144,7 +143,6 @@ class _fir_pooling_config(pooling_config) :
     phase                     : Union[str, int] = "center"
     gain                      : str = "dc"
     warn_if_worse_than_boxcar : bool = True
-
 
     def __post_init__(self) -> None :
         """

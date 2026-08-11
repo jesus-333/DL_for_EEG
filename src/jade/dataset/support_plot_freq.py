@@ -135,8 +135,7 @@ def compute_frequency_spectrum(signal, fs : float = 1, freq_config : dict = None
 
     # Force the signal to be a 1D numpy array of float.
     signal = np.asarray(signal, dtype = float).squeeze()
-    if signal.ndim != 1 :
-        raise ValueError("signal must be a 1D array. Current number of dimensions is {}".format(signal.ndim))
+    if signal.ndim != 1 : raise ValueError("signal must be a 1D array. Current number of dimensions is {}".format(signal.ndim))
     n_samples = signal.shape[0]
 
     # Resolve the segmentation parameters (None means "use a sensible default that depends on the signal length").
