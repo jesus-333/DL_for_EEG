@@ -1,0 +1,19 @@
+# wandb logging config (jade.config.wandb_training.wandb_training_config): track a run on Weights & Biases.
+# Needs the optional "extra" dependency (wandb). Copy this [wandb] table into training_clf.toml to enable wandb logging.
+[wandb]
+# wandb project the run is logged to. REQUIRED (non-empty).
+project_name = "my_project"
+# Base name of the wandb model artifact. REQUIRED (non-empty). The trained artifact gets a "_trained" suffix.
+model_artifact_name = "my_model"
+# wandb entity (user or team) that owns the project. Leave commented to use your default entity.
+# entity = "my_entity"
+# Human-readable run name. Leave commented to let wandb assign a random one.
+# name_training_run = "my_run"
+# Free-text notes attached to the run.
+# notes = "some notes about this run"
+# Upload the model weights as a wandb artifact.
+log_model_artifact = true
+# How often (in epochs) wandb.watch logs gradients/parameters. Must be a positive int.
+log_freq = 1
+# Only handy to filter debug runs in the wandb UI (not used by the training logic).
+debug = false
