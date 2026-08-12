@@ -2,13 +2,21 @@
 
 Source: `src/jade/training/classifier.py`
 
-The full classification training cycle. `train` is the standard entry point: it cross-checks the training/model configs, builds the model from a `model_config` with `jade.model.get_model`, and delegates to `train_model`. `train_model` runs the entire loop on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics. `wandb_train` is a thin wrapper that opens a wandb run around a call to `train_model`. Only the classification (finetuning) objective exists for now.
+The full classification training cycle, as **two mirrored pairs**: `train` / `wandb_train` build the model from a `model_config`, while `train_model` / `wandb_train_model` train an already-built model.
+
+- `train` is the standard entry point: it cross-checks the training/model configs, builds the model from a `model_config` with `jade.model.get_model`, and delegates to `train_model`.
+- `train_model` runs the entire loop on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics.
+- `wandb_train` is the wandb counterpart of `train` (it cross-checks, builds the model, delegates to `wandb_train_model`).
+- `wandb_train_model` is the wandb counterpart of `train_model`: it opens the wandb run (and optional model artifact) around a call to `train_model`.
+
+**Config contract:** all four functions accept only config **dataclass instances** (no dict promotion), consistently with the rest of the codebase — a wrong type raises `TypeError` via the shared `_require_config_instance` helper. Only the classification (finetuning) objective exists for now.
 
 ## Module-level facts
 
 - `wandb` is imported inside a `try/except ImportError` and set to `None` if absent (optional extra).
-- `training_config` from `jade.config.training` is imported under the alias `training_config_class` (used for `isinstance` checks and `from_dict` promotion).
-- `get_model` is imported from `jade.model` (used by `train` to build the model from its config).
+- The config classes are imported under aliases for the `isinstance` checks: `training_config` → `training_config_class`, `model_config` (base) → `model_config_class`, `dataset_config` → `dataset_config_class`.
+- `get_model` is imported from `jade.model` (used by `train`/`wandb_train` to build the model from its config).
+- `_require_config_instance(value, expected_class, name)` — module helper that raises `TypeError` unless `value` is an instance of `expected_class`; used by every entry point to reject dicts/other types.
 - Module logger: `logger = logging.getLogger(__name__)`.
 
 ---
@@ -21,17 +29,18 @@ The standard entry point. It builds the model from `model_config` and delegates 
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `training_config` | `training_config` or `dict` | — | Full run configuration (promoted from a dict if needed). |
-| `model_config` | `model_config` or `dict` | — | Model configuration (e.g. `EEGNet_config`; a dict is promoted via `get_model_config`). The model is built from it. |
+| `training_config` | `training_config` | — | Full run configuration (a dataclass instance; **no dict**). |
+| `model_config` | `model_config` | — | Model configuration instance (e.g. `EEGNet_config`). The model is built from it. |
 | `train_dataset` | `torch.utils.data.Dataset` | — | Training data; each item is a `(data, label)` pair. |
 | `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data (forwarded to `train_model`). |
-| `wandb_model_artifact` | `wandb.Artifact` | `None` | Artifact for checkpoints (forwarded to `train_model`). |
+| `wandb_model_artifact` | `wandb.Artifact` | `None` | Artifact for checkpoints (forwarded to `train_model`; normally created by `wandb_train_model`). |
 
 ### Flow
 
-1. `support_training.cross_check_config(training_config, model_config)` — fail fast on a training ↔ model mismatch (e.g. loss vs `use_softmax`).
-2. `model = get_model(model_config)` — the config `name` selects the class.
-3. `return train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)` — every argument forwarded (the earlier skeleton bug that dropped `validation_dataset`/`wandb_model_artifact` is fixed).
+1. `_require_config_instance` on `training_config` and `model_config` — `TypeError` on a dict/wrong type (dataclass-only).
+2. `support_training.cross_check_config(training_config, model_config)` — fail fast on a training ↔ model mismatch (e.g. loss vs `use_softmax`).
+3. `model = get_model(model_config)` — the config `name` selects the class.
+4. `return train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)` — every argument forwarded.
 
 ---
 
@@ -43,11 +52,11 @@ Trains an **already-built** classifier and returns it together with the metrics 
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `training_config` | `training_config` or `dict` | — | Full run configuration. A dict is promoted via `training_config_class.from_dict`. Holds every hyper-parameter and the nested optimizer/scheduler/loss/dataloader/wandb configs. |
+| `training_config` | `training_config` | — | Full run configuration (a dataclass instance; **no dict** — `TypeError` otherwise). Holds every hyper-parameter and the nested optimizer/scheduler/loss/dataloader/wandb configs. |
 | `model` | `torch.nn.Module` | — | Model to train. For metrics it should expose a `classify` method (as `jade.model.EEGNet.EEGNet_Classifier` does). |
 | `train_dataset` | `torch.utils.data.Dataset` | — | Training data; each item is a `(data, label)` pair. |
 | `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data. If `None`, no validation is performed and **no `model_BEST.pth`** is saved. |
-| `wandb_model_artifact` | `wandb.Artifact` | `None` | Artifact that checkpoints are added to. Normally created and passed by `wandb_train`. |
+| `wandb_model_artifact` | `wandb.Artifact` | `None` | Artifact that checkpoints are added to. Normally created and passed by `wandb_train_model`. |
 
 ### Returns
 
@@ -58,7 +67,7 @@ Trains an **already-built** classifier and returns it together with the metrics 
 
 ### Flow, step by step
 
-1. **Config check & setup** — promote dict → `training_config`; alias `device = training_config.device`, `use_wandb = training_config.wandb is not None`. If `use_wandb` but `wandb is None`, raise `ImportError`. If `training_config.seed is not None`, call `support_training.set_seed`.
+1. **Config check & setup** — `_require_config_instance(training_config, training_config_class, ...)` (`TypeError` on a dict/wrong type); alias `device = training_config.device`, `use_wandb = training_config.wandb is not None`. If `use_wandb` but `wandb is None`, raise `ImportError`. If `training_config.seed is not None`, call `support_training.set_seed`.
 2. **Dataloaders** — `support_training.get_dataloader(train_dataset, batch_size, dataloader)`; same for validation if present, else `validation_loader = None`.
 3. **Loss / optimizer / scheduler** — `model.to(device)`; optionally load `path_past_weights` into the model (`torch.load(..., map_location=device)` + `load_state_dict`); build loss via `get_loss_function` and move to device (matters when the loss carries class weights); build optimizer via `get_optimizer`; optionally load `path_past_optimizer` state; build LR scheduler via `get_lr_scheduler` if `lr_scheduler` config is set, else `None`.
 4. **Training preparation** — `os.makedirs(path_to_save_model, exist_ok=True)`; if `use_wandb`, `wandb.watch(model, criterion=loss_function, log="all", log_freq=wandb.log_freq, log_graph=True)`; `best_loss_val = sys.maxsize`; init `log_dict = {}` and `computed_metrics_during_training = dict()`.
@@ -97,29 +106,53 @@ Trains an **already-built** classifier and returns it together with the metrics 
 
 ---
 
-## `wandb_train(training_config, model, train_dataset, validation_dataset=None, model_config=None)`
+## `wandb_train(training_config, model_config, train_dataset, validation_dataset=None, dataset_config=None)`
 
-Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional model `wandb.Artifact`), then calls `train_model` inside it (it holds an already-built model). See [classifier_epoch.md](classifier_epoch.md) and this page's `train_model` for the training details.
+The wandb counterpart of `train`: it cross-checks the configs, builds the model from `model_config` (`get_model`), and delegates to `wandb_train_model` (which opens the run). Use it for a wandb-tracked run when you have configs (not a built model).
 
 ### Parameters
 
 | Name | Type | Default | Meaning |
 |---|---|---|---|
-| `training_config` | `training_config` or `dict` | — | Config; its `wandb` field (a `wandb_training_config`) **must** be set. Dict is promoted. |
-| `model` | `torch.nn.Module` | — | Model to train. |
+| `training_config` | `training_config` | — | Config instance; its `wandb` field (a `wandb_training_config`) **must** be set. |
+| `model_config` | `model_config` | — | Model configuration instance. The model is built from it, and it is logged to wandb for reproducibility. |
 | `train_dataset` | `torch.utils.data.Dataset` | — | Training data. |
 | `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data. |
-| `model_config` | `model_config` or `dict` | `None` | Not used during training (an already-built `model` is passed) — only logged to wandb (with the training config) for reproducibility; a dataclass is serialized via `to_dict`. |
-
-### Returns
-
-`(model, computed_metrics_during_training)` — exactly what `train` returns.
+| `dataset_config` | `dataset_config` | `None` | Same logic as `model_config`: **not used during training**, only logged to wandb for reproducibility. |
 
 ### Flow
 
-1. Promote dict → config.
+1. `_require_config_instance` on `training_config`, `model_config` (and `dataset_config` when given) — `TypeError` on a dict/wrong type.
+2. `support_training.cross_check_config(training_config, model_config)`.
+3. `model = get_model(model_config)`.
+4. `return wandb_train_model(training_config, model, train_dataset, validation_dataset, model_config=model_config, dataset_config=dataset_config)` — forwards both configs so they are backed up on wandb.
+
+---
+
+## `wandb_train_model(training_config, model, train_dataset, validation_dataset=None, model_config=None, dataset_config=None)`
+
+The wandb counterpart of `train_model` (already-built model). Opens a `wandb.init` run (and optional model `wandb.Artifact`), then calls `train_model` inside it. See this page's `train_model` for the training details.
+
+### Parameters
+
+| Name | Type | Default | Meaning |
+|---|---|---|---|
+| `training_config` | `training_config` | — | Config instance; its `wandb` field (a `wandb_training_config`) **must** be set. |
+| `model` | `torch.nn.Module` | — | Model to train (already built). |
+| `train_dataset` | `torch.utils.data.Dataset` | — | Training data. |
+| `validation_dataset` | `torch.utils.data.Dataset` | `None` | Validation data. |
+| `model_config` | `model_config` | `None` | **Not used during training** (an already-built `model` is passed) — only logged to wandb (with the training config) for reproducibility, via `to_dict()`. |
+| `dataset_config` | `dataset_config` | `None` | Same logic as `model_config`: not used during training, only logged to wandb for reproducibility. |
+
+### Returns
+
+`(model, computed_metrics_during_training)` — exactly what `train_model` returns.
+
+### Flow
+
+1. `_require_config_instance` on `training_config` (and `model_config`/`dataset_config` when given).
 2. Raise `ImportError` if `wandb is None`; raise `ValueError` if `training_config.wandb is None`.
-3. Build `config_to_log = {"training_config": training_config.to_dict()}`, adding `"model_config"` when provided (a dataclass is `to_dict`-ed first).
+3. Build `config_to_log = {"training_config": training_config.to_dict()}`, adding `"model_config"` and/or `"dataset_config"` (each `to_dict`-ed) when provided.
 4. `run_id = str(training_config.seed)` if a seed is set, else `None` — so a seeded run can be **resumed** under the same id.
 5. `with wandb.init(project=..., entity=..., name=..., job_type="train", config=config_to_log, notes=..., id=run_id, resume="allow") as run:`
    - Artifact name = `wandb.model_artifact_name + "_trained"`. If `log_model_artifact`, create a `wandb.Artifact(type="model", description=..., metadata=config_to_log)`, else `None`.
@@ -129,8 +162,8 @@ Trains while tracking the run on wandb. Opens a `wandb.init` run (and optional m
 
 ### Side effects / errors
 
-- Opens (and closes) a wandb run; logs config, watches the model, logs metrics/artifacts (through `train`).
-- `ImportError` (wandb missing) / `ValueError` (`wandb` config unset). Any error inside the `with` still lets the run context close.
+- Opens (and closes) a wandb run; logs config, watches the model, logs metrics/artifacts (through `train_model`).
+- `TypeError` (non-dataclass config), `ImportError` (wandb missing), `ValueError` (`wandb` config unset). Any error inside the `with` still lets the run context close.
 
 ### Related pages
 

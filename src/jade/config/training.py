@@ -61,7 +61,7 @@ class training_config(generic_config) :
         Dataloader configuration (nested). ``batch_size`` is taken from this config's parent, not from here.
     wandb : wandb_training_config or None, default None
         Wandb logging configuration (nested). ``None`` disables wandb logging.
-        Use :func:`~jade.training.classifier.wandb_train` to actually open the wandb run.
+        Use :func:`~jade.training.classifier.wandb_train` (from configs) or :func:`~jade.training.classifier.wandb_train_model` (from an already-built model) to actually open the wandb run.
     path_to_save_model : str, default 'model_weights'
         Folder where the model checkpoints are written. Created if it does not exist.
     epoch_to_save_model : int, default 0
