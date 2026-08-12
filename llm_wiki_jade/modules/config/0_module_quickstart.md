@@ -78,7 +78,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 
 ## Key relationships between the configs
 
-- `training_config` is the **root** for a training run. `batch_size` lives here (not in `dataloader_config`) because it is shared by every loader. Defaults: `optimizer = adam_config()`, `loss = cross_entropy_config()`, `dataloader = dataloader_config()`, `lr_scheduler = None`, `wandb = None`.
+- `training_config` is the **root** for a training run. `batch_size` lives here (not in `dataloader_config`) because it is shared by every loader. Defaults: `optimizer = adam_config()`, `loss = cross_entropy_config()`, `lr_scheduler = None`, `wandb = None`, and `dataloader = None` — which `__post_init__` turns into a default `dataloader_config()` (torch's default DataLoader values), so `dataloader` is optional.
 - `dataset_config` is the **root** for data preparation; `filter` is **optional** and defaults to `None`, i.e. no filtering (the raw signal is kept). Set a `filter_config` (e.g. an 8–32 Hz band-pass, motor-imagery style) to enable filtering.
 - **Loss ↔ model coupling** (important gotcha): `cross_entropy_config` expects logits → pair with a model built `use_softmax = False`; `nll_config` expects log-probabilities → pair with `use_softmax = True`. Choosing the wrong one applies `log_softmax` twice or not at all.
 
