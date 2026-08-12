@@ -1,0 +1,17 @@
+# Notch filter (MNE Raw.notch_filter): remove one or more narrow frequency lines.
+# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
+[filter]
+filter_type = "notch"
+# Frequency (or list of frequencies) to remove, e.g. 50.0 or [50.0, 100.0] (line noise + harmonic).
+freqs = 50.0
+# Filter method: "iir" (moabb default) or "fir".
+method = "iir"
+# IIR design (filter order / type). Leave commented to use MNE's defaults.
+# iir_params = { order = 4, ftype = "butter" }
+# FIR-only options (ignored by the IIR method).
+filter_length = "auto"
+phase = "zero"
+fir_window = "hamming"
+fir_design = "firwin"
+# Channels to filter (MNE "picks" selector).
+picks = "data"
