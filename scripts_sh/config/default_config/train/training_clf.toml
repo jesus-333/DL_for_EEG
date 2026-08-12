@@ -97,14 +97,9 @@ shuffle = true
 # ---------------------------------------------------------------------
 # wandb logging (OPTIONAL)
 # ---------------------------------------------------------------------
-# Present only if you want to track the run on Weights & Biases (needs the "extra"
-# optional dependency). Uncomment and fill in project_name / model_artifact_name.
+# No wandb logging unless a [wandb] table is present (training_config.wandb defaults
+# to None). To enable it, uncomment the block below and fill in the required fields,
+# or copy the ready-made table from ./wandb.toml. Needs the optional "extra" dependency.
 # [wandb]
 # project_name = "my_project"
 # model_artifact_name = "my_model"
-# entity = "my_entity"
-# name_training_run = "my_run"
-# notes = "some notes about this run"
-# log_model_artifact = true
-# log_freq = 1
-# debug = false

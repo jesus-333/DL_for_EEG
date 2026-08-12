@@ -32,6 +32,7 @@ train/
   optimizer/{adam,adamw,sgd,rmsprop,lbfgs}.toml
   lr_scheduler/{exponential_lr,step_lr,cosine_annealing_lr,cosine_annealing_warm_restarts,cyclic_lr}.toml
   loss/{cross_entropy,nll}.toml
+  wandb.toml                    # ready-to-copy [wandb] table; the [wandb] section of training_clf.toml is optional, shipped commented-out
 model/
   EEGNet.toml                   # from EEGNet_config() defaults (use_softmax = false, matching the default cross_entropy loss)
   pooling/{avg,blur,sinc,dwt,max}.toml
@@ -43,7 +44,7 @@ dataset/
 Multi-choice sections come as **one file per option** under a subfolder, and the main file references them in a comment:
 
 - **Required** picks ship a filled-in default in the main file plus a pointer to the alternatives: `[optimizer]` (Adam; options in `train/optimizer/`) and `[loss]` (cross-entropy; options in `train/loss/`).
-- **Optional** picks ship **commented-out** in the main file with a pointer to their options: `[lr_scheduler]` in `training_clf.toml` (options in `train/lr_scheduler/`) and `[filter]` in `dataset.toml` (options in `dataset/filter/`, one file per filter type — bandpass / bandstop / lowpass / highpass / notch), since `dataset_config.filter` defaults to `None` (no filtering, raw data kept).
+- **Optional** picks ship **commented-out** in the main file with a pointer to their option file(s): `[lr_scheduler]` in `training_clf.toml` (options in `train/lr_scheduler/`); `[filter]` in `dataset.toml` (options in `dataset/filter/`, one file per filter type — bandpass / bandstop / lowpass / highpass / notch), since `dataset_config.filter` defaults to `None` (no filtering, raw data kept); and `[wandb]` in `training_clf.toml` (ready-to-copy table in `train/wandb.toml`), since `training_config.wandb` defaults to `None` (no wandb logging).
 - `[dataloader]` in `training_clf.toml` is the one optional section shipped **filled-in** (torch's DataLoader defaults) but explicitly marked optional in a comment — remove it to use those defaults, since `training_config.dataloader` defaults to `None`.
 
 Each file's values track the corresponding config's defaults, and every shipped **main** TOML (`training_clf.toml`, `dataset.toml`, `EEGNet.toml`) round-trips through the matching `from_toml` (the option-file snippets under the subfolders are meant to be copied into a main file, not loaded standalone). Finally, the shipped `EEGNet.toml` (`use_softmax = false`, Identity head → raw logits) and `training_clf.toml` (default `cross_entropy` loss, which expects logits) are deliberately consistent, so the pair passes [`cross_check_config`](../training/support_training.md) out of the box.
