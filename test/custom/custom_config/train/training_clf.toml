@@ -39,9 +39,10 @@ print_var = true
 # ---------------------------------------------------------------------
 # Optimizer (REQUIRED, pick ONE)
 # ---------------------------------------------------------------------
-# The default below is Adam. To use another optimizer replace this whole
+# The default below is Adam. To use another optimizer, replace the keys under this
 # [optimizer] table with the content of one of the files in ./optimizer/
-# (adam.toml, adamw.toml, sgd.toml, rmsprop.toml, lbfgs.toml).
+# (adam.toml, adamw.toml, sgd.toml, rmsprop.toml, lbfgs.toml). Those files hold just the
+# keys (no [optimizer] header), so keep the [optimizer] line below and paste them under it.
 [optimizer]
 name = "adam"
 lr = 0.001
@@ -55,9 +56,10 @@ maximize = false
 # ---------------------------------------------------------------------
 # Learning-rate scheduler (OPTIONAL, pick at most ONE)
 # ---------------------------------------------------------------------
-# No scheduler is used unless a [lr_scheduler] table is present. To add one,
-# uncomment a block from one of the files in ./lr_scheduler/ (exponential_lr.toml,
-# step_lr.toml, cosine_annealing_lr.toml, cosine_annealing_warm_restarts.toml, cyclic_lr.toml).
+# No scheduler is used unless a [lr_scheduler] table is present. To add one, uncomment the
+# [lr_scheduler] block below and fill it with the keys from one of the files in ./lr_scheduler/
+# (exponential_lr.toml, step_lr.toml, cosine_annealing_lr.toml, cosine_annealing_warm_restarts.toml,
+# cyclic_lr.toml). Those files hold just the keys (no [lr_scheduler] header).
 # [lr_scheduler]
 # name = "exponential_lr"
 # gamma = 0.95
@@ -67,7 +69,8 @@ maximize = false
 # ---------------------------------------------------------------------
 # The default below is cross-entropy (expects raw logits -> build the model with
 # use_softmax = false). To use NLL (expects log-probabilities -> use_softmax = true)
-# replace this table with the content of ./loss/nll.toml. See ./loss/ for both.
+# replace the keys under this [loss] table with the content of ./loss/nll.toml (keys only,
+# no [loss] header). See ./loss/ for both.
 [loss]
 name = "cross_entropy"
 ignore_index = -100

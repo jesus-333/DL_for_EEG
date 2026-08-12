@@ -1,6 +1,6 @@
 # Band-pass filter (MNE Raw.filter): keep the frequencies between l_freq and h_freq.
-# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
-[filter]
+# NOTE: this file has NO [filter] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `filter` key. To paste them into dataset.toml instead, put them under a [filter] section (dataset_config.filter).
 filter_type = "bandpass"
 # Low and high cutoff (Hz). A band-pass requires l_freq < h_freq.
 l_freq = 8.0

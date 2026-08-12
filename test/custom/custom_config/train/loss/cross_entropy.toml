@@ -1,7 +1,7 @@
 # Cross-entropy loss (torch.nn.CrossEntropyLoss).
 # IMPORTANT: it expects raw logits, so build the model with use_softmax = false (Identity head).
-# Copy this [loss] table into training_clf.toml to use it.
-[loss]
+# NOTE: this file has NO [loss] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `loss` key. To paste them into training_clf.toml instead, put them under a [loss] section (training_config.loss).
 name = "cross_entropy"
 # Target value that is ignored and does not contribute to the gradient.
 ignore_index = -100

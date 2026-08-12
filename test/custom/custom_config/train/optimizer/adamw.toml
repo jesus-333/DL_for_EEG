@@ -1,6 +1,6 @@
 # AdamW optimizer (torch.optim.AdamW): Adam with decoupled weight decay.
-# Copy this [optimizer] table into training_clf.toml to use AdamW.
-[optimizer]
+# NOTE: this file has NO [optimizer] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `optimizer` key. To paste them into training_clf.toml instead, put them under an [optimizer] section (training_config.optimizer).
 name = "adamw"
 # Learning rate (must be > 0).
 lr = 0.001

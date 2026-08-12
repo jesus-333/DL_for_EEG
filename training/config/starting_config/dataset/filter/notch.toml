@@ -1,6 +1,6 @@
 # Notch filter (MNE Raw.notch_filter): remove one or more narrow frequency lines.
-# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
-[filter]
+# NOTE: this file has NO [filter] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `filter` key. To paste them into dataset.toml instead, put them under a [filter] section (dataset_config.filter).
 filter_type = "notch"
 # Frequency (or list of frequencies) to remove, e.g. 50.0 or [50.0, 100.0] (line noise + harmonic).
 freqs = 50.0
