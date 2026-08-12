@@ -13,7 +13,7 @@ logging_utils  →  support_training  →  metrics  →  classifier_epoch  →  
 ```
 
 - `support_training` and `metrics` are bound as submodule objects (`from jade.training import support_training`, `... metrics`), so callers can do `jade.training.support_training.get_optimizer(...)` and `jade.training.metrics.compute_metrics(...)`.
-- `setup_logging` (from `logging_utils`), `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
+- `setup_logging` (from `logging_utils`), `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train`, `wandb_train_model` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
 - `logging_utils` is torch-free (stdlib only), so it is listed first; the rest of the package pulls in torch.
 
 ## Package logger
@@ -32,7 +32,8 @@ Following the standard library-logging best practice, a `logging.NullHandler` is
 |---|---|---|
 | `train` | `classifier` | function — builds the model from a `model_config`, cross-checks, delegates to `train_model` |
 | `train_model` | `classifier` | function — full training cycle on an already-built model |
-| `wandb_train` | `classifier` | function — wandb-wrapped training |
+| `wandb_train` | `classifier` | function — wandb-wrapped `train` (builds the model from a `model_config`) |
+| `wandb_train_model` | `classifier` | function — wandb-wrapped `train_model` (already-built model; logs optional `model_config`/`dataset_config`) |
 | `train_epoch_function` | `classifier_epoch` | function — one training epoch |
 | `validation_epoch_function` | `classifier_epoch` | function — one validation epoch |
 | `test` | `test_functions` | function — generic evaluation |

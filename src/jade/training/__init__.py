@@ -6,7 +6,7 @@ For now only the classification (finetuning) objective is implemented; a reconst
 
 Modules:
 
-* :mod:`jade.training.classifier` - the full training cycle: :func:`~jade.training.classifier.train` (builds the model from a model config and delegates), :func:`~jade.training.classifier.train_model` (trains an already-built model) and the wandb wrapper :func:`~jade.training.classifier.wandb_train`.
+* :mod:`jade.training.classifier` - the full training cycle: :func:`~jade.training.classifier.train` (builds the model from a model config and delegates), :func:`~jade.training.classifier.train_model` (trains an already-built model) and their wandb counterparts :func:`~jade.training.classifier.wandb_train` (builds the model) and :func:`~jade.training.classifier.wandb_train_model` (already-built model).
 * :mod:`jade.training.classifier_epoch` - the single-epoch functions (:func:`~jade.training.classifier_epoch.train_epoch_function`, :func:`~jade.training.classifier_epoch.validation_epoch_function`).
 * :mod:`jade.training.test_functions` - the generic evaluation function :func:`~jade.training.test_functions.test`.
 * :mod:`jade.training.support_training` - shared helpers and the config -> torch object factories.
@@ -30,7 +30,7 @@ from jade.training.logging_utils import setup_logging
 from jade.training import support_training
 from jade.training import metrics
 from jade.training.classifier_epoch import train_epoch_function, validation_epoch_function
-from jade.training.classifier import train, train_model, wandb_train
+from jade.training.classifier import train, train_model, wandb_train, wandb_train_model
 from jade.training.test_functions import test
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -46,6 +46,7 @@ __all__ = [
     "train",
     "train_model",
     "wandb_train",
+    "wandb_train_model",
     "train_epoch_function",
     "validation_epoch_function",
     "test",
