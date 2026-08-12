@@ -60,6 +60,8 @@ Configs hold other configs as fields:
 
 When a nested field arrives as a plain `dict` (e.g. from a TOML/JSON file), the parent's `__post_init__` **promotes** it to the proper dataclass (`filter_config.from_dict`, `get_optimizer_config`, etc.). This means a fully nested config tree survives a file round-trip and is always made of real dataclass instances, not dicts.
 
+**Assembling a config from separate files.** The shipped skeleton *option* files (optimizer / loss / lr_scheduler / filter / wandb under `default_config/`) are **header-less**: `toml.load` returns their fields flat, so you nest one under the parent by a plain assignment — `training_config_dict['loss'] = toml.load('nll.toml')` — and `from_dict` promotes it (this is what `training/0_prepare_config.py` does). A file that kept its `[loss]` header would instead load as `{'loss': {...}}` and nest one level too deep, so the polymorphic dispatch reads an empty discriminator and raises `ValueError: unknown loss name ''`. The **main** skeletons (`training_clf.toml`, `dataset.toml`, `EEGNet.toml`) keep their sections inline because they are loaded whole via `from_toml`. See [cli/default_config.md](../cli/default_config.md#option-files-are-header-less-no-section).
+
 ## End-to-end flow
 
 ```

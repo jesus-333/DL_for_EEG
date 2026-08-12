@@ -1,6 +1,6 @@
 # Low-pass filter (MNE Raw.filter): keep the frequencies below the cutoff h_freq.
-# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
-[filter]
+# NOTE: this file has NO [filter] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `filter` key. To paste them into dataset.toml instead, put them under a [filter] section (dataset_config.filter).
 filter_type = "lowpass"
 # Cutoff (Hz): keep the frequencies below h_freq. Do NOT set l_freq for a low-pass.
 h_freq = 40.0

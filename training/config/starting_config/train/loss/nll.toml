@@ -1,7 +1,7 @@
 # Negative log-likelihood loss (torch.nn.NLLLoss).
 # IMPORTANT: it expects log-probabilities, so build the model with use_softmax = true (LogSoftmax head).
-# Copy this [loss] table into training_clf.toml to use it.
-[loss]
+# NOTE: this file has NO [loss] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `loss` key. To paste them into training_clf.toml instead, put them under a [loss] section (training_config.loss).
 name = "nll"
 # Target value that is ignored and does not contribute to the gradient.
 ignore_index = -100

@@ -1,6 +1,6 @@
 # Band-stop filter (MNE Raw.filter): reject the frequencies between h_freq and l_freq.
-# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
-[filter]
+# NOTE: this file has NO [filter] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `filter` key. To paste them into dataset.toml instead, put them under a [filter] section (dataset_config.filter).
 filter_type = "bandstop"
 # Reject the band between h_freq and l_freq (here 48-52 Hz, e.g. 50 Hz line noise).
 # NOTE the reversed convention: a band-stop requires l_freq > h_freq.

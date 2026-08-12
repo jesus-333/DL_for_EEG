@@ -24,9 +24,9 @@ normalize = -1
 # Filtering (MNE), applied at preprocessing time (OPTIONAL, pick at most ONE)
 # ---------------------------------------------------------------------
 # Filtering is OPTIONAL: with no [filter] section the raw signal is kept
-# (dataset_config.filter defaults to None). To enable it, uncomment the block below,
-# or copy a ready-made table from one of the files in ./filter/ (one per filter type:
-# bandpass.toml, bandstop.toml, lowpass.toml, highpass.toml, notch.toml).
+# (dataset_config.filter defaults to None). To enable it, uncomment the [filter] block below
+# and fill it with the keys from one of the files in ./filter/ (one per filter type: bandpass.toml,
+# bandstop.toml, lowpass.toml, highpass.toml, notch.toml). Those files hold just the keys (no [filter] header).
 # [filter]
 # filter_type = "bandpass"
 # l_freq = 8.0
