@@ -418,6 +418,44 @@ class _fir_decimation_pool_1d(nn.Module) :
         return w, H
 
 
+    def plot_frequency_response(self, n_fft : int = 8192, db : bool = True, unwrap_phase : bool = True, fs : Optional[float] = None, axs = None) :
+        """
+        Plot the frequency response (magnitude and phase) of the layer, seen as a linear filter.
+
+        Every FIR pooling layer (avg / blur / sinc / dwt) is a linear filter, so it has a well-defined frequency response ``H(w)``; this draws its magnitude (top) and phase (bottom) on two stacked axes.
+        The nonlinear :class:`~jade.model.pooling_1d.max_pool.max_pool_1d` is the exception: it overrides this method to raise, because a nonlinear operator has no frequency response.
+        The heavy lifting is done by the shared :func:`~jade.model.pooling_1d.support_pooling._plot_frequency_response` helper, on top of :meth:`frequency_response`.
+
+        Parameters
+        ----------
+        n_fft : int, default 8192
+            The FFT length used by :meth:`frequency_response`.
+        db : bool, default True
+            If True the magnitude is in decibels (``20 * log10 |H|``); otherwise it is the linear ``|H|``.
+        unwrap_phase : bool, default True
+            If True the phase is unwrapped (:func:`numpy.unwrap`); otherwise it is wrapped to ``(-pi, pi]``.
+        fs : float or None, default None
+            The input sampling frequency (Hz). When given, the frequency axis is labeled in Hz (``f = w / (2 * pi) * fs``); when ``None`` it is the normalized angular frequency in ``[0, pi]``.
+        axs : sequence of matplotlib.axes.Axes or None, default None
+            Two axes (magnitude, phase) to draw on. When ``None`` a new 2-row figure is created.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The created (or reused) figure.
+        axs : numpy.ndarray of matplotlib.axes.Axes
+            The two axes (magnitude on top, phase on the bottom).
+        """
+
+        w, H = self.frequency_response(n_fft)
+        title = f"{type(self).__name__} (M = {self.decimation_factor})"
+        return _plot_frequency_response(
+            w, H,
+            decimation_factor = self.decimation_factor,
+            db = db, unwrap_phase = unwrap_phase, fs = fs, axs = axs, title = title,
+        )
+
+
     def stopband_leakage(self, n_fft : int = 8192) -> float :
         """
         Fraction of the filter's energy that sits ABOVE the post-decimation Nyquist.
@@ -717,3 +755,120 @@ class _multichannel_pool_1d(nn.Module) :
         x = x.reshape(B, D * C, T)
         x = self.pool(x)
         return x.reshape(B, D, C, x.shape[-1])
+
+
+    def plot_frequency_response(self, *args, **kwargs) :
+        """
+        Plot the frequency response of the wrapped 1D pooling layer.
+
+        The multichannel wrapper applies the same 1D operator to every EEG channel, so its frequency response is exactly that of the wrapped 1D layer.
+        This delegates to the inner layer's :meth:`~jade.model.pooling_1d.support_pooling._fir_decimation_pool_1d.plot_frequency_response` (and therefore raises for a wrapped nonlinear :class:`~jade.model.pooling_1d.max_pool.max_pool_1d`, exactly like the 1D layer does).
+        See that method for the accepted arguments and the return value.
+        """
+
+        return self.pool.plot_frequency_response(*args, **kwargs)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Plotting helpers
+
+def _plot_frequency_response(
+    w : np.ndarray,
+    H : np.ndarray,
+    decimation_factor : Optional[int] = None,
+    db : bool = True,
+    unwrap_phase : bool = True,
+    fs : Optional[float] = None,
+    axs = None,
+    title : Optional[str] = None,
+) :
+    """
+    Draw the magnitude and phase of a frequency response ``H(w)`` on two stacked axes.
+
+    Shared by the ``plot_frequency_response`` methods of the pooling layers so the drawing code lives in one place.
+
+    Parameters
+    ----------
+    w : numpy.ndarray
+        Normalized angular frequency in ``[0, pi]`` (as returned by :meth:`_fir_decimation_pool_1d.frequency_response`).
+    H : numpy.ndarray
+        The complex frequency response ``H(w)``.
+    decimation_factor : int or None, default None
+        When given, a dashed vertical line marks the post-decimation Nyquist ``pi / M`` (the anti-aliasing boundary): every component to its right is folded back by the subsampling.
+    db : bool, default True
+        Magnitude in decibels (``20 * log10 |H|``) if True, linear ``|H|`` otherwise.
+    unwrap_phase : bool, default True
+        Unwrap the phase (:func:`numpy.unwrap`) if True.
+    fs : float or None, default None
+        Sampling frequency (Hz) used to label the frequency axis (``f = w / (2 * pi) * fs``); ``None`` keeps the normalized ``[0, pi]`` axis.
+    axs : sequence of matplotlib.axes.Axes or None, default None
+        Two axes (magnitude, phase) to draw on; a new 2-row figure is created when ``None``.
+    title : str or None, default None
+        An optional title for the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created (or reused) figure.
+    axs : numpy.ndarray of matplotlib.axes.Axes
+        The two axes (magnitude, phase).
+    """
+
+    # Lazy import so importing the pooling layers never pulls in matplotlib (mirrors the lazy scipy import in sinc_pool).
+    import matplotlib.pyplot as plt
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Prepare the axes data
+
+    # Frequency axis: Hz when fs is given, otherwise the normalized angular frequency.
+    if fs is not None :
+        freq_axis = w / (2.0 * np.pi) * fs
+        freq_label = "Frequency [Hz]"
+        cutoff = (np.pi / decimation_factor) / (2.0 * np.pi) * fs if decimation_factor is not None else None
+    else :
+        freq_axis = w
+        freq_label = "Normalized angular frequency [rad/sample]"
+        cutoff = np.pi / decimation_factor if decimation_factor is not None else None
+
+    # Magnitude (dB or linear). The stopband can hit exact zeros, so clamp before the log.
+    magnitude = np.abs(H)
+    if db :
+        magnitude = 20.0 * np.log10(np.maximum(magnitude, 1e-12))
+        magnitude_label = "Magnitude [dB]"
+    else :
+        magnitude_label = "Magnitude |H(w)|"
+
+    # Phase (unwrapped or wrapped).
+    phase = np.angle(H)
+    if unwrap_phase :
+        phase = np.unwrap(phase)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Draw
+
+    # Create the axes if the caller did not provide them.
+    if axs is None :
+        fig, axs = plt.subplots(2, 1, figsize = (10, 6), sharex = True)
+    else :
+        fig = axs[0].get_figure()
+
+    # Magnitude on the top axis, phase on the bottom axis.
+    axs[0].plot(freq_axis, magnitude, color = "black", linewidth = 1.3)
+    axs[0].set_ylabel(magnitude_label)
+    axs[0].grid(True)
+
+    axs[1].plot(freq_axis, phase, color = "black", linewidth = 1.3)
+    axs[1].set_ylabel("Phase [rad]")
+    axs[1].set_xlabel(freq_label)
+    axs[1].grid(True)
+
+    # Mark the post-decimation Nyquist pi / M (the folding frequency) on both axes.
+    if cutoff is not None :
+        axs[0].axvline(cutoff, color = "red", linestyle = "--", linewidth = 1.0, label = "post-decimation Nyquist (pi / M)")
+        axs[1].axvline(cutoff, color = "red", linestyle = "--", linewidth = 1.0)
+        axs[0].legend(loc = "best", fontsize = "small")
+
+    if title is not None :
+        fig.suptitle(title)
+    fig.tight_layout()
+
+    return fig, axs

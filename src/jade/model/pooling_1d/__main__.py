@@ -29,15 +29,11 @@ if __name__ == "__main__" :  # pragma: no cover
     print("folding frequency itself, so it reads conservatively for cutoff_scale < 1.")
     print("'minT' = shortest input this kernel can be used on with reflect padding.")
 
-    header = "{:34s} {:>2s} {:>4s} {:>8s} {:>9s} {:>7s} {:>5s}".format(
-        "layer", "M", "L", "leak%", "att@pi/M", "delay", "minT"
-    )
+    header = f"{'layer':34s} {'M':>2s} {'L':>4s} {'leak%':>8s} {'att@pi/M':>9s} {'delay':>7s} {'minT':>5s}"
 
     for M in (4, 8) :
         fs_in = 250.0 if M == 4 else 62.5
-        print("\n-- decimation M = {}: input rate {:g} Hz -> output rate {:g} Hz, folding frequency {:g} Hz --".format(
-            M, fs_in, fs_in / M, fs_in / (2 * M)
-        ))
+        print(f"\n-- decimation M = {M}: input rate {fs_in:g} Hz -> output rate {fs_in / M:g} Hz, folding frequency {fs_in / (2 * M):g} Hz --")
         print(header)
 
         arms = [
@@ -64,8 +60,8 @@ if __name__ == "__main__" :  # pragma: no cover
             summary = layer.summary()
             # reflect padding needs pad < T, with pad = (L - 1) // 2
             min_T = (summary["kernel_length"] - 1) // 2 + 1
-            print("{:34s} {:2d} {:4d} {:8.3f} {:9.1f} {:7.2f} {:5d}".format(
-                label, summary["decimation_factor"], summary["kernel_length"],
-                summary["stopband_leakage_pct"], summary["stopband_attenuation_db"],
-                summary["group_delay_samples"], min_T
-            ))
+            print(
+                f"{label:34s} {summary['decimation_factor']:2d} {summary['kernel_length']:4d} "
+                f"{summary['stopband_leakage_pct']:8.3f} {summary['stopband_attenuation_db']:9.1f} "
+                f"{summary['group_delay_samples']:7.2f} {min_T:5d}"
+            )
