@@ -67,9 +67,13 @@ class model_config(generic_config) :
         # Polymorphic dispatch (only when called on the base class)
 
         if cls is model_config :
+            # Get the model name
             name = str(data.get("name", "")).lower()
-            if name not in MODEL_CONFIG_REGISTRY :
-                raise ValueError("unknown model name {}, known models: {}".format(repr(name), tuple(MODEL_CONFIG_REGISTRY)))
+
+            # Check if the name is known, otherwise raise an error with the list of known models.
+            if name not in MODEL_CONFIG_REGISTRY : raise ValueError(f"unknown model name {repr(name)}, known models: {tuple(MODEL_CONFIG_REGISTRY)}")
+            
+            # Return the proper concrete subclass instance by calling its from_dict method.
             return MODEL_CONFIG_REGISTRY[name].from_dict(data)
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

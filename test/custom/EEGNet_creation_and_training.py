@@ -97,6 +97,7 @@ training_config_dict = toml.load(path_training_config)
 training_config_dict["epochs"]      = 1
 training_config_dict["batch_size"]  = N // 2
 training_config_dict["device"]      = device
+training_config_dict['dataloader'] = None
 
 # Create training config object
 traingin_config_object = training_config.from_dict(training_config_dict)
