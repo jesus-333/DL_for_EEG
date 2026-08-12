@@ -7,7 +7,7 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# CLI Arguments and check
+# CLI Arguments
 
 import argparse
 
@@ -93,12 +93,10 @@ print(f"Model config:\n{model_config_obj}")
 model = EEGNet_Classifier(model_config_obj)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Logger setup
-
-logging_utils.setup_logging()
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Training
+
+# Logger setup
+logging_utils.setup_logging()
 
 if torch.cuda.is_available() :
     device = "cuda"
@@ -118,5 +116,4 @@ traingin_config_object = training_config.from_dict(training_config_dict)
 print(f"\nTraining config:\n{traingin_config_object}")
 
 # Train the model
-model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)
-# train_model(traingin_config_object, model, train_dataset, validation_dataset = validation_dataset, wandb_model_artifact = None)
+# model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)
