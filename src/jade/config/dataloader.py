@@ -65,7 +65,7 @@ class dataloader_config(generic_config) :
         # Number of workers (bool is rejected, being a subclass of int)
 
         if not isinstance(self.num_workers, int) or isinstance(self.num_workers, bool) or self.num_workers < 0 :
-            raise ValueError("num_workers must be a non-negative int, got {}".format(repr(self.num_workers)))
+            raise ValueError(f"num_workers must be a non-negative int, got {repr(self.num_workers)}")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Prefetch factor (only meaningful when num_workers > 0)
@@ -80,7 +80,7 @@ class dataloader_config(generic_config) :
             if self.prefetch_factor is None :
                 self.prefetch_factor = 2
             elif self.prefetch_factor <= 0 :
-                raise ValueError("prefetch_factor must be positive, got {}".format(repr(self.prefetch_factor)))
+                raise ValueError(f"prefetch_factor must be positive, got {repr(self.prefetch_factor)}")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Persistent workers (only valid when num_workers > 0)

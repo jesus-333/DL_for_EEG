@@ -79,6 +79,9 @@ label_smoothing = 0.0
 # ---------------------------------------------------------------------
 # Dataloader (single option)
 # ---------------------------------------------------------------------
+# This whole [dataloader] section is OPTIONAL. Remove it (or comment it out) to use
+# a default dataloader (torch's default DataLoader values, with shuffle = true).
+# Keep it to customize the values below.
 [dataloader]
 # Worker processes for data loading. 0 loads in the main process.
 num_workers = 0

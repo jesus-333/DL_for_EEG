@@ -9,7 +9,7 @@ The optimizer, the (optional) learning-rate scheduler, the loss function, the da
 * ``optimizer``    -> a :class:`~jade.config.optimizers.generic.optimizer_config` (Adam by default)
 * ``lr_scheduler`` -> an :class:`~jade.config.lr_schedulers.generic.lr_scheduler_config` or ``None`` (no scheduling)
 * ``loss``         -> a :class:`~jade.config.loss_functions.generic.loss_config` (cross-entropy by default)
-* ``dataloader``   -> a :class:`~jade.config.dataloader.dataloader_config`
+* ``dataloader``   -> a :class:`~jade.config.dataloader.dataloader_config` (optional; ``None`` creates a default one built on torch's default DataLoader values)
 * ``wandb``        -> a :class:`~jade.config.wandb_training.wandb_training_config` or ``None`` (no wandb logging)
 
 Serialized to TOML, each nested config becomes its own section (e.g. ``[optimizer]``, ``[loss]``, ``[wandb]``).
@@ -57,8 +57,10 @@ class training_config(generic_config) :
     loss : loss_config, default cross_entropy_config()
         Loss-function configuration (nested). Remember to pair it with the model's output:
         cross-entropy for logits (``use_softmax = False``), NLL for log-probabilities (``use_softmax = True``).
-    dataloader : dataloader_config, default dataloader_config()
-        Dataloader configuration (nested). ``batch_size`` is taken from this config's parent, not from here.
+    dataloader : dataloader_config, dict or None, default None
+        Dataloader configuration (nested).
+        ``None`` (the default) creates a default :class:`~jade.config.dataloader.dataloader_config`, i.e. torch's default ``DataLoader`` values (the only non-torch default is ``shuffle = True``, sensible for a training loader); a dict is promoted to a ``dataloader_config``.
+        Note that ``batch_size`` is taken from this config's parent, not from here.
     wandb : wandb_training_config or None, default None
         Wandb logging configuration (nested). ``None`` disables wandb logging.
         Use :func:`~jade.training.classifier.wandb_train` (from configs) or :func:`~jade.training.classifier.wandb_train_model` (from an already-built model) to actually open the wandb run.
@@ -94,7 +96,7 @@ class training_config(generic_config) :
     optimizer    : optimizer_config                = field(default_factory = adam_config)
     lr_scheduler : Optional[lr_scheduler_config]   = None
     loss         : loss_config                     = field(default_factory = cross_entropy_config)
-    dataloader   : dataloader_config               = field(default_factory = dataloader_config)
+    dataloader   : Optional[dataloader_config]     = None
     wandb        : Optional[wandb_training_config] = None
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -123,13 +125,13 @@ class training_config(generic_config) :
         # Core hyper-parameters (bool is rejected where an int is expected, being a subclass of int)
 
         if not isinstance(self.epochs, int) or isinstance(self.epochs, bool) or self.epochs <= 0 :
-            raise ValueError("epochs must be a positive int, got {}".format(repr(self.epochs)))
+            raise ValueError(f"epochs must be a positive int, got {repr(self.epochs)}")
 
         if not isinstance(self.batch_size, int) or isinstance(self.batch_size, bool) or self.batch_size <= 0 :
-            raise ValueError("batch_size must be a positive int, got {}".format(repr(self.batch_size)))
+            raise ValueError(f"batch_size must be a positive int, got {repr(self.batch_size)}")
 
         if not isinstance(self.device, str) or not self.device :
-            raise ValueError("device must be a non-empty string, got {}".format(repr(self.device)))
+            raise ValueError(f"device must be a non-empty string, got {repr(self.device)}")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Promote the nested configs (a dict coming from a file becomes the proper dataclass)
@@ -144,18 +146,20 @@ class training_config(generic_config) :
         # Loss function (polymorphic).
         self.loss = get_loss_config(self.loss)
 
-        # Dataloader.
-        if isinstance(self.dataloader, dict) :
+        # Dataloader (optional: when None a default dataloader_config is created, built on torch's default DataLoader values).
+        if self.dataloader is None :
+            self.dataloader = dataloader_config()
+        elif isinstance(self.dataloader, dict) :
             self.dataloader = dataloader_config.from_dict(self.dataloader)
         elif not isinstance(self.dataloader, dataloader_config) :
-            raise ValueError("dataloader must be a dataloader_config (or a dict), got {}".format(type(self.dataloader)))
+            raise ValueError(f"dataloader must be a dataloader_config, a dict or None, got {type(self.dataloader)}")
 
         # Wandb logging (optional).
         if self.wandb is not None :
             if isinstance(self.wandb, dict) :
                 self.wandb = wandb_training_config.from_dict(self.wandb)
             elif not isinstance(self.wandb, wandb_training_config) :
-                raise ValueError("wandb must be a wandb_training_config (or a dict) or None, got {}".format(type(self.wandb)))
+                raise ValueError(f"wandb must be a wandb_training_config (or a dict) or None, got {type(self.wandb)}")
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Checkpoint / logging options
@@ -168,4 +172,4 @@ class training_config(generic_config) :
         # Seed
         if self.seed is not None :
             if not isinstance(self.seed, int) or isinstance(self.seed, bool) or self.seed < 0 :
-                raise ValueError("seed must be a non-negative int or None, got {}".format(repr(self.seed)))
+                raise ValueError(f"seed must be a non-negative int or None, got {repr(self.seed)}")
