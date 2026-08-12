@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/dataloader.py`
 
-Defines `dataloader_config`, the parameters forwarded to `torch.utils.data.DataLoader` when the training loop wraps a dataset (see `jade.training.support_training.get_dataloader`). **`batch_size` is deliberately NOT here** — it lives in [`training_config`](training.md), since it is a training hyper-parameter shared by every loader.
+Defines `dataloader_config`, the parameters forwarded to `torch.utils.data.DataLoader` when the training loop wraps a dataset (see `jade.training.support_training.get_dataloader`). **`batch_size` is deliberately NOT here** — it lives in [`training_config`](training.md), since it is a training hyper-parameter shared by every loader. In `training_config` this nested config is **optional**: leaving it `None` (the default) creates a default `dataloader_config` — i.e. these torch-based defaults.
 
 Unlike the other configs, some inconsistent combinations are **gently fixed with a logged warning** rather than raising, mirroring the old code's behavior.
 
