@@ -99,6 +99,25 @@ class max_pool_1d(nn.Module) :
         }
 
 
+    def plot_frequency_response(self, *args, **kwargs) :
+        """
+        Not available: max pooling is nonlinear and has no frequency response.
+
+        Unlike the FIR pooling layers (avg / blur / sinc / dwt), :class:`max_pool_1d` wraps :class:`torch.nn.MaxPool1d`, a nonlinear operator, so it has no linear/LTI frequency response to plot (its :meth:`summary` already reports ``NaN`` for the spectral figures of merit).
+        The method exists so every pooling layer exposes the same interface, but calling it always raises.
+
+        Raises
+        ------
+        NotImplementedError
+            Always, because a nonlinear operator has no frequency response.
+        """
+
+        raise NotImplementedError(
+            "max_pool_1d is nonlinear (nn.MaxPool1d): it has no frequency response to plot. "
+            "Use one of the FIR pooling layers (avg / blur / sinc / dwt) for a frequency-response plot."
+        )
+
+
     def extra_repr(self) -> str :
         """
         Short description used by :meth:`torch.nn.Module.__repr__`.

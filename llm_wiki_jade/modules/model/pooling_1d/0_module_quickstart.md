@@ -61,6 +61,8 @@ Every FIR layer inherits frequency-domain diagnostics from the base class:
 | `group_delay_samples()` | temporal centre of mass vs kernel centre; 0 for symmetric kernels | 0 for linear phase |
 | `summary()` | all of the above in one dict | — |
 
+For a visual inspection, every FIR layer also inherits **`plot_frequency_response(n_fft=8192, db=True, unwrap_phase=True, fs=None, axs=None)`** — magnitude (top) + phase (bottom) on two stacked axes, with a dashed marker at the post-decimation Nyquist `π/M`; returns `(fig, axs)`. It reuses `frequency_response()` and a shared drawing helper in [`support_pooling`](support_pooling.md) (lazy matplotlib import). The nonlinear `max_pool_1d` has the method too but raises `NotImplementedError` (no frequency response); the multichannel wrappers delegate to their inner 1D layer.
+
 ## Public API and structure
 
 - **Factory:** `get_pooling_layer(config)` — single entry point for the 1D layers; `pooling_type='identity'` or a decimation factor of 1 → `nn.Identity`. See [`__init__`](__init__.md). For 4D EEG tensors use [`get_multichannel_pooling`](../support_functions.md).
