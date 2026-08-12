@@ -67,11 +67,23 @@ dataset_config_obj = dataset_config.dataset_config.from_dict(dataset_config_dict
 print(f"Dataset config:\n{dataset_config_obj}")
 
 # Create the EEG_Dataset object from the dataset_config object
+# Remember that data saved inside the EEG_dataset is a tensor of shape [N x 1 x C x T], where N is the number of trials, C is the number of channels and T is the number of time samples.
 eeg_dataset_train = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'train')
 eeg_dataset_test  = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'test')
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model creation
+
+# Get dataset parameters
+n_classes = len(np.unique(eeg_dataset_train.labels))
+C = eeg_dataset_train.data.shape[2] # Number of EEG channels
+T = eeg_dataset_train.data.shape[3] # Number of time samples
+
+# Update config with custom values
+model_config_dict["input_size"] = (1, 1, C, T)
+model_config_dict["n_classes"]  = n_classes
+model_config_dict["C"]          = C
+model_config_dict["T"]          = T
 
 # Create model config object
 model_config_obj = EEGNet_config.from_dict(model_config_dict)
@@ -79,24 +91,6 @@ print(f"Model config:\n{model_config_obj}")
 
 # Create model
 model = EEGNet_Classifier(model_config_obj)
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Synthetic data and dataset_creation
-
-def generate_dataset(N, C, T, n_classes) :
-    # Create synthetic data and labels
-    data = np.random.rand(N, 1, C, T).astype(np.float32)
-    labels = np.random.randint(0, n_classes, size=(N,)).astype(np.int64)
-    ch_list = [f"Ch{i + 1}" for i in range(C)]
-
-    # Dataset creation
-    dataset = EEG_Dataset(data = data, labels = labels, ch_list = ch_list)
-
-    return dataset
-
-# Create synthetic datasets (train and validation)
-train_dataset      = generate_dataset(N, C, T, n_classes)
-validation_dataset = generate_dataset(N, C, T, n_classes)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Logger setup
@@ -116,17 +110,13 @@ else:
     device = "cpu"
     print("\nNo backend in use. Device set to cpu")
 
-# Load training config
-training_config_dict = toml.load(path_training_config)
-
 # Update config with custom values
-training_config_dict["epochs"]      = 1
-training_config_dict["batch_size"]  = N // 2
-training_config_dict["device"]      = device
+training_config_dict["device"] = device
 
 # Create training config object
 traingin_config_object = training_config.from_dict(training_config_dict)
 print(f"\nTraining config:\n{traingin_config_object}")
 
 # Train the model
-model = classifier.train_model(traingin_config_object, model, train_dataset, validation_dataset = validation_dataset, wandb_model_artifact = None)
+model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)
+# train_model(traingin_config_object, model, train_dataset, validation_dataset = validation_dataset, wandb_model_artifact = None)

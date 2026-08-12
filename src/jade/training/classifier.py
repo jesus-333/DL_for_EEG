@@ -390,7 +390,7 @@ def wandb_train(training_config, model, train_dataset, validation_dataset = None
     # Build the config logged on wandb
 
     # The whole training config is logged; the model config is logged too when provided.
-    config_to_log = dict(training_config = training_config.to_dict())
+    config_to_log = training_config = training_config.to_dict()
     if model_config is not None :
         # Log a plain dict (a model_config dataclass is serialized through to_dict).
         config_to_log["model_config"] = model_config.to_dict() if hasattr(model_config, "to_dict") else model_config
