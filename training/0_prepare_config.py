@@ -11,6 +11,8 @@ It should receive the path to the following config files:
     - dataloader config (optional), nested inside training config
     - lr scheduler config (optional), nested inside training config
     - wandb config (optional), nested inside training config
+For the optional configs, if not provided, the default config will be used (for dataloader) or no config will be used (for filter, lr scheduler and wandb).
+If you launch this script from a shell script, you can pass the optional configs as empty strings, which will be converted to None.
 
 Furthermore, the script must receive the path to a folder where the config files will be copied. The folder will be created if it does not exist.
 
@@ -27,6 +29,7 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 
 import argparse
 
+# Declare the command line arguments
 parser = argparse.ArgumentParser(description = 'Train dement model in a centralized way.')
 parser.add_argument('--path_dataset_config'              , type = str  , default = None, help = 'Path to the dataset toml config file. If not provided, an error will be thrown.')
 parser.add_argument('--path_filter_config'               , type = str  , default = None, help = 'Path to the filter toml config file. This is a nested config inside dataset config. If not provided, no filtering will be applied.')
@@ -39,14 +42,22 @@ parser.add_argument('--path_lr_scheduler_config'         , type = str  , default
 parser.add_argument('--path_wandb_config'                , type = str  , default = None, help = 'Path to the wandb toml config file. This is a nested config inside training config. If not provided, no wandb logging will be used.')
 parser.add_argument('--path_output_folder'               , type = str  , default = None, help = 'Path to the output folder where the config files will be copied. If not provided, an error will be thrown. The folder will be created if it does not exist.')
 
+# Parse the command line arguments
 args = parser.parse_args()
+
+# Convert to None empty strings. This is useful when the script is called from a shell script, where the arguments are passed as empty strings instead of None.
+for arg in vars(args) :
+    if getattr(args, arg) == '' :
+        setattr(args, arg, None)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Imports
 
+# External libraries
 import os
 import toml
 
+# Internal imports
 import jade.config as jade_cfg
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -106,7 +117,7 @@ print(f'Dataset config OK \tSaved to : {path_dataset_config_output}')
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model config
 
-# Read the model config 
+# Read the model config
 model_config_dict = read_toml_config(args.path_model_config, required = True)
 
 # Check config

@@ -20,23 +20,25 @@ echo "SEED = ${seed}"
 echo "====================================="
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# Path variables.
+# Settings
 
-# Config files paths.
+# Variable for the path to config. This name will be used to create the path to the corresponding config file inside config/starting_config/
+# I decided to use this method because it's quicked to change only the variable name instead of changing part of the path.
+filter="" # If empty, no filter will be used. Options are : lowpass, highpass, bandpass, bandstop
 model_name="eegnet"
-optimizer="AdamW"
-lr_scheduler="CosineAnnealingWarmRestarts"
+loss="nll" # Possible options are : cross_entropy, nll 
+optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd
+lr_scheduler="" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Slurm variables.
-
-# Sbatch settings
+# Slurm
 partition="gpu" # l40s, hopper, gpu
 qos="normal" # besteffort, iris-hopper, normal
 mem="10G"
 time="28:13:00"
-output="./scripts_sh_V2/output/${model_name}/out_%x_%j.txt"
-error="./scripts_sh_V2/output/${model_name}/err_%x_%j.txt"
+output="./training/logs/${model_name}/%j_std_%x.txt"
+error="./training/logs/${model_name}/%j_err_%x.txt"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Script that will be launched with sbatch. Selected based on the model name.
 script_name="./scripts_sh_V2/${model_name}_cent.sh"
@@ -56,11 +58,8 @@ else
 	echo "INVALID PARTITION"
 fi
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Create config file for training run.
-
 # Path dataset, training, optimizer and lr scheduler config (file to copy)
-path_dataset_config="./scripts_sh_V2/config/dataset.toml"
+path_dataset_config="./training/config/starting_config/dataset/dataset.toml"
 path_model_training_config="./scripts_sh_V2/config/training.toml"
 path_optimizer_config="./scripts_sh_V2/config/optimizer_${optimizer}.toml"
 path_lr_scheduler_config="./scripts_sh_V2/config/lr_sched_${lr_scheduler}.toml"
@@ -81,19 +80,10 @@ new_path_optimizer_config="./scripts_sh_V2/config/training_hpc/${job_name}/optim
 new_path_lr_scheduler_config="./scripts_sh_V2/config/training_hpc/${job_name}/lr_scheduler".toml
 new_path_model_config="./scripts_sh_V2/config/training_hpc/${job_name}/model.toml"
 
-# Copy config in the new path
-cp ${path_dataset_config} ${new_path_dataset_config}
-cp ${path_model_training_config} ${new_path_training_config}
-cp ${path_optimizer_config} ${new_path_optimizer_config}
-cp ${path_lr_scheduler_config} ${new_path_lr_scheduler_config}
-cp ${path_model_config} ${new_path_model_config}
-
 # Print seed and paths
 # TODO finish this section
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 echo "seed: ${seed}"
-echo "path_dataset_config : ${new_path_dataset_config}"
-echo "path_to_idx_files   : ${path_to_idx_files}"
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
