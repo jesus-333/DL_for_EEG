@@ -44,6 +44,7 @@ Same keys as the base class's `summary` so it slots into the same result table, 
 
 - Zero trainable parameters.
 - Does **not** implement `effective_kernel`, `stopband_leakage`, etc. — it is not an FIR filter, so those would be meaningless.
+- Has a `plot_frequency_response(...)` method (so every pooling layer exposes the same interface), but it **always raises `NotImplementedError`**: a nonlinear operator has no frequency response to plot. The multichannel wrapper delegates to it and therefore raises too.
 
 ## Multichannel variant
 

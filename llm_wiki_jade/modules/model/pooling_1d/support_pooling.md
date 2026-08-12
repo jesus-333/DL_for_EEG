@@ -103,6 +103,18 @@ The single-stage impulse response equivalent to the layer, as a float64 NumPy ar
 
 `H = np.fft.rfft(effective_kernel, n=n_fft)`; `w` is linear in `[0, π]` matching `H.size`. Returns normalized angular frequency `w` and complex response `H`. To convert to Hz at input rate `fs`: `f = w / (2π) * fs`.
 
+### `plot_frequency_response(self, n_fft=8192, db=True, unwrap_phase=True, fs=None, axs=None) -> (fig, axs)`
+
+Plots the layer's frequency response — **magnitude** (top) and **phase** (bottom) — on two stacked axes, on top of `frequency_response()`. Every FIR pooling layer (avg/blur/sinc/dwt) is a linear filter, so it inherits this from the base class. The nonlinear `max_pool_1d` **overrides it to raise `NotImplementedError`** (no frequency response — see [`max_pool.md`](max_pool.md)).
+
+- `db` — magnitude in dB (`20·log10|H|`, clamped at `1e-12` before the log) vs linear `|H|`.
+- `unwrap_phase` — `np.unwrap(np.angle(H))` vs the wrapped phase.
+- `fs` — when given, the x-axis is Hz (`f = w/(2π)·fs`); when `None` it is the normalized angular frequency `[0, π]`.
+- `axs` — draw on two provided axes, else a new 2-row figure is created.
+- A dashed red line marks the **post-decimation Nyquist `π/M`** (the folding frequency): everything to its right is aliased back by the subsampling.
+
+The actual drawing lives in the module-level helper **`_plot_frequency_response(w, H, decimation_factor=None, db=True, unwrap_phase=True, fs=None, axs=None, title=None)`** (lazy `import matplotlib.pyplot` so importing the pooling layers never pulls in matplotlib). The multichannel wrapper `_multichannel_pool_1d` exposes a thin `plot_frequency_response(...)` that **delegates to the wrapped 1D layer** (`self.pool`).
+
 ### `stopband_leakage(self, n_fft=8192) -> float`
 
 **The headline figure of merit.** Fraction of the filter's energy *above* the post-decimation Nyquist:
