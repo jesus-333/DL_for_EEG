@@ -1,0 +1,18 @@
+# Low-pass filter (MNE Raw.filter): keep the frequencies below the cutoff h_freq.
+# Copy this [filter] table into dataset.toml to use it (dataset_config.filter).
+[filter]
+filter_type = "lowpass"
+# Cutoff (Hz): keep the frequencies below h_freq. Do NOT set l_freq for a low-pass.
+h_freq = 40.0
+# Filter method: "iir" (moabb default) or "fir".
+method = "iir"
+# IIR design (filter order / type). Leave commented to use MNE's defaults.
+# iir_params = { order = 4, ftype = "butter" }
+# FIR-only options (ignored by the IIR method).
+filter_length = "auto"
+h_trans_bandwidth = "auto"
+phase = "zero"
+fir_window = "hamming"
+fir_design = "firwin"
+# Channels to filter (MNE "picks" selector).
+picks = "data"
