@@ -4,7 +4,7 @@ Weights & Biases (wandb) training configuration.
 :class:`~jade.config.wandb_training.wandb_training_config` groups every parameter that is specific to logging a training run on wandb.
 It is kept separate from :class:`~jade.config.training.training_config` (which references it as an optional nested field) so that a run that does not use wandb carries no wandb-related noise.
 
-The values are consumed by :func:`~jade.training.classifier.wandb_train` (which sets up :func:`wandb.init` and the model :class:`wandb.Artifact`) and by :func:`~jade.training.classifier.train` (which logs the per-epoch metrics).
+The values are consumed by :func:`~jade.training.classifier.wandb_train_model` (which sets up :func:`wandb.init` and the model :class:`wandb.Artifact`; reached through :func:`~jade.training.classifier.wandb_train` when starting from a ``model_config``) and by :func:`~jade.training.classifier.train_model` (which logs the per-epoch metrics).
 Note that ``wandb`` is an optional dependency of the package; it only needs to be installed if this config is used.
 """
 

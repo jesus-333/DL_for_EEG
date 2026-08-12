@@ -68,7 +68,7 @@ TOML/JSON file ──from_toml/from_json──> training_config (nested tree reb
         ┌────────────────────────────────────┼───────────────────────────────┐
    optimizer_config   lr_scheduler_config   loss_config   dataloader_config   wandb_training_config
         │                    │                  │               │                     │
- get_optimizer()      get_lr_scheduler()   get_loss_function() get_dataloader()   wandb_train()/train()
+ get_optimizer()      get_lr_scheduler()   get_loss_function() get_dataloader()   wandb_train_model()/train_model()
  (support_training)                                                              (classifier)
         ▼                    ▼                  ▼               ▼
  torch.optim.*      torch.optim.lr_scheduler.*  torch.nn.*   torch.utils.data.DataLoader
@@ -96,7 +96,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 | `optimizer_config` family | `…support_training.get_optimizer` | `torch.optim.*` |
 | `lr_scheduler_config` family | `…support_training.get_lr_scheduler` | `torch.optim.lr_scheduler.*` |
 | `loss_config` family | `…support_training.get_loss_function` | `torch.nn.*` (weights list → tensor) |
-| `wandb_training_config` | `jade.training.classifier.wandb_train` / `train` | wandb run + model artifact |
+| `wandb_training_config` | `jade.training.classifier.wandb_train_model` / `train_model` | wandb run + model artifact |
 | `training_config` | `jade.training.classifier` | the whole training run |
 | `model_config` family (`EEGNet_config`) | `jade.model.get_model`; `jade.training.train` | the `torch.nn.Module` to train |
 | pooling config family | `jade.model.pooling_1d.get_pooling_layer` | a 1D pooling layer (research subpackage) |

@@ -4,7 +4,7 @@ Source: `src/jade/config/wandb_training.py`
 
 Defines `wandb_training_config`, grouping every parameter specific to logging a training run on Weights & Biases (wandb). Kept separate from [`training_config`](training.md) (which references it as an **optional** nested field, `wandb=None` by default) so a run that does not use wandb carries no wandb-related noise. `wandb` itself is an optional dependency, needed only if this config is used.
 
-Consumed by `jade.training.classifier.wandb_train` (sets up `wandb.init` and the model `wandb.Artifact`) and `jade.training.classifier.train` (logs per-epoch metrics).
+Consumed by `jade.training.classifier.wandb_train_model` (sets up `wandb.init` and the model `wandb.Artifact`; reached via `wandb_train` when starting from a `model_config`) and `jade.training.classifier.train_model` (logs per-epoch metrics).
 
 ## Class `wandb_training_config(generic_config)`
 
