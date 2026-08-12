@@ -53,7 +53,6 @@ class max_pool_1d(nn.Module) :
             ceil_mode = bool(_get(config, "ceil_mode", False)),
         )
 
-
     def forward(self, x : torch.Tensor) -> torch.Tensor :
         """
         Apply max pooling.
@@ -72,7 +71,6 @@ class max_pool_1d(nn.Module) :
         if x.dim() != 3 :
             raise ValueError(f"expected (B, D, T), got {tuple(x.shape)}")
         return self.pool(x)
-
 
     def summary(self) -> dict :
         """
@@ -97,7 +95,6 @@ class max_pool_1d(nn.Module) :
             "group_delay_samples"      : 0.0,
             "dc_gain"                  : 1.0,
         }
-
 
     def extra_repr(self) -> str :
         """
