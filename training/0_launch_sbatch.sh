@@ -24,11 +24,13 @@ echo "====================================="
 
 # Variable for the path to config. This name will be used to create the path to the corresponding config file inside config/starting_config/
 # I decided to use this method because it's quicked to change only the variable name instead of changing part of the path.
-filter="" # If empty, no filter will be used. Options are : lowpass, highpass, bandpass, bandstop
-model_name="eegnet"
+filter="" # If empty, no filter will be used. Options are :  bandpass, bandstop, highpass, lowpass, notch
+model_name="EEGNet"
+training_config_name="training_clf" # Specify the name of the training config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
 loss="nll" # Possible options are : cross_entropy, nll 
 optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd
 lr_scheduler="" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
+wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
 
 # Slurm
 partition="gpu" # l40s, hopper, gpu
@@ -38,14 +40,15 @@ time="28:13:00"
 output="./training/logs/${model_name}/%j_std_%x.txt"
 error="./training/logs/${model_name}/%j_err_%x.txt"
 
+# Job name (modify as needed)
+job_name="${model_name}_${seed}"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Script that will be launched with sbatch. Selected based on the model name.
-script_name="./scripts_sh_V2/${model_name}_cent.sh"
+script_name="./training/${model_name}/train_${model_name}.sh"
 
-# Job name (modify as needed)
-job_name="grokking_${model_name}_${seed}"
-
+# Update qos based on the partition (specific for the HPC cluster used)
 if [ $partition = "l40s" ] ; then
 	qos="besteffort"
 elif [ $partition = "hopper" ] ; then
@@ -58,27 +61,52 @@ else
 	echo "INVALID PARTITION"
 fi
 
-# Path dataset, training, optimizer and lr scheduler config (file to copy)
+# Path dataset, training, optimizer and lr scheduler config (files to copy)
 path_dataset_config="./training/config/starting_config/dataset/dataset.toml"
-path_model_training_config="./scripts_sh_V2/config/training.toml"
-path_optimizer_config="./scripts_sh_V2/config/optimizer_${optimizer}.toml"
-path_lr_scheduler_config="./scripts_sh_V2/config/lr_sched_${lr_scheduler}.toml"
+path_model_config="./training/config/starting_config/model/${model_name}.toml"
+path_training_config="./training/config/starting_config/train/${training_config_name}.toml"
+path_loss_config="./training/config/starting_config/train/loss/${loss}.toml"
+path_optimizer_config="./training/config/starting_config/train/optimizer/${optimizer}.toml"
+path_dataloader_config="" # Not needed because the batch size is specified in the training config file. These options are required only if you want to set also the other parameters of the dataloader, e.g. num_workers, pin_memory, etc.
 
-# Path for model config (file to copy)
-# path_model_config="./scripts_sh_V2/config/model_${model_name}_micro.toml"
-path_model_config="./scripts_sh_V2/config/model_${model_name}_tiny.toml"
-# path_model_config="./scripts_sh_V2/config/model_${model_name}.toml"
+# Update paths requiring conditional logic based on the variable name
 
-# Create the folder for the config files
-# TODO Create a variable and use it also for the path
-mkdir -p ./scripts_sh_V2/config/training_hpc/${job_name}/
+# Filter settings
+if [ -z "$filter" ]; then
+	path_filter_config=""
+else
+	path_filter_config="./training/config/starting_config/dataset/filter/${filter}.toml"
+fi
 
-# New locations for the config file
-new_path_dataset_config="./scripts_sh_V2/config/training_hpc/${job_name}/dataset.toml"
-new_path_training_config="./scripts_sh_V2/config/training_hpc/${job_name}/training.toml"
-new_path_optimizer_config="./scripts_sh_V2/config/training_hpc/${job_name}/optimizer.toml"
-new_path_lr_scheduler_config="./scripts_sh_V2/config/training_hpc/${job_name}/lr_scheduler".toml
-new_path_model_config="./scripts_sh_V2/config/training_hpc/${job_name}/model.toml"
+# lr scheduler settings
+if [ -z "$lr_scheduler" ]; then
+	path_lr_scheduler_config=""
+else
+	path_lr_scheduler_config="./training/config/starting_config/train/lr_scheduler/${lr_scheduler}.toml"
+fi
+
+# wandb settings
+if [ -z "$wandb_config_name" ]; then
+	path_wandb_config=""
+else 
+	path_wandb_config="./training/config/starting_config/train/${wandb_config_name}.toml"
+fi
+
+# Path to store the new training run config files
+path_new_location="./training/config/training_config/local/${job_name}/"
+mkdir -p ${path_new_location}
+
+python ./training/0_prepare_config.py\
+	--path_dataset_config=${path_dataset_config}\
+	--path_filter_config=${path_filter_config}\
+	--path_model_config=${path_model_config}\
+	--path_training_config=${path_training_config}\
+	--path_loss_config=${path_loss_config}\
+	--path_optimizer_config=${path_optimizer_config}\
+	--path_dataloader_config=${path_dataloader_config}\
+	--path_lr_scheduler_config=${path_lr_scheduler_config}\
+	--path_wandb_config=${path_wandb_config}\
+	--path_output_folder=${path_new_location}\
 
 # Print seed and paths
 # TODO finish this section
@@ -88,20 +116,3 @@ echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Submit job
-
-sbatch  --job-name=${job_name}\
-		--partition=${partition}\
-		--qos=${qos}\
-		--mem=${mem}\
-		--time=${time}\
-		--output=${output}\
-		--error=${error}\
-		${script_name}\
-			${path_src}\
-			${new_path_dataset_config}\
-			${new_path_model_config}\
-			${new_path_training_config}\
-			${new_path_optimizer_config}\
-			${new_path_lr_scheduler_config}\
-			${path_to_idx_files}\
-			${seed}\
