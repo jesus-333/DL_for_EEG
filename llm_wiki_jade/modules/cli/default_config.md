@@ -36,10 +36,17 @@ model/
   EEGNet.toml                   # from EEGNet_config() defaults (use_softmax = false, matching the default cross_entropy loss)
   pooling/{avg,blur,sinc,dwt,max}.toml
 dataset/
-  dataset.toml                  # dataset_config incl. its (optional) [filter] section
+  dataset.toml                  # dataset_config; its [filter] section is optional, shipped commented-out
+  filter/{bandpass,bandstop,lowpass,highpass,notch}.toml   # one ready-to-copy [filter] table per filter type
 ```
 
-Multi-choice sections (optimizer / lr_scheduler / loss) get one file per option; the main `training_clf.toml` (the classifier training config) carries a filled-in default section plus a comment pointing at the alternatives. Each file's values track the corresponding config's defaults, and every shipped TOML round-trips through the matching `from_toml`. The shipped `EEGNet.toml` (`use_softmax = false`, Identity head → raw logits) and `training_clf.toml` (default `cross_entropy` loss, which expects logits) are deliberately consistent, so the pair passes [`cross_check_config`](../training/support_training.md) out of the box. Two sections that back an **optional** nested config are kept filled-in as ready-to-edit references, each explicitly marked optional in a comment: `dataset.toml`'s `[filter]` (an 8–32 Hz band-pass — `dataset_config.filter` defaults to `None`, i.e. no filtering, so removing the section keeps the raw data) and `training_clf.toml`'s `[dataloader]` (`training_config.dataloader` defaults to `None`, i.e. a default `dataloader_config` built on torch's DataLoader values, so removing the section uses those defaults).
+Multi-choice sections come as **one file per option** under a subfolder, and the main file references them in a comment:
+
+- **Required** picks ship a filled-in default in the main file plus a pointer to the alternatives: `[optimizer]` (Adam; options in `train/optimizer/`) and `[loss]` (cross-entropy; options in `train/loss/`).
+- **Optional** picks ship **commented-out** in the main file with a pointer to their options: `[lr_scheduler]` in `training_clf.toml` (options in `train/lr_scheduler/`) and `[filter]` in `dataset.toml` (options in `dataset/filter/`, one file per filter type — bandpass / bandstop / lowpass / highpass / notch), since `dataset_config.filter` defaults to `None` (no filtering, raw data kept).
+- `[dataloader]` in `training_clf.toml` is the one optional section shipped **filled-in** (torch's DataLoader defaults) but explicitly marked optional in a comment — remove it to use those defaults, since `training_config.dataloader` defaults to `None`.
+
+Each file's values track the corresponding config's defaults, and every shipped **main** TOML (`training_clf.toml`, `dataset.toml`, `EEGNet.toml`) round-trips through the matching `from_toml` (the option-file snippets under the subfolders are meant to be copied into a main file, not loaded standalone). Finally, the shipped `EEGNet.toml` (`use_softmax = false`, Identity head → raw logits) and `training_clf.toml` (default `cross_entropy` loss, which expects logits) are deliberately consistent, so the pair passes [`cross_check_config`](../training/support_training.md) out of the box.
 
 ## Packaging note
 
