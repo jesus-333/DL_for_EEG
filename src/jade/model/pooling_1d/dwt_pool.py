@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 # Specific imports
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Union
 
 # Third party imports
 import numpy as np
@@ -101,7 +101,8 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
 
     _kind = "wavelet"
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
+        # `config` may be a dict or a dwt_pooling_config dataclass; `_get` reads both.
         # The number of cascade levels must be known before the base class builds the kernel, because the kernel here is a single *stage* while the decimation factor describes the whole cascade.
         raw = _get(
             config, "decimation_factor",
@@ -120,13 +121,13 @@ class dwt_pool_1d(_fir_decimation_pool_1d) :
         super().__init__(config)
 
 
-    def _build_kernel(self, config : dict) -> np.ndarray :
+    def _build_kernel(self, config : Union["pooling_config", dict]) -> np.ndarray :
         """
         Build a single DWT stage kernel (the time-reversed reconstruction low-pass).
 
         Parameters
         ----------
-        config : dict
+        config : dict or pooling_config
             The layer configuration.
 
         Returns
@@ -236,8 +237,8 @@ class dwt_pool_1d_multichannel(_multichannel_pool_1d) :
     Channel-wise :class:`dwt_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
 
     Applies :class:`dwt_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
-    Takes the same ``config`` dict as :class:`dwt_pool_1d` (the decimation factor must be a power of two).
+    Takes the same ``config`` as :class:`dwt_pool_1d` (a dict or a :class:`~jade.config.model.pooling_1d_cfg.dwt_pooling_config`; the decimation factor must be a power of two).
     """
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
         super().__init__(dwt_pool_1d(config))

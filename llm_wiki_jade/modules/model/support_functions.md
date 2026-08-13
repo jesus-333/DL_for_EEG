@@ -34,7 +34,7 @@ Returns `nn.Dropout2d(prob_dropout)` if `use_droput_2d` else `nn.Dropout(prob_dr
 
 Maps a per-stage pooling config to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called twice in `EEGNet.__init__` (once per pooling stage). Analogue of `get_activation` / `get_dropout`.
 
-`config` may be a [`pooling_config`](../config/model/pooling_1d_cfg.md) **dataclass** or a plain **dict** — accepting both mirrors `get_pooling_config` / `get_model_config` and the other `get_*_config` factories (a dataclass is normalized through its `to_dict()`). It carries `pooling_type`, `decimation_factor` (alias `pooling_factor`), and any type-specific params. Behaviour by `pooling_type` (case-insensitive):
+`config` may be a [`pooling_config`](../config/model/pooling_1d_cfg.md) **dataclass** or a plain **dict**. A dataclass is used **as an object** — its already-validated attributes (`pooling_type`, `decimation_factor`) are read directly, and it is handed straight to the channel-wise pooling layer, which now accepts a `pooling_config` as-is (**no `to_dict()` round-trip**). The **dict** form is for the EEGNet-only types that have no `pooling_config` dataclass (`'default'` / `'identity'` / `'none'`, and a disabled stage), which is exactly how [`eegnet_pooling_config.pooling_layer_1_config`](../config/model/EEGNet_cfg.md) passes them; a raw dict for a 1D operator is accepted too (dict alias `pooling_factor` for the decimation factor). Behaviour by `pooling_type` (case-insensitive):
 
 | `pooling_type` | Returns |
 |---|---|
@@ -42,7 +42,9 @@ Maps a per-stage pooling config to a ready-to-use pooling module for multichanne
 | `avg` / `max` / `blur` / `sinc` / `dwt` (and aliases) | the matching `{name}_multichannel` wrapper from `MULTICHANNEL_POOLING_REGISTRY`, applied channel-wise. |
 | `identity` / `none`, or a `decimation_factor < 1` (e.g. a negative "disable" factor) | `nn.Identity()`. |
 
-For the `gaussian` / `binomial` aliases it also `setdefault`s the matching blur `kernel` family (mirrors `get_pooling_layer`). **Raises `ValueError`** for any other `pooling_type` (message lists the valid names). The registry import is done lazily inside the function to keep the dependency direction one-way.
+For a **raw dict** with the `gaussian` / `binomial` aliases it also `setdefault`s the matching blur `kernel` family (mirrors `get_pooling_layer`); a `pooling_config` object already carries its own `kernel`, so it is passed through untouched. **Raises `TypeError`** if `config` is neither a `pooling_config` nor a dict, and **`ValueError`** for an unknown `pooling_type` (message lists the valid names). The registry import is done lazily inside the function to keep the dependency direction one-way.
+
+> **Works with the config object.** For an active 1D operator the function reasons about the `pooling_config` *object* (attribute access) and passes that same object to the `MULTICHANNEL_POOLING_REGISTRY` wrapper, which builds the layer straight from it — the whole path is dataclass-native, with no intermediate dict. This is possible because the [`pooling_1d`](pooling_1d/support_pooling.md) layers now read their config through a `_get` helper that accepts a dict **or** a config object.
 
 ### `count_trainable_parameters(torch_module: nn.Module) -> int`
 

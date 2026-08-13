@@ -19,7 +19,7 @@ from __future__ import annotations
 import warnings
 
 # Specific imports
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, Union
 
 # Third party imports
 import numpy as np
@@ -30,16 +30,19 @@ from torch import nn
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Small helpers
 
-def _get(config : dict, key : str, default = None, aliases : Sequence[str] = ()) :
+def _get(config, key : str, default = None, aliases : Sequence[str] = ()) :
     """
     Fetch ``key`` from ``config``, accepting alternative spellings.
 
     Rationale: EEGNet-style configs use names like ``p_kernel_1``; this lets the same layer be dropped into an existing config dict without renaming anything.
 
+    ``config`` may be either a plain ``dict`` or a config object (e.g. a :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass): a dict is looked up by key, an object by attribute (:func:`getattr`).
+    This is what lets every pooling layer be built directly from a ``pooling_config`` without a dict round-trip, while a plain dict keeps working exactly as before.
+
     Parameters
     ----------
-    config : dict
-        The configuration dictionary.
+    config : dict or object
+        The configuration, as a dictionary or as an object with the fields as attributes.
     key : str
         The primary key to look up.
     default : Any, default None
@@ -53,9 +56,17 @@ def _get(config : dict, key : str, default = None, aliases : Sequence[str] = ())
         The first non-``None`` value found, or ``default``.
     """
 
-    for candidate_key in (key, *aliases) :
-        if candidate_key in config and config[candidate_key] is not None :
-            return config[candidate_key]
+    # A dict is looked up by key; anything else (a config dataclass) is read by attribute.
+    # Both skip a present-but-None value, so an unset optional field falls back to `default`.
+    if isinstance(config, dict) :
+        for candidate_key in (key, *aliases) :
+            if candidate_key in config and config[candidate_key] is not None :
+                return config[candidate_key]
+    else :
+        for candidate_key in (key, *aliases) :
+            value = getattr(config, candidate_key, None)
+            if value is not None :
+                return value
     return default
 
 
@@ -221,7 +232,9 @@ class _fir_decimation_pool_1d(nn.Module) :
     #: subclasses set this for nicer error messages / __repr__
     _kind : str = "fir"
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
+        # `config` may be a plain dict or a jade.config.model.pooling_1d_cfg.pooling_config
+        # dataclass; every field below is read through `_get`, which handles both.
         super().__init__()
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -286,9 +299,11 @@ class _fir_decimation_pool_1d(nn.Module) :
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Subclass hook
 
-    def _build_kernel(self, config : dict) -> np.ndarray :
+    def _build_kernel(self, config : Union["pooling_config", dict]) -> np.ndarray :
         """
         Build the low-pass kernel. Subclasses must implement this.
+
+        ``config`` is whatever was passed to ``__init__`` (a dict or a ``pooling_config``); read it through :func:`_get`, which accepts both.
         """
 
         raise NotImplementedError

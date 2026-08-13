@@ -93,8 +93,9 @@ def get_multichannel_pooling(config : Union["pooling_config", dict]) -> nn.Modul
     ----------
     config : pooling_config or dict
         Per-stage pooling config, either a :class:`~jade.config.model.pooling_1d_cfg.pooling_config` dataclass or a plain dict.
-        Accepting both mirrors :func:`~jade.config.model.pooling_1d_cfg.get_pooling_config` and the other ``get_*_config`` factories; a dataclass is normalized through its ``to_dict()``.
-        It must carry ``pooling_type`` and ``decimation_factor`` (alias ``pooling_factor``), plus any parameters the chosen 1D pooling layer accepts (see :mod:`jade.model.pooling_1d`).
+        A dataclass is used **as an object** (its already-validated attributes are read directly, and it is handed straight to the channel-wise pooling layer, which accepts it as-is): there is no dict round-trip.
+        The dict form exists for the EEGNet-only pooling types that have no ``pooling_config`` dataclass (``'default'`` / ``'identity'`` / ``'none'``, and a disabled stage), which is how :attr:`~jade.config.model.EEGNet_cfg.eegnet_pooling_config.pooling_layer_1_config` passes them; a raw dict for a 1D operator is accepted too.
+        Whichever form, it carries ``pooling_type`` and ``decimation_factor`` (dict alias ``pooling_factor``), plus any parameters the chosen 1D pooling layer accepts (see :mod:`jade.model.pooling_1d`).
 
     Returns
     -------
@@ -106,15 +107,19 @@ def get_multichannel_pooling(config : Union["pooling_config", dict]) -> nn.Modul
     from jade.model.pooling_1d import MULTICHANNEL_POOLING_REGISTRY
     from jade.config.model.pooling_1d_cfg import pooling_config
 
-    # Accept a pooling_config dataclass too (uniform with get_pooling_config / get_model_config): normalize it to its canonical dict.
+    # Read the discriminator and the decimation factor straight off the config. A pooling_config
+    # dataclass exposes them as (already-validated) attributes; the EEGNet-only 'default' /
+    # 'identity' / 'none' and disabled stages have no dataclass, so they arrive as a plain dict.
     if isinstance(config, pooling_config) :
-        config = config.to_dict()
+        pooling_type = config.pooling_type
+        factor = config.decimation_factor
+    elif isinstance(config, dict) :
+        pooling_type = config.get('pooling_type', 'default')
+        factor = config.get('decimation_factor', config.get('pooling_factor', None))
+    else :
+        raise TypeError(f"get_multichannel_pooling expects a pooling_config or a dict, got {type(config)}")
 
-    # Never mutate the caller's dict.
-    cfg = dict(config)
-
-    pooling_type = str(cfg.get('pooling_type', 'default')).lower()
-    factor = cfg.get('decimation_factor', cfg.get('pooling_factor', None))
+    pooling_type = str(pooling_type).lower()
 
     # Disabled stage: explicit identity, or a non-positive / no-op decimation factor.
     # A negative factor is the documented "skip this pooling layer" signal (the EEGNet config warns about it).
@@ -129,8 +134,14 @@ def get_multichannel_pooling(config : Union["pooling_config", dict]) -> nn.Modul
         valid = sorted(set(MULTICHANNEL_POOLING_REGISTRY)) + ['default', 'identity']
         raise ValueError(f"pooling_type must be one of {valid}, got {pooling_type!r}")
 
-    # Convenience (mirrors get_pooling_layer): the 'gaussian'/'binomial' aliases select blur pooling
-    # *and* its kernel family, so the alias name is not silently ignored by blur_pool_1d.
+    # 1D pooling operator applied channel-wise. The channel-wise wrappers accept a pooling_config
+    # object directly (see jade.model.pooling_1d), so a dataclass is passed through untouched.
+    if isinstance(config, pooling_config) :
+        return MULTICHANNEL_POOLING_REGISTRY[pooling_type](config)
+
+    # Raw dict path: never mutate the caller's dict, and honor the 'gaussian'/'binomial' aliases,
+    # which select blur pooling *and* its kernel family (mirrors get_pooling_layer).
+    cfg = dict(config)
     if pooling_type == 'gaussian' :
         cfg.setdefault('kernel', 'gaussian')
     elif pooling_type == 'binomial' :
