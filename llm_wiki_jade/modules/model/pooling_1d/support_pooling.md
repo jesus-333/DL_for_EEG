@@ -18,6 +18,8 @@ Imports `warnings`, `numpy`, `torch`, `torch.nn.functional as F`, `torch.nn`. Su
 
 Fetch `key` from `config`, accepting alternative spellings; returns the **first non-`None`** value found among `(key, *aliases)`, else `default`. Rationale: different configs spell the decimation factor differently (`pool_size`, `factor`, `p_kernel`), so a pooling layer can be dropped into an existing config dict without renaming keys.
 
+`config` may be a **plain dict** (looked up by key) **or a config object** such as a [`pooling_config`](../../config/model/pooling_1d_cfg.md) dataclass (looked up by attribute, via `getattr`). This single dual-mode helper is what lets every pooling layer/wrapper be built directly from a `pooling_config` (no `to_dict()` round-trip) while a plain dict keeps working exactly as before — it is the mechanism behind [`get_multichannel_pooling`](../support_functions.md) passing a config object straight through. Both modes skip a present-but-`None` value, so an unset optional field falls back to `default`.
+
 ### `_as_decimation_factor(value) -> int`
 
 Normalize a raw factor to a positive int. Accepts `4`, `(4,)`, `(1, 4)`, `[1, 4]`.
@@ -61,6 +63,8 @@ Base class: `pooling = dense FIR filtering (stride 1) → subsampling (stride M)
 **Why `reflect` is default:** EEG trials are short; zero-padding would inject an artificial step at both ends whose broadband spectrum is exactly the high-frequency content the filter is meant to suppress.
 
 ### `__init__(self, config)` — flow
+
+`config` may be a plain **dict** or a [`pooling_config`](../../config/model/pooling_1d_cfg.md) **dataclass** — every field below is read through `_get`, which accepts both.
 
 1. **Decimation factor:** read via `_get(...)` (with aliases); `KeyError` if missing (message reminds that `kernel_size` is *not* an alias). Normalized via `_as_decimation_factor` into `self.decimation_factor`.
 2. **Generic options:** validate `padding_mode` (`ValueError` if unsupported), `gain` (`ValueError` if unsupported), resolve `phase` into `self.offset` (int `phase` outside `[0, M)` → `ValueError`).

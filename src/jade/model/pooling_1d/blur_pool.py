@@ -7,6 +7,9 @@ BlurPool - fixed heuristic kernel (binomial / Gaussian / boxcar).
 
 from __future__ import annotations
 
+# Specific imports
+from typing import Union
+
 # Third party imports
 import numpy as np
 
@@ -63,13 +66,13 @@ class blur_pool_1d(_fir_decimation_pool_1d) :
 
     _kind = "binomial"
 
-    def _build_kernel(self, config : dict) -> np.ndarray :
+    def _build_kernel(self, config : Union["pooling_config", dict]) -> np.ndarray :
         """
         Build the requested fixed kernel (binomial, Gaussian or boxcar).
 
         Parameters
         ----------
-        config : dict
+        config : dict or pooling_config
             The layer configuration.
 
         Returns
@@ -103,8 +106,8 @@ class blur_pool_1d_multichannel(_multichannel_pool_1d) :
     Channel-wise :class:`blur_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
 
     Applies :class:`blur_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
-    Takes the same ``config`` dict as :class:`blur_pool_1d`.
+    Takes the same ``config`` as :class:`blur_pool_1d` (a dict or a :class:`~jade.config.model.pooling_1d_cfg.blur_pooling_config`).
     """
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
         super().__init__(blur_pool_1d(config))

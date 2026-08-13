@@ -7,6 +7,9 @@ SincPool - properly designed windowed-sinc (Kaiser) decimation filter.
 
 from __future__ import annotations
 
+# Specific imports
+from typing import Union
+
 # Third party imports
 import numpy as np
 
@@ -66,13 +69,13 @@ class sinc_pool_1d(_fir_decimation_pool_1d) :
 
     _kind = "windowed-sinc"
 
-    def _build_kernel(self, config : dict) -> np.ndarray :
+    def _build_kernel(self, config : Union["pooling_config", dict]) -> np.ndarray :
         """
         Design the windowed-sinc kernel with :func:`scipy.signal.firwin`.
 
         Parameters
         ----------
-        config : dict
+        config : dict or pooling_config
             The layer configuration.
 
         Returns
@@ -173,8 +176,8 @@ class sinc_pool_1d_multichannel(_multichannel_pool_1d) :
     Channel-wise :class:`sinc_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
 
     Applies :class:`sinc_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
-    Takes the same ``config`` dict as :class:`sinc_pool_1d` (and, like it, needs SciPy for filter design).
+    Takes the same ``config`` as :class:`sinc_pool_1d` (a dict or a :class:`~jade.config.model.pooling_1d_cfg.sinc_pooling_config`; and, like it, needs SciPy for filter design).
     """
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
         super().__init__(sinc_pool_1d(config))

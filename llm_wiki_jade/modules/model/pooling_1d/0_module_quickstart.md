@@ -85,5 +85,6 @@ pooling_1d/
 ## Dependencies & connection to the rest of `jade`
 
 - **External:** `torch` + `numpy` (always); `scipy.signal` (lazy, only `sinc_pool_1d`); `pywt` (lazy, only for `dwt_pool_1d` wavelets outside the built-in `WAVELET_FILTERS`).
+- **Config: dict or dataclass.** Every layer/wrapper reads its config through the `_get` helper, which accepts a plain **dict** *or* a [`pooling_config`](../../config/model/pooling_1d_cfg.md) **object** (attribute access). So a layer can be built directly from a `pooling_config` (no `to_dict()` round-trip) or from a dict; this is what lets [`get_multichannel_pooling`](../support_functions.md) hand the config object straight through. `get_pooling_layer` also accepts either.
 - **Config aliases** (`pool_size`, `factor`, `p_kernel` for the decimation factor) accept a variety of config spellings so a layer can be dropped into an existing config dict.
 - **Consumed by EEGNet.** [EEGNet](../EEGNet.md) builds both of its pooling stages from the `[pooling]` section of its [config](../../config/model/EEGNet_cfg.md) via [`get_multichannel_pooling`](../support_functions.md): `pooling_type='default'` keeps the classic `nn.AvgPool2d`, while `avg`/`max`/`blur`/`sinc`/`dwt` select the channel-wise wrappers above. (The layers remain usable standalone as research infrastructure too.)

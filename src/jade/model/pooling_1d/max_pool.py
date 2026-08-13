@@ -7,6 +7,9 @@ Max pooling - the un-anti-aliased nonlinear reference arm.
 
 from __future__ import annotations
 
+# Specific imports
+from typing import Union
+
 # Third party imports
 import torch
 from torch import nn
@@ -34,9 +37,10 @@ class max_pool_1d(nn.Module) :
         Passed to ``nn.MaxPool1d``. Left at False so the output length is ``T // M``, matching every other layer here.
     """
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
         super().__init__()
 
+        # `config` may be a dict or a max_pooling_config dataclass; `_get` reads both.
         # Get the decimation factor (required).
         raw = _get(
             config, "decimation_factor",
@@ -128,8 +132,8 @@ class max_pool_1d_multichannel(_multichannel_pool_1d) :
     Channel-wise :class:`max_pool_1d` for multichannel EEG tensors of shape ``(B, D, C, T)``.
 
     Applies :class:`max_pool_1d` independently to every EEG channel; see :class:`~jade.model.pooling_1d.support_pooling._multichannel_pool_1d` for the mechanism.
-    Takes the same ``config`` dict as :class:`max_pool_1d`.
+    Takes the same ``config`` as :class:`max_pool_1d` (a dict or a :class:`~jade.config.model.pooling_1d_cfg.max_pooling_config`).
     """
 
-    def __init__(self, config : dict) :
+    def __init__(self, config : Union["pooling_config", dict]) :
         super().__init__(max_pool_1d(config))
