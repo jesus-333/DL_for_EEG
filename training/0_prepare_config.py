@@ -130,7 +130,7 @@ dataset_config_dict['filter'] = filter_config_dict
 dataset_config_obj = jade_cfg.dataset_config.from_dict(dataset_config_dict)
 
 # Save the config to the output folder
-path_dataset_config_output = os.path.join(args.path_output_folder, 'dataset_config.toml')
+path_dataset_config_output = os.path.join(args.path_output_folder, 'dataset.toml')
 dataset_config_obj.to_toml(path_dataset_config_output)
 print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 print(f'Dataset config OK\nSaved to : {path_dataset_config_output}')
@@ -148,7 +148,7 @@ model_config_dict = read_toml_config(args.path_model_config, required = True)
 model_config_obj = jade_cfg.model_config.from_dict(model_config_dict)
 
 # Save the config to the output folder
-path_model_config_output = os.path.join(args.path_output_folder, 'model_config.toml')
+path_model_config_output = os.path.join(args.path_output_folder, 'model.toml')
 model_config_obj.to_toml(path_model_config_output)
 print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 print(f'Model config OK\nSaved to : {path_model_config_output}')
@@ -179,7 +179,7 @@ if args.seed is not None :  training_config_dict['seed'] = args.seed
 training_config_obj = jade_cfg.training_config.from_dict(training_config_dict)
 
 # Save the config to the output folder
-path_training_config_output = os.path.join(args.path_output_folder, 'training_config.toml')
+path_training_config_output = os.path.join(args.path_output_folder, 'training.toml')
 training_config_obj.to_toml(path_training_config_output)
 print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 print(f'Training config OK\nSaved to : {path_training_config_output}')

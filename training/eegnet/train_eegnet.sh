@@ -50,7 +50,6 @@ pip install -e .
 path_dataset_config=$1
 path_model_config=$2
 path_training_config=$3
-seed=$4
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Print arguments (for debugging purposes).
@@ -58,7 +57,6 @@ seed=$4
 echo "path_dataset_config: ${path_dataset_config}"
 echo "path_model_config: ${path_model_config}"
 echo "path_training_config: ${path_training_config}"
-echo "seed: ${seed}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

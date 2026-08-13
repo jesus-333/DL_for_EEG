@@ -24,9 +24,9 @@ seed=($(((RANDOM << 15) | RANDOM )) + 1)
 filter="" # If empty, no filter will be used. Options are :  bandpass, bandstop, highpass, lowpass, notch
 model_name="EEGNet"
 training_config_name="training_clf" # Specify the name of the training config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
-loss="nll" # Possible options are : cross_entropy, nll 
+loss="cross_entropy" # Possible options are : cross_entropy, nll 
 optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd
-lr_scheduler="" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
+lr_scheduler="exponential_lr" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
 wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
 
 # Job name (modify as needed)
@@ -72,22 +72,13 @@ fi
 path_new_location="./training/config/training_config/local/${job_name}/"
 mkdir -p ${path_new_location}
 
-# Print seed and paths (mostly for debugging purposes)
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-echo "Variables (shell script)"
-echo "seed                      : ${seed}"
-echo "path_dataset_config       : ${path_dataset_config}"
-echo "path_filter_config        : ${path_filter_config}"
-echo "path_model_config         : ${path_model_config}"
-echo "path_training_config      : ${path_training_config}"
-echo "path_loss_config          : ${path_loss_config}"
-echo "path_optimizer_config     : ${path_optimizer_config}"
-echo "path_dataloader_config    : ${path_dataloader_config}"
-echo "path_lr_scheduler_config  : ${path_lr_scheduler_config}"
-echo "path_wandb_config         : ${path_wandb_config}"
-echo "path_new_location         : ${path_new_location}"
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+# Path for the new config files (these will be created by the script 0_prepare_config.py)
+# Note that I need only the path to the dataset, model and training config files because the other config files are nested inside those configs.
+path_new_dataset_config="${path_new_location}dataset.toml"
+path_new_model_config="${path_new_location}model.toml"
+path_new_training_config="${path_new_location}training.toml"
 
+# Create the config files for the specific training run.
 python ./training/0_prepare_config.py\
 	--path_dataset_config=${path_dataset_config}\
 	--path_filter_config=${path_filter_config}\
@@ -101,11 +92,31 @@ python ./training/0_prepare_config.py\
 	--path_output_folder=${path_new_location}\
 	--seed=${seed}\
 
+# Print seed and paths (mostly for debugging purposes)
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+echo "Variable (SHELL SCRIPT 0_launch_local.sh) values:"
+echo "seed                      : ${seed}"
+echo "Path original config files (starting_config) :"
+echo "path_dataset_config       : ${path_dataset_config}"
+echo "path_filter_config        : ${path_filter_config}"
+echo "path_model_config         : ${path_model_config}"
+echo "path_training_config      : ${path_training_config}"
+echo "path_loss_config          : ${path_loss_config}"
+echo "path_optimizer_config     : ${path_optimizer_config}"
+echo "path_dataloader_config    : ${path_dataloader_config}"
+echo "path_lr_scheduler_config  : ${path_lr_scheduler_config}"
+echo "path_wandb_config         : ${path_wandb_config}"
+echo "path_new_location         : ${path_new_location}"
+echo "Path new config files (training_config) :"
+echo "path_new_dataset_config   : ${path_new_dataset_config}" 
+echo "path_new_model_config     : ${path_new_model_config}"
+echo "path_new_training_config  : ${path_new_training_config}"
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # "Submit" job
 
 sh ${script_name}\
-	${path_dataset_config}\
-	${path_model_config}\
-	${path_training_config}\
-	${seed}
+	${path_new_dataset_config}\
+	${path_new_model_config}\
+	${path_new_training_config}\

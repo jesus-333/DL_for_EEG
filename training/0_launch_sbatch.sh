@@ -96,21 +96,13 @@ fi
 path_new_location="./training/config/training_config/hpc/${job_name}/"
 mkdir -p ${path_new_location}
 
-# Print seed and paths (mostly for debugging purposes)
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-echo "seed                      : ${seed}"
-echo "path_dataset_config       : ${path_dataset_config}"
-echo "path_filter_config        : ${path_filter_config}"
-echo "path_model_config         : ${path_model_config}"
-echo "path_training_config      : ${path_training_config}"
-echo "path_loss_config          : ${path_loss_config}"
-echo "path_optimizer_config     : ${path_optimizer_config}"
-echo "path_dataloader_config    : ${path_dataloader_config}"
-echo "path_lr_scheduler_config  : ${path_lr_scheduler_config}"
-echo "path_wandb_config         : ${path_wandb_config}"
-echo "path_new_location         : ${path_new_location}"
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+# Path for the new config files (these will be created by the script 0_prepare_config.py)
+# Note that I need only the path to the dataset, model and training config files because the other config files are nested inside those configs.
+path_new_dataset_config="${path_new_location}dataset.toml"
+path_new_model_config="${path_new_location}${model_name}.toml"
+path_new_training_config="${path_new_location}${training_config_name}.toml"
 
+# Create the config files for the specific training run.
 python ./training/0_prepare_config.py\
 	--path_dataset_config=${path_dataset_config}\
 	--path_filter_config=${path_filter_config}\
@@ -123,6 +115,27 @@ python ./training/0_prepare_config.py\
 	--path_wandb_config=${path_wandb_config}\
 	--path_output_folder=${path_new_location}\
 	--seed=${seed}\
+
+# Print seed and paths (mostly for debugging purposes)
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+echo "Variable (SHELL SCRIPT 0_launch_local.sh) values:"
+echo "seed                      : ${seed}"
+echo "Path original config files (starting_config) :"
+echo "path_dataset_config       : ${path_dataset_config}"
+echo "path_filter_config        : ${path_filter_config}"
+echo "path_model_config         : ${path_model_config}"
+echo "path_training_config      : ${path_training_config}"
+echo "path_loss_config          : ${path_loss_config}"
+echo "path_optimizer_config     : ${path_optimizer_config}"
+echo "path_dataloader_config    : ${path_dataloader_config}"
+echo "path_lr_scheduler_config  : ${path_lr_scheduler_config}"
+echo "path_wandb_config         : ${path_wandb_config}"
+echo "path_new_location         : ${path_new_location}"
+echo "Path new config files (training_config) :"
+echo "path_new_dataset_config   : ${path_new_dataset_config}" 
+echo "path_new_model_config     : ${path_new_model_config}"
+echo "path_new_training_config  : ${path_new_training_config}"
+cho "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Submit job

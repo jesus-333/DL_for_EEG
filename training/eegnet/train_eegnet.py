@@ -118,4 +118,4 @@ traingin_config_object = training_config.from_dict(training_config_dict)
 print(f"\nTraining config:\n{traingin_config_object}")
 
 # Train the model
-model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)
+model = classifier.wandb_train_model(traingin_config_object, model, eeg_dataset_train, eeg_dataset_test, model_config_obj, dataset_config_obj)
