@@ -3,17 +3,17 @@
 # NOTE: this file has NO [wandb] header on purpose, so its settings load flat and can be nested directly
 # under the parent's `wandb` key. To paste them into training_clf.toml instead, put them under a [wandb] section (training_config.wandb).
 # wandb project the run is logged to. REQUIRED (non-empty).
-project_name = "my_project"
+project_name = "EEGNet_pooling"
 # Base name of the wandb model artifact. REQUIRED (non-empty). The trained artifact gets a "_trained" suffix.
-model_artifact_name = "my_model"
+model_artifact_name = "EEGNet"
 # wandb entity (user or team) that owns the project. Leave commented to use your default entity.
-# entity = "my_entity"
+entity = "alberto_zancanaro_academic"
 # Human-readable run name. Leave commented to let wandb assign a random one.
-# name_training_run = "my_run"
+name_training_run = "debug_run"
 # Free-text notes attached to the run.
 # notes = "some notes about this run"
 # Upload the model weights as a wandb artifact.
-log_model_artifact = true
+log_model_artifact = false
 # How often (in epochs) wandb.watch logs gradients/parameters. Must be a positive int.
 log_freq = 1
 # Only handy to filter debug runs in the wandb UI (not used by the training logic).

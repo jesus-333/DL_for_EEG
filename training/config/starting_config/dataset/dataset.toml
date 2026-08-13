@@ -8,11 +8,11 @@
 dataset_name = "BNCI2014_001"
 
 # Subjects to load. Leave commented to load all the subjects.
-# subjects = [1, 2, 3]
+subjects = [3]
 
 # Resample the signal. If true, resample_freq must be set (> 0).
-resample = false
-# resample_freq = 128.0
+resample = true
+resample_freq = 128.0
 
 # Normalization code: -1 (none), 1, 2 or 3 (see dataset_config for the exact scheme).
 normalize = -1

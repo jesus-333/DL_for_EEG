@@ -9,6 +9,8 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # CLI Arguments
 
+print("\nStarting training script...")
+
 import argparse
 
 parser = argparse.ArgumentParser(description = 'Train dement model in a centralized way.')
@@ -63,7 +65,7 @@ training_config_dict = toml.load(path_config_training)
 # Dataset creation
 
 # Create the dataset_config object from the dictionary
-dataset_config_obj = dataset_config.dataset_config.from_dict(dataset_config_dict)
+dataset_config_obj = dataset_config.from_dict(dataset_config_dict)
 print(f"Dataset config:\n{dataset_config_obj}")
 
 # Create the EEG_Dataset object from the dataset_config object
@@ -116,4 +118,4 @@ traingin_config_object = training_config.from_dict(training_config_dict)
 print(f"\nTraining config:\n{traingin_config_object}")
 
 # Train the model
-# model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)
+model = classifier.wandb_train(training_config, model, eeg_dataset_train, eeg_dataset_test, model_config_obj)

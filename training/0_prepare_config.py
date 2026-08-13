@@ -14,10 +14,26 @@ It should receive the path to the following config files:
 For the optional configs, if not provided, the default config will be used (for dataloader) or no config will be used (for filter, lr scheduler and wandb).
 If you launch this script from a shell script, you can pass the optional configs as empty strings, which will be converted to None.
 
-Furthermore, the script must receive the path to a folder where the config files will be copied. The folder will be created if it does not exist.
+Furthermore, the script must receive other two argument
+- the path to a folder where the config files will be copied. The folder will be created if it does not exist.
+- a random seed for reproducibility (optional). If provided it will saved inside the training config, otherwise no seed will be set.
 
 The script will read the config files, convert them to jade config objects (see the config module) and create a copy in the specified folder.
 Note that the conversion to jade config is used to validate the config files, since the jade config objects are implemented as python dataclasses with type/input validation.
+
+To summarize, the script can receive the following arguments:
+- --path_dataset_config      : path to the dataset config file (required)
+- --path_filter_config       : path to the filter config file (optional)
+- --path_model_config        : path to the model config file (required)
+- --path_training_config     : path to the training config file (required)
+- --path_loss_config         : path to the loss config file (required)
+- --path_optimizer_config    : path to the optimizer config file (required)
+- --path_dataloader_config   : path to the dataloader config file (optional)
+- --path_lr_scheduler_config : path to the lr scheduler config file (optional)
+- --path_wandb_config        : path to the wandb config file (optional)
+- --path_output_folder       : path to the output folder where the config files will be copied (required)
+- --seed                     : random seed for reproducibility (optional)
+
 
 Authors
 -------
@@ -41,6 +57,7 @@ parser.add_argument('--path_dataloader_config'           , type = str  , default
 parser.add_argument('--path_lr_scheduler_config'         , type = str  , default = None, help = 'Path to the lr scheduler toml config file. This is a nested config inside training config. If not provided, no lr scheduler will be used.')
 parser.add_argument('--path_wandb_config'                , type = str  , default = None, help = 'Path to the wandb toml config file. This is a nested config inside training config. If not provided, no wandb logging will be used.')
 parser.add_argument('--path_output_folder'               , type = str  , default = None, help = 'Path to the output folder where the config files will be copied. If not provided, an error will be thrown. The folder will be created if it does not exist.')
+parser.add_argument('--seed'                             , type = int  , default = None, help = 'Random seed for reproducibility. If not provided, no seed will be set.')
 
 # Parse the command line arguments
 args = parser.parse_args()
@@ -56,11 +73,14 @@ for arg in vars(args) :
 # External libraries
 import os
 import toml
+import pprint
 
 # Internal imports
 import jade.config as jade_cfg
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+print(f"\nPreparing config files for training run... (python script {__file__})\n")
 
 # Create the output folder if it does not exist
 os.makedirs(args.path_output_folder, exist_ok = True)
@@ -88,13 +108,13 @@ def read_toml_config(path_toml_file : str, required : bool) -> dict :
         if required:
             raise ValueError(f'Path to the toml config file is required but not provided.')
         else:
-            return {}
+            return None
     
     if not os.path.exists(path_toml_file):
         if required:
             raise ValueError(f'The toml config file {path_toml_file} does not exist.')
         else:
-            return {}
+            return None
     
     return toml.load(path_toml_file)
 
@@ -112,7 +132,9 @@ dataset_config_obj = jade_cfg.dataset_config.from_dict(dataset_config_dict)
 # Save the config to the output folder
 path_dataset_config_output = os.path.join(args.path_output_folder, 'dataset_config.toml')
 dataset_config_obj.to_toml(path_dataset_config_output)
-print(f'Dataset config OK \tSaved to : {path_dataset_config_output}')
+print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+print(f'Dataset config OK\nSaved to : {path_dataset_config_output}')
+print(dataset_config_obj)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model config
@@ -128,7 +150,9 @@ model_config_obj = jade_cfg.model_config.from_dict(model_config_dict)
 # Save the config to the output folder
 path_model_config_output = os.path.join(args.path_output_folder, 'model_config.toml')
 model_config_obj.to_toml(path_model_config_output)
-print(f'Model config OK   \tSaved to : {path_model_config_output}')
+print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+print(f'Model config OK\nSaved to : {path_model_config_output}')
+print(model_config_obj)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Training config
@@ -148,10 +172,15 @@ training_config_dict['dataloader']   = dataloader_config_dict
 training_config_dict['lr_scheduler'] = lr_scheduler_config_dict
 training_config_dict['wandb']        = wandb_config_dict
 
+# If a seed is provided, add it to the training config
+if args.seed is not None :  training_config_dict['seed'] = args.seed
+
 # Check config
 training_config_obj = jade_cfg.training_config.from_dict(training_config_dict)
 
 # Save the config to the output folder
 path_training_config_output = os.path.join(args.path_output_folder, 'training_config.toml')
 training_config_obj.to_toml(path_training_config_output)
-print(f'Training config OK\tSaved to : {path_training_config_output}')
+print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+print(f'Training config OK\nSaved to : {path_training_config_output}')
+print(training_config_obj)

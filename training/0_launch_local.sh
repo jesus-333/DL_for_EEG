@@ -16,9 +16,6 @@ set -e
 seed=($RANDOM + 1)
 seed=($(((RANDOM << 15) | RANDOM )) + 1)
 
-echo "SEED = ${seed}"
-echo "====================================="
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Settings
 
@@ -72,8 +69,24 @@ else
 fi
 
 # Path to store the new training run config files
-path_new_location="./training/config/training_config/hpc/${job_name}/"
+path_new_location="./training/config/training_config/local/${job_name}/"
 mkdir -p ${path_new_location}
+
+# Print seed and paths (mostly for debugging purposes)
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+echo "Variables (shell script)"
+echo "seed                      : ${seed}"
+echo "path_dataset_config       : ${path_dataset_config}"
+echo "path_filter_config        : ${path_filter_config}"
+echo "path_model_config         : ${path_model_config}"
+echo "path_training_config      : ${path_training_config}"
+echo "path_loss_config          : ${path_loss_config}"
+echo "path_optimizer_config     : ${path_optimizer_config}"
+echo "path_dataloader_config    : ${path_dataloader_config}"
+echo "path_lr_scheduler_config  : ${path_lr_scheduler_config}"
+echo "path_wandb_config         : ${path_wandb_config}"
+echo "path_new_location         : ${path_new_location}"
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 python ./training/0_prepare_config.py\
 	--path_dataset_config=${path_dataset_config}\
@@ -86,30 +99,13 @@ python ./training/0_prepare_config.py\
 	--path_lr_scheduler_config=${path_lr_scheduler_config}\
 	--path_wandb_config=${path_wandb_config}\
 	--path_output_folder=${path_new_location}\
-
-# Print seed and paths
-# TODO finish this section
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-echo "seed: ${seed}"
-echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+	--seed=${seed}\
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Submit job
+# "Submit" job
 
-sbatch  --job-name=${job_name}\
-		--partition=${partition}\
-		--qos=${qos}\
-		--mem=${mem}\
-		--time=${time}\
-		--output=${output}\
-		--error=${error}\
-		${script_name}\
-			${path_src}\
-			${new_path_dataset_config}\
-			${new_path_model_config}\
-			${new_path_training_config}\
-			${new_path_optimizer_config}\
-			${new_path_lr_scheduler_config}\
-			${path_to_idx_files}\
-			${seed}\
-# Path dataset, training, optimizer and lr scheduler config (file to copy)
+sh ${script_name}\
+	${path_dataset_config}\
+	${path_model_config}\
+	${path_training_config}\
+	${seed}

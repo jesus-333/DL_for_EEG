@@ -40,8 +40,9 @@ echo "+++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo $CONDA_DEFAULT_ENV
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++++"
 
+# These two lines can be removed if you have already installed jade
 hatchling build
-pip install .
+pip install -e . 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Get arguments passed to the script.
@@ -60,10 +61,6 @@ echo "path_training_config: ${path_training_config}"
 echo "seed: ${seed}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-# Update training config. 
-python ./scripts_python/training/update_training_config.py\
-	--seed="${seed}"\
 
 # Launch the training script with the specified configurations.
 python ./training/eegnet/train_eegnet.py\
