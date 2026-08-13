@@ -289,8 +289,11 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
             # Save the new BEST model when a new minimum validation loss is reached.
             if validation_loss < best_loss_val :
                 best_loss_val = validation_loss
+                new_best_found = True
                 torch.save(model.state_dict(), os.path.join(training_config.path_to_save_model, "model_BEST.pth"))
                 torch.save(optimizer.state_dict(), os.path.join(training_config.path_to_save_model, "optimizer_BEST.pth"))
+            else :
+                new_best_found = False
 
             # Accumulate the validation loss.
             if epoch == 0 :
@@ -309,6 +312,12 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
             if validation_loader is not None :
                 validation_metrics_dict = metrics.compute_metrics(model, validation_loader, device)
 
+                if new_best_found :
+                    # Save the metrics of the new BEST model (TODO)
+
+                    # Save the current accuracy (used for log)
+                    best_accuracy_val = validation_metrics_dict["accuracy"]
+
             # Accumulate each metric (create the list on the first epoch, append afterwards).
             for metric in train_metrics_dict :
                 if epoch == 0 :
@@ -320,31 +329,32 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
                     if validation_loader is not None :
                         computed_metrics_during_training[f"{metric}_validation"].append(validation_metrics_dict[metric])
 
+
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Learning-rate logging and scheduler step
 
         # Save the current learning rate (before stepping) so it is logged for this epoch.
-        if use_wandb :
-            log_dict["learning_rate"] = optimizer.param_groups[0]["lr"]
+        if use_wandb : log_dict["learning_rate"] = optimizer.param_groups[0]["lr"]
 
         # (OPTIONAL) Update the learning rate.
-        if lr_scheduler is not None :
-            lr_scheduler.step()
+        if lr_scheduler is not None : lr_scheduler.step()
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # (OPTIONAL) Log the epoch summary (the spacing keeps the output aligned/readable)
 
         if training_config.print_var :
             logger.info("Epoch: %d", epoch)
-            logger.info("\t Train loss        = %s", train_loss)
+            logger.info("\t Train loss             = %s", train_loss)
             if validation_loader is not None :
-                logger.info("\t Validation loss   = %s", validation_loss)
+                logger.info("\t Validation loss        = %s", validation_loss)
+                logger.info("\t Validation loss (BEST) = %s", best_loss_val)
             if lr_scheduler is not None :
-                logger.info("\t Learning rate     = %s", optimizer.param_groups[0]["lr"])
+                logger.info("\t Learning rate          = %s", optimizer.param_groups[0]["lr"])
             if training_config.measure_metrics_during_training :
-                logger.info("\t Accuracy (TRAIN)  = %s", train_metrics_dict["accuracy"])
+                logger.info("\t Accuracy (TRAIN)       = %s", train_metrics_dict["accuracy"])
                 if validation_loader is not None :
-                    logger.info("\t Accuracy (VALID)  = %s", validation_metrics_dict["accuracy"])
+                    logger.info("\t Accuracy (VALID)       = %s", validation_metrics_dict["accuracy"])
+                    logger.info("\t Accuracy (VALID/BEST)  = %s", best_accuracy_val)
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # (OPTIONAL) Log the epoch on wandb
@@ -508,8 +518,10 @@ def wandb_train_model(training_config, model, train_dataset, validation_dataset 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Build the config logged on wandb
 
+    config_to_log = {}
+
     # The whole training config is logged
-    config_to_log = training_config = training_config.to_dict()
+    config_to_log["training_config"] = training_config.to_dict()
 
     # The model and dataset configs are logged too when provided (for reproducibility only, they do not affect training).
     if model_config is not None :
