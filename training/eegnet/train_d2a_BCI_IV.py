@@ -86,7 +86,7 @@ else:
     device = "cpu"
     print("\nNo backend in use. Device set to cpu")
 
-# Override some config values.
+# Override some config values (iteration independent)
 dataset_config_dict['dataset_name'] = "BNCI2014_001" # This is the moabb name of the BCI IV 2a dataset.
 training_config_dict['wandb']['project_name'] = "EEGNet_pooling_d2a"
 training_config_dict["device"] = device
@@ -141,8 +141,9 @@ for i in range(len(subjects_list)) :
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Training
-
-        # Update name of the training run
+        
+        # Update training config with custom values (iteration dependent)
+        training_config_dict['seed'] = np.random.randint(0, 100000000) # Random seed for each training run. Note that the seed is also used as run_id for wandb. Keeping the same seed means that all the trainings will be logged on the same wandb run
         training_config_dict['wandb']['name_training_run'] = f"S{subject}_pooling_{pooling_layer}"
 
         # Create training config object
