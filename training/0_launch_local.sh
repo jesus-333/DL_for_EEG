@@ -32,10 +32,12 @@ wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify 
 # Job name (modify as needed)
 job_name="${model_name}_${seed}"
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 # Script that will be launched with sbatch. Selected based on the model name.
+# If you write a custom launch script, you can change this variable.
 script_name="./training/${model_name}/train_${model_name}.sh"
+script_name="./training/EEGNet/train_d2a_BCI_IV.sh"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Path dataset, training, optimizer and lr scheduler config (files to copy)
 path_dataset_config="./training/config/starting_config/dataset/dataset.toml"

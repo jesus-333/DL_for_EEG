@@ -6,7 +6,7 @@
 # Load it with: training_config.from_toml("training_clf.toml")
 
 # Number of training epochs.
-epochs = 200
+epochs = 500
 
 # Mini-batch size (shared by every dataloader, so it lives here and not in [dataloader]).
 batch_size = 32

@@ -13,7 +13,7 @@ print("\nStarting training script...")
 
 import argparse
 
-parser = argparse.ArgumentParser(description = 'Train dement model in a centralized way.')
+parser = argparse.ArgumentParser(description = 'Train EEGNet model.')
 parser.add_argument('--path_dataset_config'              , type = str  , default = None, help = 'Path to the dataset toml config file. If not provided, an error will be thrown.')
 parser.add_argument('--path_model_config'                , type = str  , default = None, help = 'Path to the model toml config file. If not provided, an error will be thrown.')
 parser.add_argument('--path_training_config'             , type = str  , default = None, help = 'Path to the training toml config file. If not provided, an error will be thrown.')
@@ -39,9 +39,9 @@ from jade.training import classifier, logging_utils
 # You can use this folder if you want to execute directly this script with the "python" command, without passing any argument.
 
 # Path to config files.
-defualt_path_config_dataset  = './config/default_config/dataset/dataset.toml'
-defualt_path_config_model    = './config/default_config/model/EEGNet.toml'
-defualt_path_config_training = './config/demnet_wandb/training.toml'
+defualt_path_config_dataset  = './training/config/starting_config/dataset/dataset.toml'
+defualt_path_config_model    = './training/config/starting_config/model/EEGNet.toml'
+defualt_path_config_training = './training/config/starting_config/train/training_clf.toml'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load config

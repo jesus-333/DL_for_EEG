@@ -46,7 +46,7 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 import argparse
 
 # Declare the command line arguments
-parser = argparse.ArgumentParser(description = 'Train dement model in a centralized way.')
+parser = argparse.ArgumentParser(description = 'Create the config (in toml format) for a training run')
 parser.add_argument('--path_dataset_config'              , type = str  , default = None, help = 'Path to the dataset toml config file. If not provided, an error will be thrown.')
 parser.add_argument('--path_filter_config'               , type = str  , default = None, help = 'Path to the filter toml config file. This is a nested config inside dataset config. If not provided, no filtering will be applied.')
 parser.add_argument('--path_model_config'                , type = str  , default = None, help = 'Path to the model toml config file. If not provided, an error will be thrown. Note that model can have nested config, e.g. pooling for EEGNet, but, since these are model-specific, this script expects the model config to be already completed.')
