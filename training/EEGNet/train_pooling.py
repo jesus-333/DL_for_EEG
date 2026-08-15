@@ -112,7 +112,7 @@ else :
 
 for i in range(len(subjects_list)) :
     # Get subject and update the dataset config with the current subject
-    subject = subjects_list[i]
+    subject = int(subjects_list[i])
     dataset_config_dict["subjects"] = [subject]
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
