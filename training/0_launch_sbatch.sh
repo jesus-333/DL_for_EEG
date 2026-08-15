@@ -16,9 +16,6 @@ set -e
 seed=($RANDOM + 1)
 seed=($(((RANDOM << 15) | RANDOM )) + 1)
 
-echo "SEED = ${seed}"
-echo "====================================="
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Settings
 
@@ -27,26 +24,28 @@ echo "====================================="
 filter="" # If empty, no filter will be used. Options are :  bandpass, bandstop, highpass, lowpass, notch
 model_name="EEGNet"
 training_config_name="training_clf" # Specify the name of the training config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
-loss="nll" # Possible options are : cross_entropy, nll 
+loss="cross_entropy" # Possible options are : cross_entropy, nll 
 optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd
-lr_scheduler="" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
+lr_scheduler="exponential_lr" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
 wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
 
 # Slurm
 partition="gpu" # l40s, hopper, gpu
 qos="normal" # besteffort, iris-hopper, normal
-mem="10G"
-time="28:13:00"
+mem="5G"
+time="01:30:00"
 output="./training/logs/${model_name}/%j_std_%x.txt"
 error="./training/logs/${model_name}/%j_err_%x.txt"
 
 # Job name (modify as needed)
 job_name="${model_name}_${seed}"
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 # Script that will be launched with sbatch. Selected based on the model name.
+# If you write a custom launch script, you can change this variable.
 script_name="./training/${model_name}/train_${model_name}.sh"
+script_name="./training/EEGNet/train_d2a_BCI_IV.sh"
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Update qos based on the partition (specific for the HPC cluster used)
 if [ $partition = "l40s" ] ; then
@@ -120,6 +119,7 @@ python ./training/0_prepare_config.py\
 echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 echo "Variable (SHELL SCRIPT 0_launch_local.sh) values:"
 echo "seed                      : ${seed}"
+echo "script_name               : ${script_name}"
 echo "Path original config files (starting_config) :"
 echo "path_dataset_config       : ${path_dataset_config}"
 echo "path_filter_config        : ${path_filter_config}"
@@ -135,7 +135,7 @@ echo "Path new config files (training_config) :"
 echo "path_new_dataset_config   : ${path_new_dataset_config}" 
 echo "path_new_model_config     : ${path_new_model_config}"
 echo "path_new_training_config  : ${path_new_training_config}"
-cho "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Submit job
