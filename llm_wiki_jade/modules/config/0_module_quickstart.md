@@ -14,7 +14,7 @@ The whole module is data + validation only. It has **no runtime side effects** b
 config/
   generic.py          generic_config      -> base class: (de)serialization helpers
   filter.py           filter_config       -> moabb/MNE filtering parameters
-  dataset.py          dataset_config      -> dataset download + preprocessing (holds an optional filter_config)
+  dataset.py          dataset_config      -> dataset download + preprocessing + train/test split (holds an optional filter_config)
   dataloader.py       dataloader_config   -> torch.utils.data.DataLoader parameters (NO batch_size)
   wandb_training.py   wandb_training_config -> wandb logging parameters
   training.py         training_config     -> training hyper-params (holds optimizer/scheduler/loss/dataloader/wandb)
@@ -81,7 +81,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 ## Key relationships between the configs
 
 - `training_config` is the **root** for a training run. `batch_size` lives here (not in `dataloader_config`) because it is shared by every loader. Defaults: `optimizer = adam_config()`, `loss = cross_entropy_config()`, `lr_scheduler = None`, `wandb = None`, and `dataloader = None` — which `__post_init__` turns into a default `dataloader_config()` (torch's default DataLoader values), so `dataloader` is optional.
-- `dataset_config` is the **root** for data preparation; `filter` is **optional** and defaults to `None`, i.e. no filtering (the raw signal is kept). Set a `filter_config` (e.g. an 8–32 Hz band-pass, motor-imagery style) to enable filtering.
+- `dataset_config` is the **root** for data preparation; `filter` is **optional** and defaults to `None`, i.e. no filtering (the raw signal is kept). Set a `filter_config` (e.g. an 8–32 Hz band-pass, motor-imagery style) to enable filtering. It also carries the **train/test split** knobs consumed by `get_dataset`: `use_original_split` (default `True` — prefer the moabb session-name split), `split_train_test` (default `0.5` — the training fraction of the seeded random split used otherwise) and `seed` (default `42`, a concrete non-negative int; see [dataset.md](dataset.md)).
 - **Loss ↔ model coupling** (important gotcha): `cross_entropy_config` expects logits → pair with a model built `use_softmax = False`; `nll_config` expects log-probabilities → pair with `use_softmax = True`. Choosing the wrong one applies `log_softmax` twice or not at all.
 
 ## Dependencies

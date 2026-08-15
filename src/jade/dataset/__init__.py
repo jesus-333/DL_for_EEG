@@ -21,6 +21,7 @@ __all__ = [
     "EEG_Dataset_ChWi",
     "download_dataset",
     "get_dataset",
+    "create_train_test_split_indices",
 ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -43,7 +44,7 @@ def __getattr__(name : str) :
         The requested loader function.
     """
 
-    if name in ("download_dataset", "get_dataset") :
+    if name in ("download_dataset", "get_dataset", "create_train_test_split_indices") :
         from jade.dataset import moabb_dataset
         return getattr(moabb_dataset, name)
     raise AttributeError("module {} has no attribute {}".format(repr(__name__), repr(name)))

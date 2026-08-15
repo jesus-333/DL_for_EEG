@@ -15,10 +15,10 @@ from jade.dataset.dataset_time import EEG_Dataset, EEG_Dataset_ChWi
 ## `__all__`
 
 ```python
-__all__ = ["EEG_Dataset", "EEG_Dataset_ChWi", "download_dataset", "get_dataset"]
+__all__ = ["EEG_Dataset", "EEG_Dataset_ChWi", "download_dataset", "get_dataset", "create_train_test_split_indices"]
 ```
 
-Note that `download_dataset` and `get_dataset` appear in `__all__` even though they are **not** imported at the top of the module. They are resolved on demand by `__getattr__` (below). This is deliberate: `from jade.dataset import *` and attribute access both work, but the moabb import is deferred until one of them is actually touched.
+Note that `download_dataset`, `get_dataset` and `create_train_test_split_indices` appear in `__all__` even though they are **not** imported at the top of the module. They are resolved on demand by `__getattr__` (below). This is deliberate: `from jade.dataset import *` and attribute access both work, but the `moabb_dataset` import is deferred until one of them is actually touched.
 
 ## `__getattr__(name)` — lazy re-export (PEP 562)
 
@@ -26,7 +26,7 @@ Note that `download_dataset` and `get_dataset` appear in `__all__` even though t
 |--------|--------|
 | **Mechanism** | [PEP 562](https://peps.python.org/pep-0562/) module-level `__getattr__`. Python calls it only when a normal attribute lookup on the module fails, i.e. only for names not already bound in the module namespace. |
 | **Parameter** | `name : str` — the attribute being accessed. |
-| **Returns** | For `name in ("download_dataset", "get_dataset")`: imports `jade.dataset.moabb_dataset` **inside the function** and returns `getattr(moabb_dataset, name)`. |
+| **Returns** | For `name in ("download_dataset", "get_dataset", "create_train_test_split_indices")`: imports `jade.dataset.moabb_dataset` **inside the function** and returns `getattr(moabb_dataset, name)`. |
 | **Raises** | `AttributeError` (`module '<name>' has no attribute '<name>'`) for any other name — matching normal module behavior. |
 | **Side effect** | First access to either loader name triggers `import jade.dataset.moabb_dataset`, which in turn (when its functions run) imports `moabb`/`mne`. If the `dataset` extra is not installed, the error surfaces later — inside the loader functions via `_import_moabb_mne()` — not at attribute-access time (importing the `moabb_dataset` module itself does not import moabb/mne; those imports are also deferred). |
 

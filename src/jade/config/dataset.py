@@ -57,18 +57,32 @@ class dataset_config(generic_config) :
         Target sampling frequency (Hz). Required (and must be positive) when ``resample`` is True.
     normalize : int, default -1
         Normalization scheme forwarded to :class:`~jade.dataset.dataset_time.EEG_Dataset` (one of ``NORMALIZE_CODES``).
+    use_original_split : bool, default True
+        How :func:`~jade.dataset.moabb_dataset.get_dataset` divides the data into train and test.
+        When ``True`` the split follows the moabb session names (the original division, e.g. BNCI2014_001's ``'0train'`` / ``'1test'``); when the session names carry no such division (a single session, or names with no train/test marker) it falls back to the random split driven by ``split_train_test``.
+        When ``False`` the random split is always used, ignoring the session names.
+    split_train_test : float, default 0.5
+        Fraction of the samples used for **training** when the random split is applied (the remaining ``1 - split_train_test`` is used for test). Must be between 0 and 1.
+        It is used when ``use_original_split`` is ``False``, or when ``use_original_split`` is ``True`` but the session names do not indicate a train/test division.
+        See :func:`~jade.dataset.moabb_dataset.create_train_test_split_indices` for how the split is built.
+    seed : int, default 42
+        Non-negative seed feeding the random train/test split (via :func:`~jade.dataset.moabb_dataset.create_train_test_split_indices`).
+        It must be a concrete int (not ``None``) : the split is reproducible - and the train and test parts complementary across the two separate ``get_dataset(..., 'train')`` / ``get_dataset(..., 'test')`` calls - only because both calls share this seed.
     dataset_folder : str or None, default None
         Directory where the dataset is downloaded and looked up. ``None`` means moabb's own default location (``~/mne_data``).
         Forwarded to :func:`~jade.dataset.moabb_dataset.download_dataset`; note that moabb treats this as a single global setting (only the last folder set is consulted).
     """
 
-    dataset_name   : str = ""
-    subjects       : Optional[List[int]] = None
-    filter         : Optional[filter_config] = None
-    resample       : bool = False
-    resample_freq  : Optional[float] = None
-    normalize      : int = -1
-    dataset_folder : Optional[str] = None
+    dataset_name       : str = ""
+    subjects           : Optional[List[int]] = None
+    filter             : Optional[filter_config] = None
+    resample           : bool = False
+    resample_freq      : Optional[float] = None
+    normalize          : int = -1
+    use_original_split : bool = True
+    split_train_test   : float = 0.5
+    seed               : int = 42
+    dataset_folder     : Optional[str] = None
 
     def __post_init__(self) -> None :
         """
@@ -114,6 +128,27 @@ class dataset_config(generic_config) :
 
         if self.normalize not in NORMALIZE_CODES :
             raise ValueError("normalize must be one of {}, got {}".format(NORMALIZE_CODES, repr(self.normalize)))
+
+        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # Check the train / test split parameters
+
+        # use_original_split is a plain boolean flag (session-name split vs. random split).
+        if not isinstance(self.use_original_split, bool) :
+            raise ValueError("use_original_split must be a bool, got {}".format(repr(self.use_original_split)))
+
+        # split_train_test is the fraction of samples used for training (the rest is used for test).
+        # It must be a number in [0, 1]; bool is rejected first, being a subclass of int.
+        if isinstance(self.split_train_test, bool) or not isinstance(self.split_train_test, (int, float)) :
+            raise ValueError("split_train_test must be a float between 0 and 1, got {}".format(repr(self.split_train_test)))
+        if not (0.0 <= float(self.split_train_test) <= 1.0) :
+            raise ValueError("split_train_test must be between 0 and 1, got {}".format(repr(self.split_train_test)))
+        self.split_train_test = float(self.split_train_test)
+
+        # seed feeds the random train/test split. It must be a concrete non-negative int (bool rejected).
+        # A shared, concrete seed is what makes the two separate get_dataset('train') / get_dataset('test')
+        # calls return reproducible and complementary (non-overlapping) splits, so None is not allowed here.
+        if not isinstance(self.seed, int) or isinstance(self.seed, bool) or self.seed < 0 :
+            raise ValueError("seed must be a non-negative int, got {}".format(repr(self.seed)))
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Check the download folder

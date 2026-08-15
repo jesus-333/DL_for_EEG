@@ -26,11 +26,23 @@ Configuration
         resample = True,
         resample_freq = 128,
         normalize = -1,
+        use_original_split = True,
+        split_train_test = 0.5,
+        seed = 42,
     )
     train_set = get_dataset(config, dataset_type = "train")
+    test_set = get_dataset(config, dataset_type = "test")
 
 The filtering is optional: when the ``dataset_config`` leaves it unspecified (``filter = None``, the default) no filter is applied and the raw signal is kept.
 When it is set, the filtering is applied by calling MNE's own routines (``Raw.filter`` for band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters carried by the ``filter_config`` - the same routines moabb uses; no custom filter is implemented here.
+
+Train / test split
+-------------------
+:func:`get_dataset` returns one split at a time (``dataset_type = 'train'`` or ``'test'``). Two strategies decide which trials go where :
+
+* **Original (session-name) split** - used when ``config.use_original_split`` is ``True`` and the moabb session names mark a train/test division (e.g. BNCI2014_001's ``'0train'`` / ``'1test'``). The trials of the sessions matching the requested ``dataset_type`` are returned.
+* **Random split** - used when ``config.use_original_split`` is ``False``, or when it is ``True`` but the session names carry no division (a single session, or names with no train/test marker). All the sessions are pooled together and split by :func:`create_train_test_split_indices` : a fraction ``config.split_train_test`` of the trials goes to training and the rest to test.
+  The split is seeded by ``config.seed`` (a concrete int), so the ``'train'`` and ``'test'`` calls - which share the same config - return reproducible, complementary (non-overlapping) sets.
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -55,7 +67,7 @@ from jade.dataset.dataset_time import EEG_Dataset
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public API
 
-__all__ = ["download_dataset", "get_dataset"]
+__all__ = ["download_dataset", "get_dataset", "create_train_test_split_indices"]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Lazy dependency import
@@ -229,7 +241,7 @@ def download_dataset(
     return dataset
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# Train / test session selection
+# Train / test split (session names + random)
 
 def _session_matches(session_name : str, dataset_type : str) -> bool :
     """
@@ -261,49 +273,97 @@ def _session_matches(session_name : str, dataset_type : str) -> bool :
     is_train = ("train" in session_name) or session_name.endswith("_t") or session_name == "t"
     return is_train
 
-def _select_sessions(session_names : Sequence[str], dataset_type : str) -> list :
+def _original_split_available(session_names : Sequence[str]) -> bool :
     """
-    Pick the session keys corresponding to ``dataset_type`` ('train' or 'test').
+    Whether the session names carry an explicit train/test division (the "original" split).
 
-    Strategy
-    --------
-    1. If any session name matches the split by the naming heuristic, return those.
-    2. Otherwise fall back on position: with a single session it is used for both splits (a warning is emitted); with several sessions the last one is the test split and the rest are the train split.
+    The original split is considered available only when at least one session matches the **train** split by name **and** at least one session matches the **test** split, so that both a non-empty train and a non-empty test set can be built from the session names alone (e.g. BNCI2014_001's ``'0train'`` / ``'1test'``).
+    A dataset with a single session, or with sessions whose names carry no train/test marker, has no original split : in that case :func:`~jade.dataset.moabb_dataset.get_dataset` falls back to the random split.
 
     Parameters
     ----------
     session_names : sequence of str
         The available session names.
-    dataset_type : str
-        ``'train'`` or ``'test'``.
 
     Returns
     -------
-    list
-        The selected session names.
+    bool
+        ``True`` when the names mark both a train and a test session, ``False`` otherwise.
     """
 
-    names = sorted(session_names)
-    matched = [name for name in names if _session_matches(name, dataset_type)]
-    if matched :
-        return matched
+    # An original split needs both a train-marked and a test-marked session, otherwise one of the two splits would be empty.
+    has_train = any(_session_matches(name, "train") for name in session_names)
+    has_test  = any(_session_matches(name, "test") for name in session_names)
 
-    if len(names) == 1 :
-        warnings.warn(
-            "Dataset has a single session {}; using it for the {} split as well. "
-            "Provide an explicit split upstream if you need train/test isolation.".format(repr(names[0]), repr(dataset_type)),
-            RuntimeWarning,
-            stacklevel = 3,
-        )
-        return list(names)
+    return has_train and has_test
 
-    warnings.warn(
-        "Could not map sessions {} to a {} split by name; falling back to positional "
-        "split (last session = test, the rest = train).".format(names, repr(dataset_type)),
-        RuntimeWarning,
-        stacklevel = 3,
-    )
-    return names[:-1] if dataset_type == "train" else names[-1:]
+
+def create_train_test_split_indices(
+    n_samples        : int,
+    split_train_test : float             = 0.5,
+    seed             : Optional[int]     = None,
+) -> tuple :
+    """
+    Build the shuffled train/test index arrays for a random split of ``n_samples`` samples.
+
+    All the samples (trials) of every session are considered together as a single pool of ``n_samples`` elements.
+    An index array ``[0, 1, ..., n_samples - 1]`` is created, shuffled with a seeded random generator (for reproducibility) and split in two contiguous parts :
+
+    * the first part - a fraction ``split_train_test`` of the samples - holds the **training** indices,
+    * the second part - the remaining ``1 - split_train_test`` fraction - holds the **test** indices.
+
+    Because the partition depends only on ``n_samples``, ``split_train_test`` and ``seed``, two calls with the same three values return the very same partition.
+    This is what lets :func:`~jade.dataset.moabb_dataset.get_dataset` return complementary, non-overlapping train and test sets across its two separate ``dataset_type = 'train'`` / ``dataset_type = 'test'`` calls : they share the ``seed`` carried by the :class:`~jade.config.dataset.dataset_config`.
+
+    Parameters
+    ----------
+    n_samples : int
+        Total number of samples (trials) to split. Must be a non-negative int.
+    split_train_test : float, default 0.5
+        Fraction of the samples assigned to the **training** split (the remaining ``1 - split_train_test`` goes to test). Must be between 0 and 1.
+        The training split gets ``round(split_train_test * n_samples)`` samples.
+    seed : int or None, default None
+        Seed of the random generator used to shuffle the indices.
+        A concrete int makes the split reproducible; ``None`` draws a fresh (non-reproducible) shuffle from the OS entropy.
+
+    Returns
+    -------
+    train_indices : numpy.ndarray
+        1-D int array with the indices of the training samples.
+    test_indices : numpy.ndarray
+        1-D int array with the indices of the test samples.
+        Together with ``train_indices`` it forms a partition of ``range(n_samples)`` : the two arrays are disjoint and cover every index exactly once.
+    """
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Input check
+
+    # n_samples must be a non-negative int (bool is rejected first, being a subclass of int).
+    if not isinstance(n_samples, (int, np.integer)) or isinstance(n_samples, bool) or n_samples < 0 :
+        raise ValueError(f"n_samples must be a non-negative int, got {repr(n_samples)}")
+
+    # split_train_test is a fraction, so it must lie in [0, 1].
+    if not (0.0 <= float(split_train_test) <= 1.0) :
+        raise ValueError(f"split_train_test must be between 0 and 1, got {repr(split_train_test)}")
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Build and split the (shuffled) index array
+
+    # Seeded generator : same seed -> same shuffle -> reproducible (and complementary) train/test split.
+    random_generator = np.random.default_rng(seed)
+
+    # Indices of all the samples, then shuffled in place.
+    indices = np.arange(int(n_samples))
+    random_generator.shuffle(indices)
+
+    # Size of the training split (the rest of the samples form the test split).
+    n_train = int(round(float(split_train_test) * int(n_samples)))
+
+    # The first n_train shuffled indices are the training samples, the remaining ones are the test samples.
+    train_indices = indices[:n_train]
+    test_indices  = indices[n_train:]
+
+    return train_indices, test_indices
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Preprocessing (filtering + resampling) via MNE, on the raw objects moabb returns
@@ -472,12 +532,15 @@ def get_dataset(
     Parameters
     ----------
     config : dataset_config or dict
-        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the optional filtering (nested ``filter_config``; ``None`` means no filtering), the resampling, the normalization and the download folder.
+        The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the optional filtering (nested ``filter_config``; ``None`` means no filtering), the resampling, the normalization, the train/test split options (``use_original_split`` / ``split_train_test`` / ``seed``) and the download folder.
         A plain dict is accepted for convenience and promoted via ``dataset_config.from_dict``.
         If the requested data is not on disk it is downloaded automatically through :func:`~jade.dataset.moabb_dataset.download_dataset` (into ``config.dataset_folder`` when set, otherwise moabb's default location).
     dataset_type : {'train', 'test'}, default 'train'
-        Which split to return.
-        moabb organizes data by *session*; this selects the train or test session(s) using the naming heuristic in :func:`_select_sessions`.
+        Which split to return. How the split is built depends on the config :
+
+        * ``config.use_original_split = True`` **and** the moabb session names mark a train/test division (checked by :func:`_original_split_available`) : the trials of the sessions whose name matches ``dataset_type`` are returned (the "original" moabb split, e.g. BNCI2014_001's ``'0train'`` / ``'1test'``).
+        * otherwise (``use_original_split = False``, or ``True`` but the session names carry no division - a single session, or names with no train/test marker) : every session is pooled together and split randomly by :func:`create_train_test_split_indices`, using ``config.split_train_test`` (the training fraction) and ``config.seed``.
+          Because both the ``'train'`` and the ``'test'`` call share ``config.seed``, the two returned sets are reproducible and complementary (disjoint, together covering all the trials).
 
     Returns
     -------
@@ -514,6 +577,17 @@ def get_dataset(
     data = dataset.get_data(subjects = subject_list)  # {subj: {session: {run: Raw}}}
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Decide the train / test split strategy
+
+    # Collect the session names of every subject (normally identical across the subjects of a moabb dataset).
+    all_session_names = sorted({session_name for subject in subject_list for session_name in data[subject].keys()})
+
+    # Use the original (session-name based) split only when the user asked for it AND the session names actually
+    # mark a train/test division. Otherwise fall back to the configurable random split (this also covers the
+    # single-session case, where the old positional fallback returned identical train and test sets).
+    use_name_split = bool(config.use_original_split) and _original_split_available(all_session_names)
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Preprocess + epoch every selected recording
 
     x_all, y_all = [], []
@@ -525,10 +599,21 @@ def get_dataset(
 
     for subject in subject_list :
         sessions = data[subject]
-        selected = _select_sessions(list(sessions.keys()), dataset_type)
 
-        for session_name in selected :
-            for _run_name, raw in sessions[session_name].items() :
+        # Decide which sessions of this subject contribute to the collected data.
+        if use_name_split :
+            # Original split : only the sessions whose name matches the requested split (sorted for determinism).
+            sessions_to_load = [session_name for session_name in sorted(sessions.keys()) if _session_matches(session_name, dataset_type)]
+        else :
+            # Random split : every session is loaded now and divided by index afterwards.
+            sessions_to_load = sorted(sessions.keys())
+
+        for session_name in sessions_to_load :
+            # Runs are iterated in a deterministic (sorted) order, so the concatenation order is stable across calls.
+            # This is required for the random split to stay reproducible and complementary between the 'train' and 'test' calls.
+            for run_name in sorted(sessions[session_name].keys()) :
+                raw = sessions[session_name][run_name]
+
                 # Capture the original sampling frequency before preprocessing (resampling would change it).
                 if sampling_freq is None :
                     sampling_freq = float(raw.info["sfreq"])
@@ -561,6 +646,28 @@ def get_dataset(
 
     x = np.concatenate(x_all, axis = 0).astype(np.float32)   # (trials, channels, time)
     labels = np.concatenate(y_all, axis = 0).astype(np.int64)
+
+    # Random split : all the sessions were loaded together, so keep only the trials belonging to the requested split.
+    if not use_name_split :
+        # Build the (reproducible) partition of the trials. Both the 'train' and 'test' calls share config.seed, so the two returned sets are complementary.
+        train_indices, test_indices = create_train_test_split_indices(
+            n_samples        = x.shape[0],
+            split_train_test = config.split_train_test,
+            seed             = config.seed,
+        )
+        selected_indices = train_indices if dataset_type == "train" else test_indices
+
+        # A degenerate split_train_test (0 or 1), or too few trials, can leave one of the two splits empty.
+        if selected_indices.size == 0 :
+            raise RuntimeError(
+                "The {} split is empty (dataset={}, {} trials in total, split_train_test={}). "
+                "Adjust split_train_test or provide more data.".format(
+                    repr(dataset_type), repr(config.dataset_name), x.shape[0], repr(config.split_train_test)
+                )
+            )
+
+        x = x[selected_indices]
+        labels = labels[selected_indices]
 
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
     x = x[:, np.newaxis, :, :]
