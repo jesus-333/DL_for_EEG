@@ -173,7 +173,9 @@ training_config_dict['lr_scheduler'] = lr_scheduler_config_dict
 training_config_dict['wandb']        = wandb_config_dict
 
 # If a seed is provided, add it to the training config
-if args.seed is not None :  training_config_dict['seed'] = args.seed
+if args.seed is not None :
+    dataset_config_dict['seed'] = args.seed
+    training_config_dict['seed'] = args.seed
 
 # Check config
 training_config_obj = jade_cfg.training_config.from_dict(training_config_dict)

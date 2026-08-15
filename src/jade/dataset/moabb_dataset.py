@@ -604,9 +604,7 @@ def _collect_trials(data, subject_list, session_predicate, dataset, mne, config)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public: build an EEG_Dataset
 
-def get_dataset(
-    config : Union[dataset_config, dict],
-) -> tuple :
+def get_dataset(config : Union[dataset_config, dict]) -> tuple :
     """
     Load a moabb dataset as a ``(train_dataset, test_dataset)`` pair of :class:`~jade.dataset.dataset_time.EEG_Dataset`, ready for a ``torch`` DataLoader.
 
@@ -688,17 +686,16 @@ def get_dataset(
 
         # With a name-based split available both sets should be non-empty, but a session could still epoch to zero trials.
         if x_train is None :
-            raise RuntimeError("No training trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
+            raise RuntimeError(f"No training trials were extracted for dataset={repr(config.dataset_name)}, subjects={subject_list}.")
         if x_test is None :
-            raise RuntimeError("No test trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
+            raise RuntimeError(f"No test trials were extracted for dataset={repr(config.dataset_name)}, subjects={subject_list}.")
     else :
         # Random split : pool every session once, then partition the trials by index.
         x_all, y_all, ch_list, sampling_freq = _collect_trials(
             data, subject_list, lambda session_name : True, dataset, mne, config
         )
 
-        if x_all is None :
-            raise RuntimeError("No trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
+        if x_all is None : raise RuntimeError(f"No trials were extracted for dataset={repr(config.dataset_name)}, subjects={subject_list}.")
 
         # Reproducible partition of the pooled trials into complementary train / test index sets.
         train_indices, test_indices = create_train_test_split_indices(
@@ -717,7 +714,7 @@ def get_dataset(
             )
 
         x_train, y_train = x_all[train_indices], y_all[train_indices]
-        x_test, y_test = x_all[test_indices], y_all[test_indices]
+        x_test , y_test  = x_all[test_indices] , y_all[test_indices]
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Assemble the two EEG_Dataset
@@ -731,6 +728,6 @@ def get_dataset(
     fs = float(config.resample_freq) if config.resample else sampling_freq
 
     train_dataset = EEG_Dataset(x_train, y_train, ch_list, normalize = config.normalize, fs = fs)
-    test_dataset = EEG_Dataset(x_test, y_test, ch_list, normalize = config.normalize, fs = fs)
+    test_dataset  = EEG_Dataset(x_test , y_test , ch_list, normalize = config.normalize, fs = fs)
 
     return train_dataset, test_dataset
