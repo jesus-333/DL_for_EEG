@@ -6,7 +6,7 @@
 # Load it with: training_config.from_toml("training_clf.toml")
 
 # Number of training epochs.
-epochs = 500
+epochs = 100
 
 # Mini-batch size (shared by every dataloader, so it lives here and not in [dataloader]).
 batch_size = 32
@@ -18,8 +18,7 @@ device = "cpu"
 path_to_save_model = "model_weights"
 
 # Save a periodic checkpoint every N epochs. 0 (or any non-positive value) disables periodic checkpoints.
-# When the training config object is created every value lower or equal to 0 is automatically set to epochs + 1 (i.e. the first epoch after the last one, so no checkpoint is saved). 
-# In this case only the final checkpoint is saved at the end of training.
+# When the training config object is created every value lower or equal to 0 is automatically set to epochs + 1 (i.e. the first epoch after the last one, so no checkpoint is saved). In this case only the final checkpoint is saved at the end of training.
 epoch_to_save_model = 0
 
 # If true, also overwrite an alternating A/B backup of the model every epoch (handy for long HPC runs).

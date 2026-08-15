@@ -24,18 +24,20 @@
 ## End-to-end data flow
 
 ```
-dataset_config  ──►  get_dataset(config, dataset_type)          [moabb_dataset.py]
+dataset_config  ──►  get_dataset(config)  → (train_dataset, test_dataset)   [moabb_dataset.py]
                         │
                         ├─ download_dataset()  → moabb caches raw files on disk (idempotent)
                         ├─ dataset.get_data()  → {subject: {session: {run: mne.Raw}}}
-                        ├─ _select_sessions()  → pick train/test sessions (name heuristic)
-                        ├─ _apply_preprocess() → MNE Raw.filter / notch_filter (only if a filter is set) + Raw.resample (in place)
-                        ├─ _epoch_raw()        → mne.Epochs → X (trials, ch, time) + int labels + ch_names
-                        └─ np.concatenate + add depth axis → X (trials, 1, ch, time)
+                        ├─ decide split       → original (session-name) split if use_original_split
+                        │                        and _original_split_available; else random split
+                        ├─ _collect_trials()   → per-recording _apply_preprocess + _epoch_raw, concatenated
+                        │                        (name split: train-named vs test-named; random: all pooled)
+                        ├─ (random split only) create_train_test_split_indices → partition pooled trials
+                        └─ add depth axis → X (trials, 1, ch, time)  ×2 (train + test)
                         ▼
-                   EEG_Dataset(X, labels, ch_list, normalize, fs)    [dataset_time.py]
+                   EEG_Dataset(X, labels, ch_list, normalize, fs)  ×2    [dataset_time.py]
                         ▼
-   jade.training.support_training.get_dataloader(dataset, ...) → torch DataLoader
+   jade.training.support_training.get_dataloader(dataset, ...) → torch DataLoader (one per split)
                         ▼
                    training loop consumes (data, label) batches
 ```
@@ -48,8 +50,9 @@ The `EEG_Dataset_ChWi` variant is built **directly** from an EEG array (not thro
 |------|------|-----------|
 | `EEG_Dataset` | class | Trial-level dataset. Stores data as `[trials, 1, channels, time]` (the depth-1 axis is for `Conv2d`). `__getitem__` → `(data, label)`. |
 | `EEG_Dataset_ChWi` | class | Channel-wise dataset for the ChWi autoencoder. Flattens `[trials, C, T]` → `[(trials·C), 1, T]` (depth-1 axis for `Conv1d`). Labels optional. |
-| `get_dataset(config, dataset_type)` | func | Full moabb pipeline → an `EEG_Dataset`. Downloads if needed. |
+| `get_dataset(config)` | func | Full moabb pipeline → a `(train_dataset, test_dataset)` tuple of `EEG_Dataset`. Downloads if needed. Splits train/test by session name (original split) or by a seeded random partition — see below. |
 | `download_dataset(name, subjects, dataset_folder)` | func | Instantiate + download a moabb dataset (idempotent). `dataset_folder` optionally redirects where moabb stores/looks up the data (single global setting; `None` → `~/mne_data`). Wrapped by the `download-dataset-moabb` cli command. |
+| `create_train_test_split_indices(n_samples, split_train_test, seed)` | func | Ad-hoc helper for the **random** split: seeded shuffle of `range(n_samples)` cut into complementary `(train_indices, test_indices)`. numpy-only. |
 | `compute_frequency_spectrum(signal, fs, freq_config)` | func | Welch PSD of a 1-D signal, backend-agnostic (scipy/torch/numpy). |
 | `check_plot_config` / `check_freq_config` | func | Fill-and-validate config dicts for plots / PSD. |
 
@@ -92,6 +95,8 @@ These codes match `jade.config.dataset.NORMALIZE_CODES = (-1, 1, 2, 3)`.
 - **`scipy` is also optional** for PSD plots: `compute_frequency_spectrum` falls back scipy → torch → numpy, so frequency plots work in a bare environment.
 - **The ChWi "channel-wise" variant** treats every channel of every trial as an independent 1-D sample (`[(B·C), 1, T]`), discarding cross-channel/trial structure. That is what an autoencoder learning a per-channel EEG representation wants; the classifier `EEG_Dataset` keeps the `[trials, 1, channels, time]` grid instead.
 - **Deterministic labels.** `_epoch_raw` maps moabb event names → 0-based class ids sorted by class name, so labels are reproducible across runs.
+- **`get_dataset` returns both splits at once.** A single `get_dataset(config)` call returns `(train_dataset, test_dataset)` — the data is downloaded and epoched once, then divided in two. (There is no `dataset_type` argument.)
+- **Two train/test split strategies (config-driven).** `dataset_config.use_original_split` (default `True`) prefers the moabb *session-name* split (e.g. BNCI2014_001's `'0train'`/`'1test'`), but only when the names actually mark a train/test division (`_original_split_available`). Otherwise — `use_original_split=False`, or a single session, or names with no marker — all trials are pooled and partitioned by `create_train_test_split_indices` using `split_train_test` (the training fraction, default `0.5`) and `seed` (default `42`). This replaces the old positional/single-session fallback (which returned *identical* train and test sets for single-session datasets) with a random split. Because both splits come from a single partition of the pooled trials they are always complementary (disjoint, covering every trial); `seed` only makes that partition reproducible across runs.
 
 ## Dependencies
 

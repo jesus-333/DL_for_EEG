@@ -209,8 +209,9 @@ __marimo__/
 
 
 /test/custom/model_weights
-/training/config/training_config/local
 /model_weights
+/training/config/training_config/local
 training/config/training_config/hpc
 training/logs/
+/wandb
 wandb

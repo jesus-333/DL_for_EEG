@@ -70,8 +70,17 @@ print(f"Dataset config:\n{dataset_config_obj}")
 
 # Create the EEG_Dataset object from the dataset_config object
 # Remember that data saved inside the EEG_dataset is a tensor of shape [N x 1 x C x T], where N is the number of trials, C is the number of channels and T is the number of time samples.
-eeg_dataset_train = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'train')
-eeg_dataset_test  = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'test')
+# Note that the function get dataset will try to split the dataset based on the variable `use_original_split` inside the dataset_config.
+# If that variable is set to True, the dataset will be splitted based on sessions names (e.g. "session_T" and "session_E" for BNCI2014_001).
+# If the variable is set to False, the data of all sessions will be put together and the percentage indicated by the variable `split_train_test` will be used for training and the rest for testing.
+# Note that not all datasets have a predefined split. For those datasets, the variable `use_original_split` will do nothing and the split through `split_train_test` will be used.
+eeg_dataset_train, eeg_dataset_test = moabb_dataset.get_dataset(dataset_config_obj)
+
+print("Dataset created")
+print(f"Data shape (TRAIN)   : {eeg_dataset_train.data.shape}.")
+print(f"Labels shape (TRAIN) : {eeg_dataset_train.labels.shape}.")
+print(f"Data shape (TEST)    : {eeg_dataset_test.data.shape}.")
+print(f"Labels shape (TEST)  : {eeg_dataset_test.labels.shape}.")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model creation

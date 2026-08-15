@@ -168,7 +168,7 @@ class EEG_Dataset(Dataset):
             raise ValueError(f"The input shape of data must be [Trials x 1 x channels x time samples]. Current shape {data.shape}")
 
         # Transform data in torch array
-        self.data = torch.from_numpy(data).float()
+        self.data   = torch.from_numpy(data).float()
         self.labels = torch.from_numpy(labels).long()
 
         self.ch_list = ch_list

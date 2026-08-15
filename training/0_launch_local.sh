@@ -35,7 +35,7 @@ job_name="${model_name}_${seed}"
 # Script that will be launched with sbatch. Selected based on the model name.
 # If you write a custom launch script, you can change this variable.
 script_name="./training/${model_name}/train_${model_name}.sh"
-script_name="./training/EEGNet/train_d2a_BCI_IV.sh"
+# script_name="./training/EEGNet/train_pooling.sh"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

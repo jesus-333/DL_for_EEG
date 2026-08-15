@@ -44,7 +44,11 @@ from jade.training import classifier, logging_utils
 pooling_layer_list = ['default', 'blur', 'dwt', 'max', 'sinc'] # default is the original EEGNet average pooling layer
 
 # Options are BNCI2014_001 (Dataset 2a BCI Competition IV), Schirrmeister2017 (High Gamma Dataset), Weibo2014, Cho2017
-dataset_name = "Cho2017" 
+dataset_name = "Cho2017"
+
+# Used when kernels are resized for dataset with sampling frequency different from 128 Hz.
+# If True, the kernel size will be forced to be odd. If False, the kernel size will be rounded to the nearest integer.
+keep_kernel_odd = True
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default settings. Used only if the corresponding argument is not provided when launching the script.
@@ -91,7 +95,7 @@ else:
 
 training_config_dict["device"] = device
 
-dataset_config_dict['dataset_name'] = dataset_name 
+dataset_config_dict['dataset_name'] = dataset_name
 
 if dataset_config_dict['dataset_name'] == "BNCI2014_001" :
     subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -108,6 +112,27 @@ elif dataset_config_dict['dataset_name'] == "Cho2017" :
 else :
     raise ValueError(f"Invalid dataset name {dataset_config_dict['dataset_name']}")
 
+def compute_EEGNet_kernel_size(original_kernel_size : int, current_signal_fs : int, keep_kernel_odd : bool = True) -> int :
+    """
+    The size of the convolutional time kernel in EEGNet where designed with the dataset 2a of BCI Competition IV in mind.
+    More precisely, they were designed to work with a resampled version of the dataset 2a, where the original signal was downsampled to 128 Hz.
+
+    This function computes the new kernel size to use for a different sampling frequency, based on the original kernel size and the original sampling frequency (128 Hz).
+    """
+
+    if original_kernel_size != 64 and original_kernel_size != 16 :
+        # Note that the two original kernel sizes are 64 and 16, which correspond to the two convolutional time layers of EEGNet.
+        raise ValueError(f"Invalid original kernel size {original_kernel_size}. Must be 64 or 16.")
+    else :
+        # Compute the new kernel size based on the original kernel size and the current signal sampling frequency
+        original_signal_fs = 128 # Hz
+        new_kernel_size = round(original_kernel_size * current_signal_fs / original_signal_fs)
+        
+        # (OPTIONAL) Make sure that the new kernel size is odd
+        if keep_kernel_odd and new_kernel_size % 2 == 0 : new_kernel_size += 1
+
+        return new_kernel_size
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 for i in range(len(subjects_list)) :
@@ -123,8 +148,17 @@ for i in range(len(subjects_list)) :
 
     # Create the EEG_Dataset object from the dataset_config object
     # Remember that data saved inside the EEG_dataset is a tensor of shape [N x 1 x C x T], where N is the number of trials, C is the number of channels and T is the number of time samples.
-    eeg_dataset_train = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'train')
-    eeg_dataset_test  = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'test')
+    # Note that the function get dataset will try to split the dataset based on the variable `use_original_split` inside the dataset_config.
+    # If that variable is set to True, the dataset will be splitted based on sessions names (e.g. "session_T" and "session_E" for BNCI2014_001).
+    # If the variable is set to False, the data of all sessions will be put together and the percentage indicated by the variable `split_train_test` will be used for training and the rest for testing.
+    # Note that not all datasets have a predefined split. For those datasets, the variable `use_original_split` will do nothing and the split through `split_train_test` will be used.
+    eeg_dataset_train, eeg_dataset_test = moabb_dataset.get_dataset(dataset_config_obj)
+    
+    print(f"Dataset created for subject {subject}.")
+    print(f"Data shape (TRAIN)   : {eeg_dataset_train.data.shape}.")
+    print(f"Labels shape (TRAIN) : {eeg_dataset_train.labels.shape}.")
+    print(f"Data shape (TEST)    : {eeg_dataset_test.data.shape}.")
+    print(f"Labels shape (TEST)  : {eeg_dataset_test.labels.shape}.")
 
     for j in range(len(pooling_layer_list)) :
         # Get pooling layer
@@ -148,6 +182,17 @@ for i in range(len(subjects_list)) :
         model_config_dict["n_classes"]  = n_classes
         model_config_dict["C"]          = C
         model_config_dict["T"]          = T
+        
+        # Update kernel size if required. Note that the check for 1 is used to avoid resizing when the normalize frequency is used.
+        # Also by default, if sampling frequency is not provided when the dataset is created it will be set to 1.
+        if eeg_dataset_train.fs != 128 and eeg_dataset_train.fs != 1 :
+            # Compute the new kernel sizes for the two convolutional time layers of EEGNet, based on the current signal sampling frequency and the original kernel sizes (64 and 16).
+            c_kernel_1 = compute_EEGNet_kernel_size(64, eeg_dataset_train.fs, keep_kernel_odd = keep_kernel_odd)
+            c_kernel_3 = compute_EEGNet_kernel_size(16, eeg_dataset_train.fs, keep_kernel_odd = keep_kernel_odd)
+            
+            # Update model config
+            model_config_dict["c_kernel_1"] = [1, c_kernel_1]
+            model_config_dict["c_kernel_3"] = [1, c_kernel_3]
 
         # Create model config object
         model_config_obj = EEGNet_config.from_dict(model_config_dict)
