@@ -17,6 +17,24 @@ resample = false
 # Normalization code: -1 (none), 1, 2 or 3 (see dataset_config for the exact scheme).
 normalize = -1
 
+# ---------------------------------------------------------------------
+# Train / test split
+# ---------------------------------------------------------------------
+# use_original_split = true tries to divide train/test using the moabb session names
+# (the original split, e.g. BNCI2014_001's "0train" / "1test"). When the session names
+# carry no such division (a single session, or names with no train/test marker), or when
+# use_original_split = false, the data of all sessions is pooled together and split randomly.
+use_original_split = true
+
+# Fraction of the samples used for TRAINING when the random split is applied (the rest goes to test).
+# Must be between 0 and 1. Used when use_original_split = false, or when true but no session-name split exists.
+split_train_test = 0.5
+
+# Non-negative seed of the random split. get_dataset builds both splits from a single partition, so they
+# are always complementary; the seed only fixes which trials land where, keeping the split reproducible
+# across runs. Kept a concrete int (not null, default 42) for reproducible splits out of the box.
+seed = 42
+
 # Where to store / read the downloaded data. Leave commented to use the moabb default (~/mne_data/).
 # dataset_folder = "/data/eeg"
 

@@ -71,8 +71,8 @@ dataset_config_dict['filter'] = None
 # Create the dataset_config object from the dictionary
 dataset_config = dataset_config.from_dict(dataset_config_dict)
 
-# Get dataset
-eeg_dataset = moabb_dataset.get_dataset(dataset_config, dataset_type = 'train')
+# Get dataset (get_dataset returns both splits; here only the train split is needed).
+eeg_dataset, _ = moabb_dataset.get_dataset(dataset_config)
 
 # Get random sample
 idx_random = np.random.randint(0, len(eeg_dataset))

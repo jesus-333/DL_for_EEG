@@ -70,8 +70,7 @@ print(f"Dataset config:\n{dataset_config_obj}")
 
 # Create the EEG_Dataset object from the dataset_config object
 # Remember that data saved inside the EEG_dataset is a tensor of shape [N x 1 x C x T], where N is the number of trials, C is the number of channels and T is the number of time samples.
-eeg_dataset_train = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'train')
-eeg_dataset_test  = moabb_dataset.get_dataset(dataset_config_obj, dataset_type = 'test')
+eeg_dataset_train, eeg_dataset_test = moabb_dataset.get_dataset(dataset_config_obj)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model creation

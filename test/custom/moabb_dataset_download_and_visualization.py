@@ -95,14 +95,13 @@ dataset_config = dataset_cfg.dataset_config.from_dict(dataset_config_dict)
 # Note that the moabb_dataset module include two functions to "handle" dataset creation
 # 1) `download_dataset()` that required only the dataset name and (optionally) subjects list and download folder.
 #    This function will download the dataset from moabb and return it as a moabb object.
-# 2) `get_dataset()` that required a dataset_config object and a dataset_type (train or test, default to train if not specified).
-#    This function will download the dataset (if not already downloaded), using internally `download_dataset()` and then directly converting from the moabb object to an instance of the EEG_Dataset class. 
-#    This function will return an instance of the EEG_Dataset class.
+# 2) `get_dataset()` that requires a dataset_config object.
+#    This function will download the dataset (if not already downloaded), using internally `download_dataset()` and then directly converting from the moabb object to instances of the EEG_Dataset class.
+#    This function will return BOTH splits at once, as a (train_dataset, test_dataset) tuple of EEG_Dataset objects.
 
 # Note that to apply preprocessing you need to use the latter function, because the preprocessing parameters are included in the dataset_config object.
 
-eeg_dataset_train = moabb_dataset.get_dataset(dataset_config, dataset_type = 'train')
-eeg_dataset_test  = moabb_dataset.get_dataset(dataset_config, dataset_type = 'test')
+eeg_dataset_train, eeg_dataset_test = moabb_dataset.get_dataset(dataset_config)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Plot a random sample from the dataset
