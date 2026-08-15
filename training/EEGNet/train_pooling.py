@@ -43,8 +43,8 @@ from jade.training import classifier, logging_utils
 
 pooling_layer_list = ['default', 'blur', 'dwt', 'max', 'sinc'] # default is the original EEGNet average pooling layer
 
-# Options are BNCI2014_001 (Dataset 2a BCI Competition IV), Schirrmeister2017 (High Gamma Dataset), Weibo2014
-dataset_name = "Schirrmeister2017" 
+# Options are BNCI2014_001 (Dataset 2a BCI Competition IV), Schirrmeister2017 (High Gamma Dataset), Weibo2014, Cho2017
+dataset_name = "Cho2017" 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default settings. Used only if the corresponding argument is not provided when launching the script.
@@ -102,6 +102,9 @@ elif dataset_config_dict['dataset_name'] == "Schirrmeister2017" :
 elif dataset_config_dict['dataset_name'] == "Weibo2014" :
     subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     training_config_dict['wandb']['project_name'] = "EEGNet_pooling_Weibo"
+elif dataset_config_dict['dataset_name'] == "Cho2017" :
+    subjects_list = np.arange(1, 53) # Cho2017 has 52 subjects. Arange create a list from start (included) to end (excluded)
+    training_config_dict['wandb']['project_name'] = "EEGNet_pooling_Cho2017"
 else :
     raise ValueError(f"Invalid dataset name {dataset_config_dict['dataset_name']}")
 
