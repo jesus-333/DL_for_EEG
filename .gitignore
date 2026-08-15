@@ -209,3 +209,4 @@ __marimo__/
 /test/custom/model_weights
 /training/config/training_config/local
 /model_weights
+/wandb
