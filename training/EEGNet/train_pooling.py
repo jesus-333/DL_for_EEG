@@ -139,9 +139,12 @@ for i in range(len(subjects_list)) :
     # Get subject and update the dataset config with the current subject
     subject = int(subjects_list[i])
     dataset_config_dict["subjects"] = [subject]
+    seed = np.random.randint(0, 100000000) # Random seed for each training run. Note that the seed is also used as run_id for wandb. Keeping the same seed means that all the trainings will be logged on the same wandb run
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Dataset creation
+
+    dataset_config_dict['seed'] = seed
 
     # Create the dataset_config object from the dictionary
     dataset_config_obj = dataset_config.from_dict(dataset_config_dict)
@@ -209,7 +212,7 @@ for i in range(len(subjects_list)) :
         # Training
         
         # Update training config with custom values (iteration dependent)
-        training_config_dict['seed'] = np.random.randint(0, 100000000) # Random seed for each training run. Note that the seed is also used as run_id for wandb. Keeping the same seed means that all the trainings will be logged on the same wandb run
+        training_config_dict['seed'] = seed
         training_config_dict['wandb']['name_training_run'] = f"S{subject}_pooling_{pooling_layer}"
 
         # Create training config object

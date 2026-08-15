@@ -529,8 +529,11 @@ def wandb_train_model(training_config, model, train_dataset, validation_dataset 
     if dataset_config is not None :
         config_to_log["dataset_config"] = dataset_config.to_dict()
 
-    # Use the seed (if any) as the wandb run id, so a run can be resumed with the same id.
-    run_id = str(training_config.seed) if training_config.seed is not None else None
+    # Use the seed (if any) and the name of the training run as the wandb run id, so a run can be resumed with the same id.
+    if training_config.seed is not None and wandb_config.name_training_run is not None :
+        run_id = f"{str(training_config.seed)}_{wandb_config.name_training_run}"
+    else :
+        run_id = None
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Open the wandb run and train
