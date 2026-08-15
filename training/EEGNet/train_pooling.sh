@@ -2,7 +2,7 @@
 
 # Author :  Alberto Zancanaro <alberto.zancanaro@uni.lu>
 
-# This script is used to train the EEGNet model on the dataset 2a of the BCI competition IV
+# This script is used to train the EEGNet model on different pooling layer on all the subjects of a moabb dataset
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # SLURM arguments. These are used when the script is submitted to a SLURM cluster using the `sbatch` command.
@@ -46,13 +46,14 @@ path_training_config=$3
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Print arguments (for debugging purposes).
 
-echo "path_dataset_config: ${path_dataset_config}"
-echo "path_model_config: ${path_model_config}"
-echo "path_training_config: ${path_training_config}"
+echo "Variable (train_pooling.sh)"
+echo "path_dataset_config  : ${path_dataset_config}"
+echo "path_model_config    : ${path_model_config}"
+echo "path_training_config : ${path_training_config}"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Launch the training script with the specified configurations.
-python ./training/eegnet/train_d2a_BCI_IV.py\
+python ./training/EEGNet/train_pooling.py\
 	--path_dataset_config="${path_dataset_config}"\
 	--path_model_config="${path_model_config}"\
 	--path_training_config="${path_training_config}"\

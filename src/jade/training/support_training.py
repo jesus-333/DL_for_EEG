@@ -171,7 +171,7 @@ def get_optimizer(optimizer_config_to_use, model : torch.nn.Module) -> torch.opt
         )
     else :
         # This should never happen (the config validates the name), but keep a clear error just in case.
-        raise ValueError("unknown optimizer name {}".format(repr(config.name)))
+        raise ValueError(f"unknown optimizer name {repr(config.name)}")
 
     return optimizer
 

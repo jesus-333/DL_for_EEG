@@ -1,5 +1,5 @@
 """
-Train the EEGNet model with data from the BCI IV 2a dataset.
+This script is used to train the EEGNet model on different pooling layer on all the subjects of a moabb dataset
 
 The main difference with `train_EEGNet.py` is that this script will launch several training runs, based on the variable specify below.
 This is used to iterate over the different subjects and EEGNet configurations.
@@ -41,8 +41,10 @@ from jade.training import classifier, logging_utils
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 pooling_layer_list = ['default', 'blur', 'dwt', 'max', 'sinc'] # default is the original EEGNet average pooling layer
+
+# Options are BNCI2014_001 (Dataset 2a BCI Competition IV), Schirrmeister2017 (High Gamma Dataset), Weibo2014, Cho2017
+dataset_name = "Cho2017" 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default settings. Used only if the corresponding argument is not provided when launching the script.
@@ -52,7 +54,6 @@ pooling_layer_list = ['default', 'blur', 'dwt', 'max', 'sinc'] # default is the 
 defualt_path_config_dataset  = './training/config/starting_config/dataset/dataset.toml'
 defualt_path_config_model    = './training/config/starting_config/model/EEGNet.toml'
 defualt_path_config_training = './training/config/starting_config/train/training_clf.toml'
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load config
@@ -87,9 +88,25 @@ else:
     print("\nNo backend in use. Device set to cpu")
 
 # Override some config values (iteration independent)
-dataset_config_dict['dataset_name'] = "BNCI2014_001" # This is the moabb name of the BCI IV 2a dataset.
-training_config_dict['wandb']['project_name'] = "EEGNet_pooling_d2a"
+
 training_config_dict["device"] = device
+
+dataset_config_dict['dataset_name'] = dataset_name 
+
+if dataset_config_dict['dataset_name'] == "BNCI2014_001" :
+    subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    training_config_dict['wandb']['project_name'] = "EEGNet_pooling_d2a"
+elif dataset_config_dict['dataset_name'] == "Schirrmeister2017" :
+    subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    training_config_dict['wandb']['project_name'] = "EEGNet_pooling_HGD"
+elif dataset_config_dict['dataset_name'] == "Weibo2014" :
+    subjects_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    training_config_dict['wandb']['project_name'] = "EEGNet_pooling_Weibo"
+elif dataset_config_dict['dataset_name'] == "Cho2017" :
+    subjects_list = np.arange(1, 53) # Cho2017 has 52 subjects. Arange create a list from start (included) to end (excluded)
+    training_config_dict['wandb']['project_name'] = "EEGNet_pooling_Cho2017"
+else :
+    raise ValueError(f"Invalid dataset name {dataset_config_dict['dataset_name']}")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
