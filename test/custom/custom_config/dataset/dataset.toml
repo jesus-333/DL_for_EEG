@@ -30,9 +30,9 @@ use_original_split = true
 # Must be between 0 and 1. Used when use_original_split = false, or when true but no session-name split exists.
 split_train_test = 0.5
 
-# Non-negative seed of the random split. It MUST be a concrete int (not null): the get_dataset("train")
-# and get_dataset("test") calls only return reproducible, complementary (non-overlapping) sets because
-# they share this seed.
+# Non-negative seed of the random split. get_dataset builds both splits from a single partition, so they
+# are always complementary; the seed only fixes which trials land where, keeping the split reproducible
+# across runs. Kept a concrete int (not null, default 42) for reproducible splits out of the box.
 seed = 42
 
 # Where to store / read the downloaded data. Leave commented to use the moabb default (~/mne_data/).

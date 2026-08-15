@@ -30,19 +30,18 @@ Configuration
         split_train_test = 0.5,
         seed = 42,
     )
-    train_set = get_dataset(config, dataset_type = "train")
-    test_set = get_dataset(config, dataset_type = "test")
+    train_set, test_set = get_dataset(config)
 
 The filtering is optional: when the ``dataset_config`` leaves it unspecified (``filter = None``, the default) no filter is applied and the raw signal is kept.
 When it is set, the filtering is applied by calling MNE's own routines (``Raw.filter`` for band-/low-/high-pass and band-stop, ``Raw.notch_filter`` for notch) with the parameters carried by the ``filter_config`` - the same routines moabb uses; no custom filter is implemented here.
 
 Train / test split
 -------------------
-:func:`get_dataset` returns one split at a time (``dataset_type = 'train'`` or ``'test'``). Two strategies decide which trials go where :
+:func:`get_dataset` returns **both** splits in a single call, as a ``(train_dataset, test_dataset)`` tuple. Two strategies decide which trials go where :
 
-* **Original (session-name) split** - used when ``config.use_original_split`` is ``True`` and the moabb session names mark a train/test division (e.g. BNCI2014_001's ``'0train'`` / ``'1test'``). The trials of the sessions matching the requested ``dataset_type`` are returned.
+* **Original (session-name) split** - used when ``config.use_original_split`` is ``True`` and the moabb session names mark a train/test division (e.g. BNCI2014_001's ``'0train'`` / ``'1test'``). The trials of the ``train``-named sessions become the training set and those of the ``test``-named sessions the test set.
 * **Random split** - used when ``config.use_original_split`` is ``False``, or when it is ``True`` but the session names carry no division (a single session, or names with no train/test marker). All the sessions are pooled together and split by :func:`create_train_test_split_indices` : a fraction ``config.split_train_test`` of the trials goes to training and the rest to test.
-  The split is seeded by ``config.seed`` (a concrete int), so the ``'train'`` and ``'test'`` calls - which share the same config - return reproducible, complementary (non-overlapping) sets.
+  Because both sets come from a single partition of the pooled trials, they are always complementary (disjoint, together covering every trial); ``config.seed`` only fixes *which* trials land in each set, making the split reproducible across runs.
 """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -312,8 +311,8 @@ def create_train_test_split_indices(
     * the first part - a fraction ``split_train_test`` of the samples - holds the **training** indices,
     * the second part - the remaining ``1 - split_train_test`` fraction - holds the **test** indices.
 
-    Because the partition depends only on ``n_samples``, ``split_train_test`` and ``seed``, two calls with the same three values return the very same partition.
-    This is what lets :func:`~jade.dataset.moabb_dataset.get_dataset` return complementary, non-overlapping train and test sets across its two separate ``dataset_type = 'train'`` / ``dataset_type = 'test'`` calls : they share the ``seed`` carried by the :class:`~jade.config.dataset.dataset_config`.
+    Because the partition depends only on ``n_samples``, ``split_train_test`` and ``seed``, the same three values always reproduce the very same partition.
+    :func:`~jade.dataset.moabb_dataset.get_dataset` calls this once on the pooled trials and keeps ``train_indices`` for the training set and ``test_indices`` for the test set, so the two returned sets are complementary (disjoint and together covering every trial) by construction; ``config.seed`` only makes the partition reproducible across runs.
 
     Parameters
     ----------
@@ -519,15 +518,99 @@ def _epoch_raw(raw, dataset, mne) :
     )
     return x, labels, ch_names
 
+
+def _collect_trials(data, subject_list, session_predicate, dataset, mne, config) :
+    """
+    Preprocess, epoch and concatenate the trials of the sessions passing ``session_predicate``.
+
+    For every subject the sessions are visited in sorted order and, when ``session_predicate(session_name)`` is true, each of their runs (also in sorted order) is preprocessed (:func:`_apply_preprocess`) and epoched (:func:`_epoch_raw`); the resulting trials are concatenated.
+    Iterating sessions and runs in a deterministic (sorted) order keeps the concatenation order stable across runs, which is what makes the downstream random split reproducible.
+
+    Parameters
+    ----------
+    data : dict
+        The nested ``{subject: {session: {run: mne.Raw}}}`` mapping returned by ``dataset.get_data``.
+    subject_list : list of int
+        The subjects to visit.
+    session_predicate : callable
+        A predicate ``session_name -> bool`` selecting which sessions contribute their trials.
+    dataset : moabb dataset instance
+        Passed to :func:`_epoch_raw` (provides ``event_id`` and ``interval``).
+    mne : module
+        The imported ``mne`` module.
+    config : dataset_config
+        The dataset configuration (its preprocessing fields drive :func:`_apply_preprocess`).
+
+    Returns
+    -------
+    x : numpy.ndarray or None
+        Trials of shape ``(n_trials, n_channels, n_times)`` (``float32``), or ``None`` when no trial matched the predicate.
+    labels : numpy.ndarray or None
+        Integer class labels of shape ``(n_trials,)`` (``int64``), or ``None`` when ``x`` is ``None``.
+    ch_list : list of str or None
+        The EEG channel names of the first recording (``None`` when no trial matched).
+    sampling_freq : float or None
+        The original sampling frequency captured from the first recording, before any resampling (``None`` when no recording was visited).
+    """
+
+    x_all, y_all = [], []
+    ch_list = None
+
+    # Sampling frequency of the recordings, read from the raw moabb data (before any resampling).
+    # moabb/MNE store it in raw.info["sfreq"] and it is the same across the runs of a dataset, so the first recording is enough.
+    sampling_freq = None
+
+    for subject in subject_list :
+        sessions = data[subject]
+
+        for session_name in sorted(sessions.keys()) :
+            # Skip the sessions that do not belong to the requested selection.
+            if not session_predicate(session_name) :
+                continue
+
+            # Runs are iterated in a deterministic (sorted) order, so the concatenation order is stable across runs (required for a reproducible random split).
+            for run_name in sorted(sessions[session_name].keys()) :
+                raw = sessions[session_name][run_name]
+
+                # Capture the original sampling frequency before preprocessing (resampling would change it).
+                if sampling_freq is None :
+                    sampling_freq = float(raw.info["sfreq"])
+
+                raw = _apply_preprocess(raw, config)
+                x, labels, ch_names = _epoch_raw(raw, dataset, mne)
+                if x.shape[0] == 0 :
+                    continue
+                x_all.append(x)
+                y_all.append(labels)
+                if ch_list is None :
+                    ch_list = ch_names
+                elif ch_list != ch_names :
+                    warnings.warn(
+                        "Channel names differ across recordings; keeping the first set "
+                        "({} channels). This is unusual for a single moabb dataset.".format(len(ch_list)),
+                        RuntimeWarning,
+                        stacklevel = 2,
+                    )
+
+    # No recording matched the predicate (or every matching recording was empty).
+    if not x_all :
+        return None, None, ch_list, sampling_freq
+
+    x = np.concatenate(x_all, axis = 0).astype(np.float32)   # (trials, channels, time)
+    labels = np.concatenate(y_all, axis = 0).astype(np.int64)
+
+    return x, labels, ch_list, sampling_freq
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public: build an EEG_Dataset
 
 def get_dataset(
     config : Union[dataset_config, dict],
-    dataset_type : str = "train",
-) -> EEG_Dataset :
+) -> tuple :
     """
-    Load a moabb dataset as an :class:`~jade.dataset.dataset_time.EEG_Dataset`, ready for a ``torch`` DataLoader.
+    Load a moabb dataset as a ``(train_dataset, test_dataset)`` pair of :class:`~jade.dataset.dataset_time.EEG_Dataset`, ready for a ``torch`` DataLoader.
+
+    Both splits are built in a **single call** (there is no ``dataset_type`` argument): the data is downloaded and epoched once, then divided into a training and a test :class:`~jade.dataset.dataset_time.EEG_Dataset`.
 
     Parameters
     ----------
@@ -535,34 +618,37 @@ def get_dataset(
         The dataset configuration (see :class:`~jade.config.dataset.dataset_config`): the dataset name, the subject(s), the optional filtering (nested ``filter_config``; ``None`` means no filtering), the resampling, the normalization, the train/test split options (``use_original_split`` / ``split_train_test`` / ``seed``) and the download folder.
         A plain dict is accepted for convenience and promoted via ``dataset_config.from_dict``.
         If the requested data is not on disk it is downloaded automatically through :func:`~jade.dataset.moabb_dataset.download_dataset` (into ``config.dataset_folder`` when set, otherwise moabb's default location).
-    dataset_type : {'train', 'test'}, default 'train'
-        Which split to return. How the split is built depends on the config :
-
-        * ``config.use_original_split = True`` **and** the moabb session names mark a train/test division (checked by :func:`_original_split_available`) : the trials of the sessions whose name matches ``dataset_type`` are returned (the "original" moabb split, e.g. BNCI2014_001's ``'0train'`` / ``'1test'``).
-        * otherwise (``use_original_split = False``, or ``True`` but the session names carry no division - a single session, or names with no train/test marker) : every session is pooled together and split randomly by :func:`create_train_test_split_indices`, using ``config.split_train_test`` (the training fraction) and ``config.seed``.
-          Because both the ``'train'`` and the ``'test'`` call share ``config.seed``, the two returned sets are reproducible and complementary (disjoint, together covering all the trials).
 
     Returns
     -------
-    EEG_Dataset
-        Trials of shape ``[n_trials, 1, n_channels, n_times]`` with integer labels, the EEG channel names attached (``.ch_list``) and the sampling frequency attached (``.fs``).
-        The sampling frequency is the one read from the raw moabb recordings, or ``config.resample_freq`` when resampling is enabled.
+    train_dataset : EEG_Dataset
+        The training split.
+    test_dataset : EEG_Dataset
+        The test split.
+
+    Both are :class:`~jade.dataset.dataset_time.EEG_Dataset` with trials of shape ``[n_trials, 1, n_channels, n_times]``, integer labels, the EEG channel names attached (``.ch_list``) and the sampling frequency attached (``.fs`` - the one read from the raw moabb recordings, or ``config.resample_freq`` when resampling is enabled).
+
+    How the two splits are built depends on the config :
+
+    * ``config.use_original_split = True`` **and** the moabb session names mark a train/test division (checked by :func:`_original_split_available`) : the trials of the ``train``-named sessions form ``train_dataset`` and those of the ``test``-named sessions form ``test_dataset`` (the "original" moabb split, e.g. BNCI2014_001's ``'0train'`` / ``'1test'``).
+    * otherwise (``use_original_split = False``, or ``True`` but the session names carry no division - a single session, or names with no train/test marker) : every session is pooled together and partitioned by :func:`create_train_test_split_indices`, using ``config.split_train_test`` (the training fraction) and ``config.seed``. The two sets are complementary (disjoint, together covering all the trials) by construction; ``config.seed`` only makes the partition reproducible across runs.
+
+    Raises
+    ------
+    RuntimeError
+        If no trials can be extracted for a split (e.g. an empty dataset, or a degenerate ``split_train_test`` of 0 or 1 that leaves the training or the test set empty).
     """
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Input check
-    
+
     # Check if config is a dictionary.
     if isinstance(config, dict) :
         # In this case convert it to dataset_config class
         config = dataset_config.from_dict(config)
     elif not isinstance(config, dataset_config) :
-        # Otherwise raise an erro
+        # Otherwise raise an error
         raise TypeError(f"config must be a dataset_config (or a dict), got {type(config)}")
-    
-    # Check if user specified a valid dataset_type
-    dataset_type = str(dataset_type).lower()
-    if dataset_type not in ("train", "test") : raise ValueError(f"dataset_type must be 'train' or 'test', got {repr(dataset_type)}")
 
     _, mne = _import_moabb_mne()
 
@@ -588,92 +674,63 @@ def get_dataset(
     use_name_split = bool(config.use_original_split) and _original_split_available(all_session_names)
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # Preprocess + epoch every selected recording
+    # Build the train and the test trials
 
-    x_all, y_all = [], []
-    ch_list = None
-
-    # Sampling frequency of the recordings, read from the raw moabb data (before any resampling).
-    # moabb/MNE store it in raw.info["sfreq"] and it is the same across the runs of a dataset, so the first recording is enough.
-    sampling_freq = None
-
-    for subject in subject_list :
-        sessions = data[subject]
-
-        # Decide which sessions of this subject contribute to the collected data.
-        if use_name_split :
-            # Original split : only the sessions whose name matches the requested split (sorted for determinism).
-            sessions_to_load = [session_name for session_name in sorted(sessions.keys()) if _session_matches(session_name, dataset_type)]
-        else :
-            # Random split : every session is loaded now and divided by index afterwards.
-            sessions_to_load = sorted(sessions.keys())
-
-        for session_name in sessions_to_load :
-            # Runs are iterated in a deterministic (sorted) order, so the concatenation order is stable across calls.
-            # This is required for the random split to stay reproducible and complementary between the 'train' and 'test' calls.
-            for run_name in sorted(sessions[session_name].keys()) :
-                raw = sessions[session_name][run_name]
-
-                # Capture the original sampling frequency before preprocessing (resampling would change it).
-                if sampling_freq is None :
-                    sampling_freq = float(raw.info["sfreq"])
-
-                raw = _apply_preprocess(raw, config)
-                x, labels, ch_names = _epoch_raw(raw, dataset, mne)
-                if x.shape[0] == 0 :
-                    continue
-                x_all.append(x)
-                y_all.append(labels)
-                if ch_list is None :
-                    ch_list = ch_names
-                elif ch_list != ch_names :
-                    warnings.warn(
-                        "Channel names differ across recordings; keeping the first set "
-                        "({} channels). This is unusual for a single moabb dataset.".format(len(ch_list)),
-                        RuntimeWarning,
-                        stacklevel = 2,
-                    )
-
-    if not x_all :
-        raise RuntimeError(
-            "No trials were extracted for dataset={}, subjects={}, dataset_type={}.".format(
-                repr(config.dataset_name), subject_list, repr(dataset_type)
-            )
+    if use_name_split :
+        # Original split : the train-named sessions form the training set, the test-named ones the test set.
+        # The two predicates select disjoint sessions, so each recording is still preprocessed exactly once.
+        x_train, y_train, ch_list, sampling_freq = _collect_trials(
+            data, subject_list, lambda session_name : _session_matches(session_name, "train"), dataset, mne, config
+        )
+        x_test, y_test, _, _ = _collect_trials(
+            data, subject_list, lambda session_name : _session_matches(session_name, "test"), dataset, mne, config
         )
 
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # Assemble the EEG_Dataset
+        # With a name-based split available both sets should be non-empty, but a session could still epoch to zero trials.
+        if x_train is None :
+            raise RuntimeError("No training trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
+        if x_test is None :
+            raise RuntimeError("No test trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
+    else :
+        # Random split : pool every session once, then partition the trials by index.
+        x_all, y_all, ch_list, sampling_freq = _collect_trials(
+            data, subject_list, lambda session_name : True, dataset, mne, config
+        )
 
-    x = np.concatenate(x_all, axis = 0).astype(np.float32)   # (trials, channels, time)
-    labels = np.concatenate(y_all, axis = 0).astype(np.int64)
+        if x_all is None :
+            raise RuntimeError("No trials were extracted for dataset={}, subjects={}.".format(repr(config.dataset_name), subject_list))
 
-    # Random split : all the sessions were loaded together, so keep only the trials belonging to the requested split.
-    if not use_name_split :
-        # Build the (reproducible) partition of the trials. Both the 'train' and 'test' calls share config.seed, so the two returned sets are complementary.
+        # Reproducible partition of the pooled trials into complementary train / test index sets.
         train_indices, test_indices = create_train_test_split_indices(
-            n_samples        = x.shape[0],
+            n_samples        = x_all.shape[0],
             split_train_test = config.split_train_test,
             seed             = config.seed,
         )
-        selected_indices = train_indices if dataset_type == "train" else test_indices
 
         # A degenerate split_train_test (0 or 1), or too few trials, can leave one of the two splits empty.
-        if selected_indices.size == 0 :
+        if train_indices.size == 0 or test_indices.size == 0 :
             raise RuntimeError(
-                "The {} split is empty (dataset={}, {} trials in total, split_train_test={}). "
+                "The random split leaves one side empty (dataset={}, {} trials in total, split_train_test={}). "
                 "Adjust split_train_test or provide more data.".format(
-                    repr(dataset_type), repr(config.dataset_name), x.shape[0], repr(config.split_train_test)
+                    repr(config.dataset_name), x_all.shape[0], repr(config.split_train_test)
                 )
             )
 
-        x = x[selected_indices]
-        labels = labels[selected_indices]
+        x_train, y_train = x_all[train_indices], y_all[train_indices]
+        x_test, y_test = x_all[test_indices], y_all[test_indices]
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Assemble the two EEG_Dataset
 
     # EEG_Dataset expects [trials, 1, channels, time] (the depth-1 axis for Conv2d).
-    x = x[:, np.newaxis, :, :]
+    x_train = x_train[:, np.newaxis, :, :]
+    x_test = x_test[:, np.newaxis, :, :]
 
-    # The sampling frequency stored in the dataset must match the returned signal.
+    # The sampling frequency stored in the datasets must match the returned signal.
     # If the data was resampled, the user-provided resample_freq replaces the original moabb sampling frequency.
     fs = float(config.resample_freq) if config.resample else sampling_freq
 
-    return EEG_Dataset(x, labels, ch_list, normalize = config.normalize, fs = fs)
+    train_dataset = EEG_Dataset(x_train, y_train, ch_list, normalize = config.normalize, fs = fs)
+    test_dataset = EEG_Dataset(x_test, y_test, ch_list, normalize = config.normalize, fs = fs)
+
+    return train_dataset, test_dataset

@@ -67,7 +67,8 @@ class dataset_config(generic_config) :
         See :func:`~jade.dataset.moabb_dataset.create_train_test_split_indices` for how the split is built.
     seed : int, default 42
         Non-negative seed feeding the random train/test split (via :func:`~jade.dataset.moabb_dataset.create_train_test_split_indices`).
-        It must be a concrete int (not ``None``) : the split is reproducible - and the train and test parts complementary across the two separate ``get_dataset(..., 'train')`` / ``get_dataset(..., 'test')`` calls - only because both calls share this seed.
+        :func:`~jade.dataset.moabb_dataset.get_dataset` builds both splits from a single partition of the pooled trials, so they are always complementary; the seed only fixes *which* trials land in each split, making that partition reproducible across runs.
+        It is kept a concrete int (not ``None``, default 42) so the split is reproducible out of the box - set it to a different value to draw a different (still reproducible) split.
     dataset_folder : str or None, default None
         Directory where the dataset is downloaded and looked up. ``None`` means moabb's own default location (``~/mne_data``).
         Forwarded to :func:`~jade.dataset.moabb_dataset.download_dataset`; note that moabb treats this as a single global setting (only the last folder set is consulted).
@@ -145,8 +146,8 @@ class dataset_config(generic_config) :
         self.split_train_test = float(self.split_train_test)
 
         # seed feeds the random train/test split. It must be a concrete non-negative int (bool rejected).
-        # A shared, concrete seed is what makes the two separate get_dataset('train') / get_dataset('test')
-        # calls return reproducible and complementary (non-overlapping) splits, so None is not allowed here.
+        # get_dataset builds both splits from a single partition, so they are always complementary; the seed
+        # only fixes which trials land where, keeping the split reproducible across runs (default 42, not None).
         if not isinstance(self.seed, int) or isinstance(self.seed, bool) or self.seed < 0 :
             raise ValueError("seed must be a non-negative int, got {}".format(repr(self.seed)))
 
