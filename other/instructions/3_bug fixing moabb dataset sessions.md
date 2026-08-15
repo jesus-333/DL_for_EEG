@@ -35,5 +35,6 @@ Write an ad-hoc function to create this array. The function should also receive 
 
 # Final remarks
 
+The complete description of the codebase are inside the folder `llm_wiki_jade`. You can start from the file `0_wiki_quickstart.md`
 VERY IMPORTANT. Update all the content inside `llm_wiki_jade` accordingly.
 If you need more informations/instructions/clarifications let me know.

@@ -59,6 +59,8 @@ print_var = false
 # Pooling operator per stage:
 #   "default"              -> classic EEGNet nn.AvgPool2d (average pooling along time only);
 #   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise.
+# If you only specify the type of pooling, without any additional hyper-parameters, the pooling layer will default to its own default parameters (see corresponding pooling layer class/config files).
+# The only expection is the pooling factor (decimation factor M). See notes at the end of the config.
 pooling_type_1 = "default"
 pooling_type_2 = "default"
 # Decimation factor M per stage: the number of time samples becomes T / M.
@@ -72,3 +74,7 @@ pooling_factor_2 = 8
 # wavelet = "db4"
 # [pooling.params_2]
 # cutoff_scale = 0.9
+
+# Note that even if you specify a different decimation factor inside the pooling.params_1 / pooling.params_2, the pooling_factor_1 / pooling_factor_2 will be used.
+# The pooling layer implementation required the decimation factor to be passed at build time by design, since they are generic pooling layers that can be used in any context.
+# In the case of EEGNet, this is overridden when the EEGNet config object is created. See the function `_stage_pooling_config` inside `EEGNet_cfg.py` that receive in input the pooling_factor_1 / pooling_factor_2 and override the decimation factor in the pooling.params_1 / pooling.params_2 if they are specified.
