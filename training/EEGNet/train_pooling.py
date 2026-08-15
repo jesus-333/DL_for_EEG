@@ -190,6 +190,10 @@ for i in range(len(subjects_list)) :
             c_kernel_1 = compute_EEGNet_kernel_size(64, eeg_dataset_train.fs, keep_kernel_odd = keep_kernel_odd)
             c_kernel_3 = compute_EEGNet_kernel_size(16, eeg_dataset_train.fs, keep_kernel_odd = keep_kernel_odd)
             
+            print(f"New sampling frequency : {eeg_dataset_train.fs} (original 128)")
+            print(f"New kernel 1 size      : {c_kernel_1} (original 64)")
+            print(f"New kernel 3 size      : {c_kernel_3} (original 16)")
+            
             # Update model config
             model_config_dict["c_kernel_1"] = [1, c_kernel_1]
             model_config_dict["c_kernel_3"] = [1, c_kernel_3]
