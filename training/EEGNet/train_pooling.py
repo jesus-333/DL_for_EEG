@@ -137,7 +137,7 @@ def compute_EEGNet_kernel_size(original_kernel_size : int, current_signal_fs : i
 
 for i in range(len(subjects_list)) :
     # Get subject and update the dataset config with the current subject
-    subject = subjects_list[i]
+    subject = int(subjects_list[i])
     dataset_config_dict["subjects"] = [subject]
     seed = np.random.randint(0, 100000000) # Random seed for each training run. Note that the seed is also used as run_id for wandb. Keeping the same seed means that all the trainings will be logged on the same wandb run
 

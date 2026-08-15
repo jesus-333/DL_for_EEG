@@ -30,10 +30,10 @@ lr_scheduler="exponential_lr" # If empty, no lr scheduler will be used. Options 
 wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
 
 # Slurm
-partition="gpu" # l40s, hopper, gpu
+partition="hopper" # l40s, hopper, gpu
 qos="normal" # besteffort, iris-hopper, normal
-mem="5G"
-time="01:30:00"
+mem="6G"
+time="18:30:00"
 output="./training/logs/${model_name}/%j_std_%x.txt"
 error="./training/logs/${model_name}/%j_err_%x.txt"
 
@@ -98,8 +98,8 @@ mkdir -p ${path_new_location}
 # Path for the new config files (these will be created by the script 0_prepare_config.py)
 # Note that I need only the path to the dataset, model and training config files because the other config files are nested inside those configs.
 path_new_dataset_config="${path_new_location}dataset.toml"
-path_new_model_config="${path_new_location}${model_name}.toml"
-path_new_training_config="${path_new_location}${training_config_name}.toml"
+path_new_model_config="${path_new_location}model.toml"
+path_new_training_config="${path_new_location}training.toml"
 
 # Create the config files for the specific training run.
 python ./training/0_prepare_config.py\
@@ -148,11 +148,6 @@ sbatch  --job-name=${job_name}\
 		--output=${output}\
 		--error=${error}\
 		${script_name}\
-			${path_src}\
-			${new_path_dataset_config}\
-			${new_path_model_config}\
-			${new_path_training_config}\
-			${new_path_optimizer_config}\
-			${new_path_lr_scheduler_config}\
-			${path_to_idx_files}\
-			${seed}\
+			${path_new_dataset_config}\
+			${path_new_model_config}\
+			${path_new_training_config}\
