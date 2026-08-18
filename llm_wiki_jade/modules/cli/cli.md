@@ -14,8 +14,9 @@ Each function is exposed as a terminal command through the `[project.scripts]` t
 [project.scripts]
 download-dataset-moabb = "jade.cli.cli:download_dataset_moabb"
 create-default-config = "jade.cli.cli:default_config"
+download-project-runs-metrics = "jade.cli.cli:download_project_runs_metrics"
 ```
-Multi-word command names use hyphens (`download-dataset-moabb`, `create-default-config`), per the coding style.
+Multi-word command names use hyphens (`download-dataset-moabb`, `create-default-config`, `download-project-runs-metrics`), per the coding style.
 
 ---
 
@@ -53,3 +54,22 @@ Entry point of the `create-default-config` command.
 3. `parser.parse_args()` → `args`, then calls `default_config(args)` (the implementation).
 
 Like the other entry point it takes **no Python arguments**. See [`default_config.md`](./default_config.md) for the implementation (which copies the packaged TOML skeleton tree).
+
+---
+
+## `download_project_runs_metrics() -> None`
+
+Entry point of the `download-project-runs-metrics` command.
+
+1. Lazily imports `jade.cli.wandb.download_project_runs_metrics` (the implementation, same name).
+2. Builds an `argparse.ArgumentParser` (`prog="download-project-runs-metrics"`) with:
+
+   | Argument | Type | Required / default | Meaning |
+   |----------|------|--------------------|---------|
+   | `--entity` | str | required | wandb entity (user or team) that owns the project. |
+   | `--project` | str | required | wandb project whose runs metrics are downloaded. |
+   | `--path_save` | str | default `None` | output JSON path; `None` → `./wandb_metrics.json`. |
+
+3. `parser.parse_args()` → `args`, then calls `download_project_runs_metrics(args)` (the implementation).
+
+Like the other entry points it takes **no Python arguments**. See [`wandb.md`](./wandb.md) for the implementation (which uses the wandb public API and reconstructs the run-history helpers it needs locally).

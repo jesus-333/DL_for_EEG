@@ -99,6 +99,7 @@ Thin command-line interface: exposes existing `jade` functionality as console sc
 | [cli.md](modules/cli/cli.md) | `cli/cli.py` |
 | [download_dataset.md](modules/cli/download_dataset.md) | `cli/download_dataset.py` |
 | [default_config.md](modules/cli/default_config.md) | `cli/default_config.py` |
+| [wandb.md](modules/cli/wandb.md) | `cli/wandb.py` |
 
 ## Module: `dataset` — `modules/dataset/`
 

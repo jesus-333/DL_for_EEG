@@ -53,3 +53,4 @@ dataset = [
 [project.scripts]
 download-dataset-moabb = "jade.cli.cli:download_dataset_moabb"
 create-default-config = "jade.cli.cli:default_config"
+download-project-runs-metrics = "jade.cli.cli:download_project_runs_metrics"
