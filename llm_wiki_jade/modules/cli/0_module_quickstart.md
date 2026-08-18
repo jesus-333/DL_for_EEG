@@ -13,6 +13,7 @@ cli/
   cli.py               <- entry points: one function per command, argparse only, then delegate
   download_dataset.py  <- thematic implementation file (receives parsed args, calls jade code)
   default_config.py    <- thematic implementation file (copies the packaged TOML skeleton configs)
+  wandb.py             <- thematic implementation file (downloads a wandb project's run metrics via wandb.Api)
   ...                  <- one more thematic file per future command family
 ```
 
@@ -39,6 +40,7 @@ jade.dataset.download_dataset(name, subjects, dataset_folder)   (the real work)
 |---------|------------------------|----------------|-------|
 | `download-dataset-moabb` | `download_dataset_moabb()` | [`download_dataset.py`](./download_dataset.md) → `download_dataset_moabb(args)` | [`jade.dataset.download_dataset`](../dataset/moabb_dataset.md) |
 | `create-default-config` | `default_config()` | [`default_config.py`](./default_config.md) → `default_config(args)` | copies the packaged `config/default_config/` TOML skeletons |
+| `download-project-runs-metrics` | `download_project_runs_metrics()` | [`wandb.py`](./wandb.md) → `download_project_runs_metrics(args)` | the wandb public API (`wandb.Api`) — no pre-existing `jade` function |
 
 ### `download-dataset-moabb`
 
@@ -79,6 +81,28 @@ create-default-config --type model --path /tmp/configs
 
 This is the one command that does not wrap an existing `jade` function: it **copies package data** (the TOML tree shipped under `jade/config/default_config/`). The copy logic still lives in the thematic implementation file (`default_config.py`), so `cli.py` stays argparse-only — the two-layer pattern is preserved. Multi-choice sections come as one file per option, with the main file pointing at them: optimizer/scheduler/loss (and a `wandb.toml`) under `train/` (referenced by `training_clf.toml`) and one file per filter type under `dataset/filter/` (referenced by `dataset.toml`). The optional sections (`[lr_scheduler]`, `[wandb]`, `[filter]`) ship commented-out in the main file. Those per-option files are **header-less** (no `[section]` line — only a leading comment names the section), so they load flat and can be nested directly under the parent config's key or pasted under the matching `[section]` in the main file; see [default_config.md](./default_config.md#option-files-are-header-less-no-section).
 
+### `download-project-runs-metrics`
+
+Download the metrics of **every run** in a wandb project and save them to a JSON file, ready for offline plotting/analysis without hitting wandb again.
+
+| Argument | Type | Default | Meaning |
+|----------|------|---------|---------|
+| `--entity` | str | required | wandb entity (user or team) that owns the project. |
+| `--project` | str | required | wandb project whose runs are exported. |
+| `--path_save` | str | `None` | output JSON path; `None` → `./wandb_metrics.json` in the current directory. |
+
+```bash
+# every run of entity/project → ./wandb_metrics.json
+download-project-runs-metrics --entity my_team --project my_project
+
+# custom output path
+download-project-runs-metrics --entity my_team --project my_project --path_save /data/metrics.json
+```
+
+The output is a nested JSON: metric name → run key (`"{run_name}_{run_id}"`) → list of the metric's values over the run. It needs the optional `extra` (`wandb`); a missing `wandb` surfaces the `pip install jade[extra]` hint at call time.
+
+**Note — a small exception to "the cli adds no new behavior".** This command needs two helpers (read a run's full history, strip the `parameters/`+`gradients/` columns that `wandb.watch` logs) that do not exist elsewhere in `jade` yet. Rather than open a submodule under `cli/`, they were (per the author's decision) reconstructed as module-level helpers inside `wandb.py`. If more wandb functionality lands later, promote them to a dedicated `jade` module and reduce the cli file back to a thin wrapper. The run history is read with `run.scan_history()` (full, unsampled — every logged step), not the sampled `run.history()`. See [`wandb.md`](./wandb.md).
+
 ## Adding a new command (checklist)
 
 1. Add the real capability to the proper module (never to the cli) if it does not exist yet.
@@ -89,4 +113,4 @@ This is the one command that does not wrap an existing `jade` function: it **cop
 
 ## Dependencies
 
-`jade.cli.cli` imports only `argparse` at module load; the implementation is imported lazily inside each entry-point function, so importing `cli.py` stays light. A command inherits whatever the wrapped `jade` code needs — e.g. `download-dataset-moabb` needs the optional `dataset` extra (`moabb`/`mne`), which surfaces the usual `pip install jade[dataset]` hint if missing.
+`jade.cli.cli` imports only `argparse` at module load; the implementation is imported lazily inside each entry-point function, so importing `cli.py` stays light. A command inherits whatever the wrapped `jade` code needs — e.g. `download-dataset-moabb` needs the optional `dataset` extra (`moabb`/`mne`) and `download-project-runs-metrics` needs the optional `extra` (`wandb`), each surfacing the usual `pip install jade[<extra>]` hint if missing.

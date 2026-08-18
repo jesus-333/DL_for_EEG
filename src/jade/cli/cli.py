@@ -105,3 +105,49 @@ def default_config() -> None :
     # Run the command
 
     default_config(args)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# download-project-runs-metrics
+
+def download_project_runs_metrics() -> None :
+    """
+    Entry point of the ``download-project-runs-metrics`` command.
+
+    It parses the command-line arguments and forwards them to :func:`jade.cli.wandb.download_project_runs_metrics`, which downloads the metrics of every run in a wandb project (through the wandb public API :class:`wandb.Api`) and saves them to a JSON file.
+    """
+
+    from jade.cli.wandb import download_project_runs_metrics
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Command-line arguments parsing
+
+    parser = argparse.ArgumentParser(
+        prog        = "download-project-runs-metrics",
+        description = "Download the metrics of all the runs in a wandb project and save them to a JSON file.",
+    )
+
+    parser.add_argument(
+        "--entity",
+        type     = str,
+        required = True,
+        help     = "Name of the wandb entity (i.e. the user or team name) that owns the project. (str, required)",
+    )
+    parser.add_argument(
+        "--project",
+        type     = str,
+        required = True,
+        help     = "Name of the wandb project whose runs metrics are downloaded. (str, required)",
+    )
+    parser.add_argument(
+        "--path_save",
+        type    = str,
+        default = None,
+        help    = "Path of the JSON file where the metrics are saved. If not specified, the metrics are saved in the current working directory in the file wandb_metrics.json. (str, default: None)",
+    )
+
+    args = parser.parse_args()
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Run the command
+
+    download_project_runs_metrics(args)
