@@ -90,6 +90,7 @@ Download the metrics of **every run** in a wandb project and save them to a JSON
 | `--entity` | str | required | wandb entity (user or team) that owns the project. |
 | `--project` | str | required | wandb project whose runs are exported. |
 | `--path_save` | str | `None` | output JSON path; `None` → `./wandb_metrics.json` in the current directory. |
+| `--timeout` | int | `60` | wandb public-API GraphQL timeout in seconds. The wandb default (19 s) times out on projects with many runs; raise this further if needed. |
 
 ```bash
 # every run of entity/project → ./wandb_metrics.json
@@ -97,9 +98,14 @@ download-project-runs-metrics --entity my_team --project my_project
 
 # custom output path
 download-project-runs-metrics --entity my_team --project my_project --path_save /data/metrics.json
+
+# large project: bump the API timeout if you hit "Read timed out"
+download-project-runs-metrics --entity my_team --project my_project --timeout 120
 ```
 
 The output is a nested JSON: metric name → run key (`"{run_name}_{run_id}"`) → list of the metric's values over the run. It needs the optional `extra` (`wandb`); a missing `wandb` surfaces the `pip install jade[extra]` hint at call time.
+
+**Timeouts on large projects.** The wandb public API uses a 19 s GraphQL timeout by default, which many-run projects exceed (`Read timed out`). The command sets `wandb.Api(timeout=...)` from `--timeout` (default 60 s); raise it further if the error persists. Each run's full history is read separately, so a run-by-run progress line is printed while the export runs.
 
 **Note — a small exception to "the cli adds no new behavior".** This command needs two helpers (read a run's full history, strip the `parameters/`+`gradients/` columns that `wandb.watch` logs) that do not exist elsewhere in `jade` yet. Rather than open a submodule under `cli/`, they were (per the author's decision) reconstructed as module-level helpers inside `wandb.py`. If more wandb functionality lands later, promote them to a dedicated `jade` module and reduce the cli file back to a thin wrapper. The run history is read with `run.scan_history()` (full, unsampled — every logged step), not the sampled `run.history()`. See [`wandb.md`](./wandb.md).
 

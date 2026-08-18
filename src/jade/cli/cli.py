@@ -144,6 +144,12 @@ def download_project_runs_metrics() -> None :
         default = None,
         help    = "Path of the JSON file where the metrics are saved. If not specified, the metrics are saved in the current working directory in the file wandb_metrics.json. (str, default: None)",
     )
+    parser.add_argument(
+        "--timeout",
+        type    = int,
+        default = 60,
+        help    = "Timeout (in seconds) of the wandb public API GraphQL requests. Projects with many runs can exceed the wandb default (19 s) and raise a read timeout, so a larger value is used here. Increase it further if you still hit timeouts. (int, default: 60)",
+    )
 
     args = parser.parse_args()
 

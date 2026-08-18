@@ -52,11 +52,14 @@ Download the metrics of every run in a wandb project and save them to a JSON fil
 | `args.entity` | str | wandb entity (user or team) that owns the project. |
 | `args.project` | str | wandb project whose runs are exported. |
 | `args.path_save` | str or None | output JSON path; `None` → `./wandb_metrics.json` in the current working directory. |
+| `args.timeout` | int or None | wandb public-API GraphQL timeout (s), read via `getattr(args, "timeout", None)` so programmatic callers may omit it; `None` → wandb default (19 s). The cli sets it to `60`. |
 
 **Body (thematic blocks):**
-1. *Argument checks.* `entity`/`project` are required (the argparse parser already enforces this; the `None` guards also protect direct programmatic calls). `path_save` falls back to `./wandb_metrics.json` (with a printed notice).
-2. *Download.* Inside a `try` (guarding `wandb.errors.CommError` and any other `Exception`, both printed as a friendly message): `wandb.Api().runs(f"{entity}/{project}")`, then per run — `get_run_information` → `remove_parameters_from_history` → for every remaining column, skip the wandb internals (columns starting with `_`: `_step`, `_runtime`, `_timestamp`, …) and store `metrics_df[metric].dropna().tolist()` under `metrics_dict[metric]["{run_name}_{run_id}"]`. The `dropna()` removes the `NaN` left by the sparse full history, so each list is the clean curve of that metric.
+1. *Argument checks.* `entity`/`project` are required (the argparse parser already enforces this; the `None` guards also protect direct programmatic calls). `path_save` falls back to `./wandb_metrics.json` (with a printed notice). `timeout` is resolved with `getattr` (default `None`).
+2. *Download.* Inside a `try` (guarding `wandb.errors.CommError` and any other `Exception`, both printed as a friendly message): `wandb.Api(timeout=api_timeout).runs(f"{entity}/{project}")`, then per run (with a printed progress line) — `get_run_information` → `remove_parameters_from_history` → for every remaining column, skip the wandb internals (columns starting with `_`: `_step`, `_runtime`, `_timestamp`, …) and store `metrics_df[metric].dropna().tolist()` under `metrics_dict[metric]["{run_name}_{run_id}"]`. The `dropna()` removes the `NaN` left by the sparse full history, so each list is the clean curve of that metric.
 3. *Save.* `json.dump(metrics_dict, ..., indent=4)`.
+
+**Timeouts on large projects.** The public API's default GraphQL timeout is 19 s; projects with many runs exceed it and raise `Read timed out` (a `requests` `ReadTimeout`, surfaced by the generic `except Exception` branch). The `--timeout` argument is passed straight to `wandb.Api(timeout=...)` — this is exactly the fix wandb's own warning suggests (`api = wandb.Api(timeout=29)`). Raise it further if the error persists.
 
 **Output shape** — metric name → run key (`"{run_name}_{run_id}"`) → list of values:
 ```json
