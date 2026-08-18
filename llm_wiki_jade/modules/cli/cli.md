@@ -69,6 +69,7 @@ Entry point of the `download-project-runs-metrics` command.
    | `--entity` | str | required | wandb entity (user or team) that owns the project. |
    | `--project` | str | required | wandb project whose runs metrics are downloaded. |
    | `--path_save` | str | default `None` | output JSON path; `None` → `./wandb_metrics.json`. |
+   | `--timeout` | int | default `60` | wandb public-API GraphQL timeout (s); raises the 19 s wandb default that times out on many-run projects. |
 
 3. `parser.parse_args()` → `args`, then calls `download_project_runs_metrics(args)` (the implementation).
 

@@ -115,6 +115,7 @@ def download_project_runs_metrics(args) -> None :
         - ``entity`` : str. Name of the wandb entity (i.e. the user or team name) that owns the project.
         - ``project`` : str. Name of the wandb project whose runs metrics are downloaded.
         - ``path_save`` : str or None. Path of the JSON file where the metrics are saved. If ``None`` the file ``wandb_metrics.json`` is created in the current working directory.
+        - ``timeout`` : int or None. Timeout (in seconds) of the wandb public API GraphQL requests. Projects with many runs can exceed the wandb default (19 s) and raise a read timeout, so a larger value is used here. If ``None`` the wandb default is kept.
     """
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -131,16 +132,22 @@ def download_project_runs_metrics(args) -> None :
     else :
         path_save = args.path_save
 
+    # Resolve the GraphQL timeout (None → keep the wandb default). getattr keeps direct programmatic calls working even without the field.
+    api_timeout = getattr(args, "timeout", None)
+
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Download the metrics
 
     try :
-        # Get all the runs of the specified project.
-        runs = wandb.Api().runs(f"{args.entity}/{args.project}")
+        # Get all the runs of the specified project. A larger timeout is passed to wandb.Api because the requests that paginate the runs (and read their history) can exceed the wandb default (19 s) when the project has many runs.
+        runs = wandb.Api(timeout = api_timeout).runs(f"{args.entity}/{args.project}")
 
         metrics_dict = dict()
 
-        for run in runs :
+        for run_index, run in enumerate(runs) :
+            # Print a light progress line: reading the full history of every run can take a while on large projects.
+            print(f"Processing run {run_index + 1} : {run.name} ({run.id})")
+
             # Read the run information (name, id and full history) and remove the model parameters/gradients from the history.
             run_info   = get_run_information(run)
             metrics_df = remove_parameters_from_history(run_info["history"])
