@@ -21,7 +21,7 @@ config/
   optimizers/         optimizer_config + Adam/AdamW/SGD/RMSprop/LBFGS + registry + get_optimizer_config
   lr_schedulers/      lr_scheduler_config + ExponentialLR/StepLR/CosineAnnealingLR/…WarmRestarts/CyclicLR + registry + factory
   loss_functions/     loss_config + CrossEntropy/NLL + registry + get_loss_config
-  model/              model_config + EEGNet_config + the pooling config family + registries + get_model_config/get_pooling_config
+  model/              model_config + EEGNet_config + EEGConformer_config + the pooling config family + registries + get_model_config/get_pooling_config
   default_config/     commented TOML skeleton configs (package data, copied by the `create-default-config` cli command)
 ```
 
@@ -100,7 +100,7 @@ Configs are pure descriptions; the `jade.training.support_training` factory func
 | `loss_config` family | `…support_training.get_loss_function` | `torch.nn.*` (weights list → tensor) |
 | `wandb_training_config` | `jade.training.classifier.wandb_train_model` / `train_model` | wandb run + model artifact |
 | `training_config` | `jade.training.classifier` | the whole training run |
-| `model_config` family (`EEGNet_config`) | `jade.model.get_model`; `jade.training.train` | the `torch.nn.Module` to train |
+| `model_config` family (`EEGNet_config`, `EEGConformer_config`) | `jade.model.get_model`; `jade.training.train` | the `torch.nn.Module` to train |
 | pooling config family | `jade.model.pooling_1d.get_pooling_layer` | a 1D pooling layer (research subpackage) |
 
-Model configuration now lives in the [`model/` subpackage](model/0_module_quickstart.md): `EEGNet_config` plus the 1D pooling config family, with the same registry + `get_*_config` pattern. `jade.model.get_model` and the `EEGNet` constructors consume these configs directly.
+Model configuration now lives in the [`model/` subpackage](model/0_module_quickstart.md): `EEGNet_config`, `EEGConformer_config` plus the 1D pooling config family, with the same registry + `get_*_config` pattern. `jade.model.get_model` and the `EEGNet` / `EEGConformer` constructors consume these configs directly.

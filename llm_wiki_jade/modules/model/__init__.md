@@ -6,7 +6,7 @@ Package init for `jade.model`. Hosts the top-level model factory: a name→class
 
 ## Public API (`__all__`)
 
-`EEGNet`, `EEGNet_Classifier`, `braindecode_pooling_wrapper`, `MODEL_REGISTRY`, `get_model`.
+`EEGNet`, `EEGNet_Classifier`, `EEGConformer`, `EEGConformer_Classifier`, `braindecode_pooling_wrapper`, `MODEL_REGISTRY`, `get_model`.
 
 The 1D pooling layers are **intentionally not** re-exported here: they are building blocks (with their own factory in `jade.model.pooling_1d`), not full models.
 
@@ -19,6 +19,9 @@ A dict mapping lowercase string aliases → model class. Every registered class 
 | `eegnet` | `EEGNet` |
 | `eegnet_classifier` | `EEGNet_Classifier` |
 | `eegnetclassifier` | `EEGNet_Classifier` |
+| `eegconformer` | `EEGConformer` |
+| `eegconformer_classifier` | `EEGConformer_Classifier` |
+| `eegconformerclassifier` | `EEGConformer_Classifier` |
 | `braindecode_wrapper` | `braindecode_pooling_wrapper` |
 | `braindecode` | `braindecode_pooling_wrapper` |
 | `braindecode_pooling` | `braindecode_pooling_wrapper` |

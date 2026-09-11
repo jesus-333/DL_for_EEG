@@ -6,7 +6,7 @@
 
 `jade.model` holds the PyTorch neural-network models of the `jade` package (Just Another Deep-learning EEG package) **plus** a self-contained research sub-package for anti-aliased 1D pooling. Two concerns live side by side:
 
-1. **EEG models** — an `EEGNet` implementation (and a classifier wrapper) plus small creation helpers. This is the production part used by `jade.training`.
+1. **EEG models** — an `EEGNet` implementation and an `EEGConformer` (convolutional transformer) implementation, each with a classifier wrapper, plus small creation helpers. This is the production part used by `jade.training`.
 2. **`pooling_1d`** — a DSP-grounded family of 1D decimation ("pooling") layers (`avg` / `blur` / `sinc` / `dwt` / `max`) built for an anti-aliasing ablation study. EEGNet consumes them channel-wise through its `[pooling]` config section (via `get_multichannel_pooling`); they also stand alone as research infrastructure.
 
 ## Top-level factory: `get_model` / `MODEL_REGISTRY`
@@ -17,6 +17,8 @@ The single entry point for building a model is `get_model(config) -> nn.Module` 
 |---|---|
 | `eegnet` | `EEGNet` |
 | `eegnet_classifier`, `eegnetclassifier` | `EEGNet_Classifier` |
+| `eegconformer` | `EEGConformer` |
+| `eegconformer_classifier`, `eegconformerclassifier` | `EEGConformer_Classifier` |
 | `braindecode_wrapper`, `braindecode`, `braindecode_pooling` | `braindecode_pooling_wrapper` |
 
 Raises `ValueError` if `name` is unknown. This mirrors the `get_pooling_layer` / `POOLING_REGISTRY` pattern one level down in `pooling_1d`, and the `get_optimizer` etc. registries elsewhere in `jade`. (The old `get_model({"model_name": ...})` dict interface is gone — the discriminator is `name`, matching the config families.)
@@ -34,6 +36,15 @@ The final feedforward + softmax classification layer of the original paper is **
 Both classes now consume an [`EEGNet_config`](../config/model/EEGNet_cfg.md) dataclass (a dict is still accepted and promoted via `get_model_config`); they call `get_model_config(config)` at the top of `__init__` and then read the attributes, so all defaulting and validation live in the config, not in the model.
 
 **Key fact:** EEGNet's two pooling stages are configured by the `[pooling]` section of `EEGNet_config` (fields `pooling_type_*`, `pooling_factor_*`, `params_*`) and built by `support_functions.get_multichannel_pooling`. `pooling_type='default'` reproduces the classic `nn.AvgPool2d`; `avg`/`max`/`blur`/`sinc`/`dwt` select a `pooling_1d` operator applied channel-wise. This replaced the old `p_kernel_1`/`p_kernel_2` fields.
+
+## EEG Conformer at a high level
+
+[`EEGConformer`](EEGConformer.md) is the convolutional-transformer of Song et al. (IEEE TNSRE 2023): a shallow EEGNet-like **convolutional patch embedding** feeds a **transformer encoder**, and (for the classifier) a **flatten + MLP head**. Like `EEGNet` it operates on 4D `(B, depth, C, T)` tensors and is a jade-native re-implementation driven entirely by an [`EEGConformer_config`](../config/model/EEGConformer_cfg.md) (a dict is accepted and promoted). It depends only on `torch` — the original `einops` rearrangements are rewritten with plain tensor ops.
+
+- **`EEGConformer`** (feature extractor): patch embedding → transformer encoder → token sequence `(B, n_tokens, emb_size)` (optionally flattened via `flatten_output`). The patch embedding = temporal conv → spatial conv (collapses the channel axis) → BatchNorm → activation → **pooling** → dropout → `1×1` projection → reshape to tokens.
+- **`EEGConformer_Classifier`** (feature extractor + head): forces the extractor to flatten, sizes the MLP head with a dummy forward (`compute_number_of_neurons`), then appends `Linear → activation → Dropout → Linear → activation → Dropout → Linear → (LogSoftmax | Identity)`. Also exposes `classify(x)`. With all defaults a 22×1000 trial gives 61 tokens (61·40 = 2440, matching the reference implementation's hard-coded flatten size).
+
+**Key fact (pooling):** the patch-embedding pooling is the `[pooling]` section of `EEGConformer_config` (`conformer_pooling_config`) and is built by `get_conformer_pooling` (in `EEGConformer.py`). `pooling_type='default'` reproduces the original **overlapping** `nn.AvgPool2d((1,75),(1,15))`; `avg`/`max`/`blur`/`sinc`/`dwt` swap in a [`pooling_1d`](pooling_1d/0_module_quickstart.md) operator applied channel-wise (decimation factor `pooling_stride`), delegating to `get_multichannel_pooling`. This is how the anti-aliasing ablation runs on the Conformer. (Not to be confused with braindecode's own `EEGConformer`, whose overlapping-pool→transformer head the `braindecode_pooling_wrapper` cannot auto-resize — its build-time probe raises a clear error instead.)
 
 ## `braindecode_pooling_wrapper` — the pooling ablation on braindecode models
 
@@ -75,6 +86,7 @@ The family is **provably nested**: average pooling *is* the boxcar special case,
 model/
 ├── __init__.py                        get_model / MODEL_REGISTRY factory
 ├── EEGNet.py                          EEGNet + EEGNet_Classifier
+├── EEGConformer.py                    EEGConformer + EEGConformer_Classifier (conv patch embedding + transformer)
 ├── braindecode_pooling_extension.py   braindecode_pooling_wrapper (swap braindecode pooling for pooling_1d)
 ├── aEEGNet.py                         attention variant (WIP stub) + channels_attention_head
 ├── support_functions.py               get_activation, get_dropout, count_trainable_parameters, create_head, compute_attention_values
@@ -85,7 +97,7 @@ model/
 ## Dependencies
 
 - **External:** `torch` (all models/layers), `numpy` (pooling kernel math), and — lazily — `scipy` / `pywt` (inside `sinc_pool_1d` / optional `dwt_pool_1d` wavelets) and `braindecode` (the optional `braindecode` extra, imported only inside `braindecode_pooling_wrapper`).
-- **Internal:** `EEGNet` and `aEEGNet` import `jade.model.support_functions`; `braindecode_pooling_extension` imports `jade.model.pooling_1d` (`get_pooling_layer`) and `jade.config.model`. `pooling_1d` is otherwise standalone (imports only its own submodules).
+- **Internal:** `EEGNet`, `EEGConformer` and `aEEGNet` import `jade.model.support_functions` (and their `jade.config.model` config); `EEGConformer` also reuses `support_functions.get_multichannel_pooling` (hence `jade.model.pooling_1d`) for its 1D-pooling patch-embedding stage; `braindecode_pooling_extension` imports `jade.model.pooling_1d` (`get_pooling_layer`) and `jade.config.model`. `pooling_1d` is otherwise standalone (imports only its own submodules).
 
 ## How `model` connects to the rest of `jade`
 

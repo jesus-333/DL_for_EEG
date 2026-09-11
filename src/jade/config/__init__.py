@@ -66,6 +66,8 @@ from jade.config.model import (
     model_config,
     EEGNet_config,
     eegnet_pooling_config,
+    EEGConformer_config,
+    conformer_pooling_config,
     MODEL_CONFIG_REGISTRY,
     get_model_config,
     pooling_config,
@@ -117,6 +119,8 @@ __all__ = [
     "model_config",
     "EEGNet_config",
     "eegnet_pooling_config",
+    "EEGConformer_config",
+    "conformer_pooling_config",
     "MODEL_CONFIG_REGISTRY",
     "get_model_config",
     # Pooling configs

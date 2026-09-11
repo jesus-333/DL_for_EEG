@@ -8,7 +8,7 @@
 
 Two concerns live here:
 
-1. **Model configs** — one dataclass per model, in a `{model_name}_cfg.py` file (the `cfg` suffix keeps config files apart from the model implementation files in `jade.model`). Currently: [`EEGNet_config`](EEGNet_cfg.md) (covers both `EEGNet` and `EEGNet_Classifier`) and [`braindecode_wrapper_config`](braindecode_pooling_extension_cfg.md) (the [braindecode pooling wrapper](../../model/braindecode_pooling_extension.md)). The braindecode one is deliberately different: it does **not** describe the model hyper-parameters (braindecode owns and validates those, so they travel as a raw `model_kwargs` dict) — it only carries the model name and the pooling operator to swap in.
+1. **Model configs** — one dataclass per model, in a `{model_name}_cfg.py` file (the `cfg` suffix keeps config files apart from the model implementation files in `jade.model`). Currently: [`EEGNet_config`](EEGNet_cfg.md) (covers both `EEGNet` and `EEGNet_Classifier`), [`EEGConformer_config`](EEGConformer_cfg.md) (covers both `EEGConformer` and `EEGConformer_Classifier`) and [`braindecode_wrapper_config`](braindecode_pooling_extension_cfg.md) (the [braindecode pooling wrapper](../../model/braindecode_pooling_extension.md)). The braindecode one is deliberately different: it does **not** describe the model hyper-parameters (braindecode owns and validates those, so they travel as a raw `model_kwargs` dict) — it only carries the model name and the pooling operator to swap in.
 2. **The 1D pooling config family** — a single file, [`pooling_1d_cfg.py`](pooling_1d_cfg.md), holding one config per pooling operator (avg/blur/sinc/dwt/max), because pooling is reused several times inside a model and the operators share most parameters.
 
 ## The registry + factory pattern (models)
@@ -16,7 +16,7 @@ Two concerns live here:
 Defined in [`__init__.py`](__init__.md), mirroring the optimizer/loss families:
 
 - **`model_config`** ([generic.md](generic.md)) — base class carrying only `name`; overrides `from_dict` for **polymorphic** deserialization (reads `name`, looks it up in the registry, delegates to the concrete subclass). The registry is imported lazily inside the method to avoid a circular import.
-- **`MODEL_CONFIG_REGISTRY`** — the `eegnet` / `eegnet_classifier` / `eegnetclassifier` aliases resolve to `EEGNet_config` (which carries the actual `name` used to pick `EEGNet` vs `EEGNet_Classifier`), and `braindecode` / `braindecode_wrapper` / `braindecode_pooling` resolve to `braindecode_wrapper_config`. The aliases mirror `jade.model.MODEL_REGISTRY`.
+- **`MODEL_CONFIG_REGISTRY`** — the `eegnet` / `eegnet_classifier` / `eegnetclassifier` aliases resolve to `EEGNet_config` (which carries the actual `name` used to pick `EEGNet` vs `EEGNet_Classifier`), the `eegconformer` / `eegconformer_classifier` / `eegconformerclassifier` aliases resolve to `EEGConformer_config`, and `braindecode` / `braindecode_wrapper` / `braindecode_pooling` resolve to `braindecode_wrapper_config`. The aliases mirror `jade.model.MODEL_REGISTRY`.
 - **`get_model_config(config)`** — returns a config untouched if already a `model_config`, promotes a `dict` (keyed on `name`) via `model_config.from_dict`, else raises `TypeError`. This is the promoter used by `jade.model.get_model`, `EEGNet.__init__` and `cross_check_config`.
 
 ## The pooling config family
@@ -25,7 +25,7 @@ A parallel family, all in [`pooling_1d_cfg.py`](pooling_1d_cfg.md), discriminate
 
 - `pooling_config` (base: `pooling_type`, `decimation_factor`, polymorphic `from_dict`) → `_fir_pooling_config` (shared FIR options: `padding_mode`, `phase`, `gain`, `warn_if_worse_than_boxcar`) → `avg_pooling_config` / `blur_pooling_config` / `sinc_pooling_config` / `dwt_pooling_config`; `max_pooling_config` inherits the minimal base only (the max layer has no FIR filter, just `ceil_mode`).
 - **`POOLING_CONFIG_REGISTRY`** maps every runtime alias (`avg`/`average`/`boxcar`, `max`, `blur`/`blurpool`/`binomial`/`gaussian`, `sinc`/`kaiser`, `dwt`/`wavelet`) to its config class, and **`get_pooling_config(config)`** promotes a dict. The canonical field names match the pooling layers' keys, so a `pooling_config` object (or its `to_dict()`) can feed `jade.model.pooling_1d.get_pooling_layer` / `jade.model.support_functions.get_multichannel_pooling` directly — the pooling layers read their config through a `_get` helper that accepts a dataclass *or* a dict, so no dict round-trip is needed.
-- **Used by EEGNet.** `EEGNet_config`'s `[pooling]` section is its own dataclass, `eegnet_pooling_config` (two independently-typed stages), documented on the [EEGNet_cfg page](EEGNet_cfg.md). It reuses `get_pooling_config` here to validate each stage's type-specific params.
+- **Used by EEGNet and EEG Conformer.** `EEGNet_config`'s `[pooling]` section is its own dataclass, `eegnet_pooling_config` (two independently-typed stages), documented on the [EEGNet_cfg page](EEGNet_cfg.md); `EEGConformer_config`'s `[pooling]` section is `conformer_pooling_config` (a single stage that separates the overlapping-`AvgPool2d` window from the decimation factor), documented on the [EEGConformer_cfg page](EEGConformer_cfg.md). Both reuse `get_pooling_config` here to validate each stage's type-specific params.
 
 ## Design notes
 

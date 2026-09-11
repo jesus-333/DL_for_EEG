@@ -62,6 +62,7 @@ See the [model-config quickstart](model/0_module_quickstart.md) and [index](mode
 | `model/__init__.py` | [model/__init__.md](model/__init__.md) | Registry `MODEL_CONFIG_REGISTRY` + factory `get_model_config`; re-exports the pooling config family. |
 | `model/generic.py` | [model/generic.md](model/generic.md) | `model_config` base + polymorphic `from_dict`. |
 | `model/EEGNet_cfg.py` | [model/EEGNet_cfg.md](model/EEGNet_cfg.md) | `EEGNet_config` → `jade.model.EEGNet.EEGNet` / `EEGNet_Classifier`. |
+| `model/EEGConformer_cfg.py` | [model/EEGConformer_cfg.md](model/EEGConformer_cfg.md) | `EEGConformer_config` → `jade.model.EEGConformer.EEGConformer` / `EEGConformer_Classifier`. |
 | `model/pooling_1d_cfg.py` | [model/pooling_1d_cfg.md](model/pooling_1d_cfg.md) | 1D pooling config family + `POOLING_CONFIG_REGISTRY` + `get_pooling_config`. |
 
 ## Package data `default_config/`
