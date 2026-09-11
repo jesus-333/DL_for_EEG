@@ -23,8 +23,10 @@ Builds the braindecode model named by the config, swaps its pooling layers, opti
 2. Resolve the braindecode class from `config.braindecode_model_name` (`_get_braindecode_model_class`) and build `model = ModelClass(**config.model_kwargs)`. **braindecode validates its own kwargs** — there is no jade dataclass for them.
 3. `_replace_pooling_layers(model, config.target_pooling_config, config.pooling_factor_source)` swaps the pooling layers (see below), returning `self.swaps` and whether any swap overlapped.
 4. If `config.keep_pool_nonlin` is `False`, `_drop_pool_nonlin(model)` replaces every `pool_nonlin*` module with `nn.Identity` (recorded in `self.dropped_pool_nonlin`).
-5. If any replaced pooling **overlapped**, `_resize_trailing_classifier(model, _infer_dummy_input(config, model))` fixes the trailing layer size.
-6. `self.model = model`.
+5. A probe input is inferred once (`_infer_dummy_input`) and shared by steps 6–7.
+6. If any replaced pooling **overlapped**, `_resize_trailing_classifier(model, probe)` fixes the trailing layer size.
+7. If `config.validate_forward` (default `True`), `_validate_forward(model, probe)` runs one probe forward and raises a clear error if the swap produced a non-runnable model (see [Input shape handling](#input-shape-handling)).
+8. `self.model = model`.
 
 ### Attributes
 
@@ -99,6 +101,19 @@ The dummy input comes from `_infer_dummy_input`: `config.example_input_shape` if
 
 ---
 
+## Input shape handling
+
+The user does **not** need to tell the wrapper each model's input convention. `forward` delegates to the *whole* braindecode model, whose first layers are braindecode's own `ensuredims` (`Ensure4d`) and `dimshuffle` (`Rearrange`): they take the external input (in braindecode v1.x a **3D** `(B, n_chans, n_times)` tensor) and reshape it to that model's internal 4D layout (EEGNet `B × F × C × T`, ShallowFBCSPNet `B × F × T × 1`, …). So:
+
+- **3D vs 4D / per-model layout is handled by braindecode's own front layers**, not by the wrapper. Feed the model whatever its braindecode version expects (3D `(B, n_chans, n_times)` for the current models).
+- **The pooled axis is detected from each pooling kernel** (see above), which reflects the *internal* post-`dimshuffle` layout — so a model that pools axis 2 vs axis 3 is handled automatically, whatever its external input convention.
+- **`validate_forward`** (default `True`) runs one probe forward at build time and raises a clear error if the swap produced a non-runnable model — the literal "check the expected data shape" step. The probe input is `example_input_shape` if set, else the inferred `(2, n_chans, n_times)`.
+
+**Coverage.** The swap works on the principal braindecode models — verified on `ShallowFBCSPNet`, `Deep4Net`, `EEGNet`, `EEGITNet`, `EEGInceptionERP`, `EEGNeX`, `EEGTCNet`, `ATCNet` (both pooled axes; overlapping and non-overlapping). Two kinds of model are **not** auto-handled and now fail with the wrapper's actionable error instead of a cryptic one:
+
+- an **overlapping** pooling feeding a **non-conv head** whose input size depends on the pooled length (e.g. `EEGConformer`'s transformer): `_resize_trailing_classifier` only fixes a trailing time-collapsing `Conv2d`/`Linear`, not an intermediate projection. Options: use a non-overlapping pooling, or handle that model manually.
+- an **extreme decimation factor** where the FIR-filter length exceeds the signal (e.g. `EEGInceptionMI`'s global `AvgPool2d((1, 1000))` with `sinc`/`blur`/`dwt`): use `avg`/`max` (no long filter) for such a stage.
+
 ## braindecode model resolution (`_get_braindecode_model_class`)
 
 `getattr(braindecode.models, model_name)`, accepting the result **only** if it is an `nn.Module` subclass (the `braindecode.models` namespace also exposes lowercase sub-*modules* and the `EEGModuleMixin` base, which are not buildable models). An unknown name raises a `ValueError` listing the available model classes.
@@ -111,5 +126,5 @@ The dummy input comes from `_infer_dummy_input`: `config.example_input_shape` if
 
 - **`dwt` needs a power-of-two decimation factor.** Swapping to `dwt` works only when *every* pooling factor of the model is a power of two (EEGNet: 4, 8 ✓; Deep4Net: 3 ✗; ShallowFBCSPNet: 15 ✗). Other factors raise a clear `ValueError` from `dwt_pool_1d`. `avg` / `blur` / `sinc` / `max` accept any factor.
 - **Input layout is braindecode-native.** `forward` delegates unchanged, so feed the wrapped model what braindecode expects (`(B, n_chans, n_times)` for the current models) — not the jade `EEG_Dataset` `(B, 1, C, T)` layout. Bridging the two (for a jade training sweep) is future work.
-- **The re-size is best-effort.** For an overlapping model with an unusual trailing layer a warning is emitted and the output shape may be wrong; pass `example_input_shape` if the probe cannot infer it.
-- **Verification:** `test/custom/braindecode_pooling.py` builds EEGNet / Deep4Net / ShallowFBCSPNet through the wrapper for several pooling types and checks the swaps, shapes and the `keep_pool_nonlin` flag end-to-end (needs braindecode; no dataset).
+- **The re-size is best-effort**, but `validate_forward` (default) catches a bad swap at build time with a clear error rather than letting it surface later (see [Input shape handling](#input-shape-handling)). Pass `example_input_shape` if the probe shape cannot be inferred, or `validate_forward=False` to skip the check.
+- **Verification:** `test/custom/braindecode_pooling.py` builds EEGNet / Deep4Net / ShallowFBCSPNet (in detail) and a wider set (`EEGITNet`, `EEGInceptionERP`, `EEGNeX`, `EEGTCNet`, `ATCNet`) through the wrapper, checks the swaps / shapes / `keep_pool_nonlin`, and confirms the clear validation error on an unsupported case (needs braindecode; no dataset).

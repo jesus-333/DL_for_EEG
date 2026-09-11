@@ -37,6 +37,16 @@ invalidates the size of the trailing classification layer that braindecode compu
 the wrapper re-sizes that trailing layer with a single dummy forward (:func:`_resize_trailing_classifier`). Purely
 non-overlapping models (EEGNet, Deep4Net) keep every downstream shape and never trigger this.
 
+Input shape
+-----------
+The wrapper does not need to know each model's input convention: ``forward`` delegates to the whole braindecode
+model, whose own ``ensuredims`` / ``dimshuffle`` front layers reshape the external input (a 3D ``(B, n_chans,
+n_times)`` tensor in braindecode v1.x) into that model's internal 3D/4D layout. The pooled axis is read from each
+pooling kernel (the internal, post-``dimshuffle`` layout), so different layouts are handled automatically. With
+``validate_forward`` (default) the wrapper runs one probe forward at build time and raises a clear error if the
+swap produced a non-runnable model (an overlapping pooling feeding a non-conv head, or a pooling filter longer than
+the signal) — the "check the expected data shape" step of the feature spec.
+
 The braindecode model hyper-parameters are validated by braindecode itself (they travel as a raw ``model_kwargs``
 dict); braindecode is imported lazily, so importing :mod:`jade.model` never requires it.
 
@@ -501,6 +511,10 @@ def _probe_input_shape(model : nn.Module, dummy_input : torch.Tensor, layer : nn
             model(dummy_input)
     except _ProbeDone as probe :
         captured = probe.shape
+    except Exception :
+        # The model broke before reaching the trailing layer (e.g. an intermediate layer depends on the pooled
+        # length). Give up on probing; the caller warns and the build-time validation forward reports it clearly.
+        captured = None
     finally :
         handle.remove()
         model.train(was_training)
@@ -638,6 +652,46 @@ def _infer_dummy_input(config : braindecode_wrapper_config, model : nn.Module, b
 
     return torch.zeros(batch_size, int(n_chans), int(n_times))
 
+
+def _validate_forward(model : nn.Module, dummy_input : torch.Tensor) -> None :
+    """
+    Run one probe forward and raise a clear error if the pooling-swapped model does not run.
+
+    This is the build-time "check the expected data shape" step: it confirms the swap produced a runnable model and
+    turns the cryptic errors of the few unsupported cases into an actionable message. The probe input is in the
+    braindecode-native layout; the model's own ``ensuredims`` / ``dimshuffle`` front layers adapt it to the internal
+    3D/4D layout, so nothing here depends on the specific model's shape convention.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The pooling-swapped braindecode model.
+    dummy_input : torch.Tensor
+        A batch-shaped probe input.
+
+    Raises
+    ------
+    RuntimeError
+        If the probe forward fails.
+    """
+
+    was_training = model.training
+    try :
+        model.eval()
+        with torch.no_grad() :
+            model(dummy_input)
+    except Exception as error :
+        raise RuntimeError(
+            f"the pooling-swapped model failed a probe forward with input shape {tuple(dummy_input.shape)}: "
+            f"{type(error).__name__}: {error}. This usually means either a downstream layer depends on the pooled "
+            "temporal length in a way the wrapper cannot auto-resize (e.g. a transformer head after an overlapping "
+            "pooling), or the chosen pooling operator's filter is longer than the signal at some stage (try "
+            "pooling_type 'avg' / 'max', or a smaller / different decimation factor). Pass 'example_input_shape' if "
+            "the probe shape is wrong, or set validate_forward=False to skip this check."
+        ) from error
+    finally :
+        model.train(was_training)
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public wrapper
 
@@ -690,9 +744,30 @@ class braindecode_pooling_wrapper(nn.Module) :
         # (OPTIONAL) Drop the post-pool nonlinearity.
         self.dropped_pool_nonlin = _drop_pool_nonlin(model) if not config.keep_pool_nonlin else []
 
-        # (OPTIONAL) Re-size the trailing classifier if an overlapping pooling was replaced (its output length changed).
+        # A probe input (braindecode-native (B, n_chans, n_times) layout) shared by the overlapping re-size and the
+        # build-time validation. braindecode's own ensuredims / dimshuffle front layers adapt it to each model's
+        # internal 3D/4D layout, so the wrapper needs no per-model shape handling of its own.
+        dummy_input = None
+        if any_overlapping or config.validate_forward :
+            try :
+                dummy_input = _infer_dummy_input(config, model)
+            except ValueError :
+                dummy_input = None
+
+        # Re-size the trailing classifier if an overlapping pooling was replaced (its output length changed).
         if any_overlapping :
-            _resize_trailing_classifier(model, _infer_dummy_input(config, model))
+            if dummy_input is not None :
+                _resize_trailing_classifier(model, dummy_input)
+            else :
+                warnings.warn(
+                    "an overlapping pooling layer was replaced but no probe input could be inferred to re-size the "
+                    "trailing classifier; set 'example_input_shape' in the config. The model output may be wrong.",
+                    stacklevel = 2,
+                )
+
+        # (OPTIONAL) Validate the swapped model with one probe forward ("check the expected data shape").
+        if config.validate_forward and dummy_input is not None :
+            _validate_forward(model, dummy_input)
 
         self.model = model
 

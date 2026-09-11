@@ -79,9 +79,17 @@ class braindecode_wrapper_config(model_config) :
         ``'stride'`` (default) uses the layer stride - the true downsampling factor, correct for both
         non-overlapping and overlapping pooling; ``'kernel'`` uses the kernel size instead.
     example_input_shape : tuple of int, optional
-        Optional explicit input shape used to probe the model (the dummy forward that re-sizes the trailing
-        classifier after an overlapping-pooling swap, and an optional shape check). When ``None`` the shape is
-        inferred from ``model_kwargs`` (``n_chans`` / ``n_times`` ...).
+        Optional explicit input shape (batch included) used to probe the model - the dummy forward that re-sizes
+        the trailing classifier after an overlapping-pooling swap, and the build-time validation forward. When
+        ``None`` the shape is inferred from the built model / ``model_kwargs`` (``n_chans`` / ``n_times`` ...),
+        which matches the braindecode-native ``(B, n_chans, n_times)`` layout (braindecode's own ``ensuredims`` /
+        ``dimshuffle`` front layers then adapt it to each model's internal 3D/4D layout).
+    validate_forward : bool, default True
+        If True, run one probe forward on the swapped model at build time (using ``example_input_shape`` or the
+        inferred shape) and raise a clear error if it fails. This is the "check the expected data shape" step: it
+        confirms the swap produced a runnable model, and turns the cryptic errors of the few unsupported cases
+        (an overlapping pooling feeding a non-conv head, or a pooling filter longer than the signal) into an
+        actionable message. Set to False to skip the check (e.g. for a model whose input shape cannot be inferred).
     """
 
     name : str = "braindecode_wrapper"
@@ -92,6 +100,7 @@ class braindecode_wrapper_config(model_config) :
     keep_pool_nonlin       : bool = True
     pooling_factor_source  : str  = "stride"
     example_input_shape    : Optional[Tuple[int, ...]] = None
+    validate_forward       : bool = True
 
 
     @property
@@ -157,6 +166,9 @@ class braindecode_wrapper_config(model_config) :
 
         if not isinstance(self.keep_pool_nonlin, bool) :
             raise ValueError(f"keep_pool_nonlin must be a bool, got {self.keep_pool_nonlin!r}")
+
+        if not isinstance(self.validate_forward, bool) :
+            raise ValueError(f"validate_forward must be a bool, got {self.validate_forward!r}")
 
         self.pooling_factor_source = str(self.pooling_factor_source).lower()
         if self.pooling_factor_source not in POOLING_FACTOR_SOURCES :

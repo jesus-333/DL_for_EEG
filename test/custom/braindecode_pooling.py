@@ -51,12 +51,17 @@ N_OUTPUT = 4
 POOLING_TYPES_POW2 = ["avg", "blur", "sinc", "dwt", "max"]
 POOLING_TYPES_ANY  = ["avg", "blur", "sinc", "max"]
 
-# The models exercised: name -> (list of pooling types, is the stock pooling non-overlapping?).
+# The models exercised in detail: name -> (list of pooling types, is the stock pooling non-overlapping?).
 MODELS = {
     "EEGNet"          : (POOLING_TYPES_POW2, True),   # AvgPool2d (1, 4) then (1, 8) - non-overlapping, axis 3
     "Deep4Net"        : (POOLING_TYPES_ANY,  True),   # 4x MaxPool2d (3, 1) - non-overlapping, axis 2
     "ShallowFBCSPNet" : (POOLING_TYPES_ANY,  False),  # AvgPool2d (75, 1) stride (15, 1) - overlapping, axis 2
 }
+
+# A wider set of principal braindecode models, checked more lightly (build + one forward) to back the
+# "handle all the principal models" requirement. They cover both pooled axes and 3D/4D internal layouts;
+# all take the same 3D (B, n_chans, n_times) input (their ensuredims / dimshuffle front layers adapt it).
+BROAD_MODELS = ["EEGITNet", "EEGInceptionERP", "EEGNeX", "EEGTCNet", "ATCNet"]
 
 _POOL_TYPES = (nn.AvgPool1d, nn.MaxPool1d, nn.AvgPool2d, nn.MaxPool2d)
 
@@ -145,6 +150,41 @@ def main() -> None :
     # 1. Per-model pooling swap checks.
     for model_name, (pooling_types, non_overlapping) in MODELS.items() :
         check_model(model_name, pooling_types, non_overlapping, x)
+
+    # 1b. Broad coverage: build a wider set of principal models (avg pooling) and confirm each runs.
+    print(f"\n{'=' * 70}\nbroad model coverage (avg pooling, 3D input)")
+    for model_name in BROAD_MODELS :
+        config = {
+            "name"                   : "braindecode",
+            "braindecode_model_name" : model_name,
+            "model_kwargs"           : {"n_chans" : N_CHANS, "n_outputs" : N_OUTPUT, "n_times" : N_TIMES},
+            "pooling"                : {"pooling_type" : "avg"},
+        }
+        with warnings.catch_warnings() :
+            warnings.simplefilter("ignore")
+            model = get_model(config)          # validate_forward (default) already ran a probe forward
+        model.eval()
+        with torch.no_grad() :
+            y = model(x)
+        assert tuple(y.shape) == (BATCH, N_OUTPUT), f"{model_name}: output {tuple(y.shape)} != {(BATCH, N_OUTPUT)}"
+        print(f"  [OK] {model_name:18s} {len(model.swaps)} layer(s) swapped, out {tuple(y.shape)}")
+
+    # 1c. The build-time validation forward turns an unsupported swap into a clear error rather than a cryptic one
+    # (EEGConformer: an overlapping pooling feeding a transformer head the wrapper cannot auto-resize).
+    print(f"\n{'=' * 70}\nvalidate_forward turns an unsupported case into a clear error")
+    try :
+        with warnings.catch_warnings() :
+            warnings.simplefilter("ignore")
+            get_model({
+                "name"                   : "braindecode",
+                "braindecode_model_name" : "EEGConformer",
+                "model_kwargs"           : {"n_chans" : N_CHANS, "n_outputs" : N_OUTPUT, "n_times" : N_TIMES},
+                "pooling"                : {"pooling_type" : "sinc"},
+            })
+        raise AssertionError("EEGConformer with an overlapping-pooling swap was expected to fail validation")
+    except RuntimeError as error :
+        assert "probe forward" in str(error), "expected the wrapper's clear validation error"
+        print("  [OK] EEGConformer/sinc raised the wrapper's actionable validation error")
 
     # 2. keep_pool_nonlin flag (ShallowFBCSPNet wraps the pooling with a safe_log 'pool_nonlin_exp').
     print(f"\n{'=' * 70}\nkeep_pool_nonlin flag (ShallowFBCSPNet)")

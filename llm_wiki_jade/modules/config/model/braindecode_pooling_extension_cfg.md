@@ -23,7 +23,8 @@ Unlike [`EEGNet_config`](EEGNet_cfg.md), the braindecode model hyper-parameters 
 | `pooling` | dict | `{"pooling_type": "avg"}` | The pooling operator to substitute, as a [`pooling_config`](pooling_1d_cfg.md) dict (`pooling_type` + operator params, e.g. `{"pooling_type": "sinc", "cutoff_scale": 0.8}`). Its `decimation_factor` is **ignored** (each swapped layer keeps the factor `M` of the original braindecode layer). |
 | `keep_pool_nonlin` | bool | `True` | Keep the post-pool nonlinearity (e.g. ShallowFBCSPNet's `safe_log` `pool_nonlin_exp`). `True` changes only the pooling type; `False` replaces that module with `nn.Identity` (an extra ablation arm). |
 | `pooling_factor_source` | str | `"stride"` | Which attribute of the original pooling layer defines `M`. `"stride"` (the true downsampling factor, correct for overlapping pooling too) or `"kernel"`. |
-| `example_input_shape` | tuple or None | `None` | Optional explicit probe shape (batch included) for the trailing-classifier re-sizing dummy forward; when `None` it is inferred from the model's `n_chans` / `n_times`. |
+| `example_input_shape` | tuple or None | `None` | Optional explicit probe shape (batch included) for the trailing-classifier re-sizing and the validation forward; when `None` it is inferred from the model's `n_chans` / `n_times` (the braindecode-native `(B, n_chans, n_times)` layout — the model's own `ensuredims` / `dimshuffle` front layers adapt it to the internal 3D/4D layout). |
+| `validate_forward` | bool | `True` | Run one probe forward at build time (the "check the expected data shape" step) and raise a clear error if the swap produced a non-runnable model. Set `False` to skip (e.g. a model whose input shape cannot be inferred). |
 
 ### Property `target_pooling_config`
 
