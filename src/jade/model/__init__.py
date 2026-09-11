@@ -19,6 +19,7 @@ from torch import nn
 # Internal imports
 from jade.config.model import get_model_config
 from jade.model.EEGNet import EEGNet, EEGNet_Classifier
+from jade.model.braindecode_pooling_extension import braindecode_pooling_wrapper
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Public API
@@ -26,6 +27,7 @@ from jade.model.EEGNet import EEGNet, EEGNet_Classifier
 __all__ = [
     "EEGNet",
     "EEGNet_Classifier",
+    "braindecode_pooling_wrapper",
     "MODEL_REGISTRY",
     "get_model",
 ]
@@ -36,9 +38,12 @@ __all__ = [
 # Maps lowercase string aliases -> model class.
 # Every model class takes a single model config argument, so the factory can build any of them uniformly.
 MODEL_REGISTRY = {
-    "eegnet"            : EEGNet,
-    "eegnet_classifier" : EEGNet_Classifier,
-    "eegnetclassifier"  : EEGNet_Classifier,
+    "eegnet"              : EEGNet,
+    "eegnet_classifier"   : EEGNet_Classifier,
+    "eegnetclassifier"    : EEGNet_Classifier,
+    "braindecode_wrapper" : braindecode_pooling_wrapper,
+    "braindecode"         : braindecode_pooling_wrapper,
+    "braindecode_pooling" : braindecode_pooling_wrapper,
 }
 
 

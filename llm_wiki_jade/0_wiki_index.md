@@ -83,6 +83,7 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [__init__.md](modules/config/model/__init__.md) | `config/model/__init__.py` |
 | [generic.md](modules/config/model/generic.md) | `config/model/generic.py` |
 | [EEGNet_cfg.md](modules/config/model/EEGNet_cfg.md) | `config/model/EEGNet_cfg.py` |
+| [braindecode_pooling_extension_cfg.md](modules/config/model/braindecode_pooling_extension_cfg.md) | `config/model/braindecode_pooling_extension_cfg.py` |
 | [pooling_1d_cfg.md](modules/config/model/pooling_1d_cfg.md) | `config/model/pooling_1d_cfg.py` |
 
 > The commented TOML skeleton configs live under `config/default_config/` (shipped as package data, copied by the `create-default-config` command); see [cli/default_config.md](modules/cli/default_config.md).
@@ -124,6 +125,7 @@ torch EEG models (EEGNet family) + the `pooling_1d` anti-aliasing research subpa
 | [0_module_index.md](modules/model/0_module_index.md) | — |
 | [__init__.md](modules/model/__init__.md) | `model/__init__.py` |
 | [EEGNet.md](modules/model/EEGNet.md) | `model/EEGNet.py` |
+| [braindecode_pooling_extension.md](modules/model/braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` |
 | [aEEGNet.md](modules/model/aEEGNet.md) | `model/aEEGNet.py` |
 | [support_functions.md](modules/model/support_functions.md) | `model/support_functions.py` |
 | [support_modules.md](modules/model/support_modules.md) | `model/support_modules.py` (empty TODO placeholder) |

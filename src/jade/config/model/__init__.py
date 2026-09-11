@@ -19,6 +19,7 @@ from __future__ import annotations
 # Internal imports
 from jade.config.model.generic import model_config
 from jade.config.model.EEGNet_cfg import EEGNet_config, eegnet_pooling_config
+from jade.config.model.braindecode_pooling_extension_cfg import braindecode_wrapper_config
 from jade.config.model.pooling_1d_cfg import (
     pooling_config,
     avg_pooling_config,
@@ -35,9 +36,12 @@ from jade.config.model.pooling_1d_cfg import (
 
 # Map the lowercase model name to its config class (the aliases mirror jade.model.MODEL_REGISTRY).
 MODEL_CONFIG_REGISTRY = {
-    "eegnet"            : EEGNet_config,
-    "eegnet_classifier" : EEGNet_config,
-    "eegnetclassifier"  : EEGNet_config,
+    "eegnet"                : EEGNet_config,
+    "eegnet_classifier"     : EEGNet_config,
+    "eegnetclassifier"      : EEGNet_config,
+    "braindecode_wrapper"   : braindecode_wrapper_config,
+    "braindecode"           : braindecode_wrapper_config,
+    "braindecode_pooling"   : braindecode_wrapper_config,
 }
 
 
@@ -74,6 +78,7 @@ __all__ = [
     "model_config",
     "EEGNet_config",
     "eegnet_pooling_config",
+    "braindecode_wrapper_config",
     "MODEL_CONFIG_REGISTRY",
     "get_model_config",
     # Pooling configs

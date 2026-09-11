@@ -8,7 +8,7 @@
 
 Two concerns live here:
 
-1. **Model configs** — one dataclass per model, in a `{model_name}_cfg.py` file (the `cfg` suffix keeps config files apart from the model implementation files in `jade.model`). Currently: [`EEGNet_config`](EEGNet_cfg.md) (covers both `EEGNet` and `EEGNet_Classifier`).
+1. **Model configs** — one dataclass per model, in a `{model_name}_cfg.py` file (the `cfg` suffix keeps config files apart from the model implementation files in `jade.model`). Currently: [`EEGNet_config`](EEGNet_cfg.md) (covers both `EEGNet` and `EEGNet_Classifier`) and [`braindecode_wrapper_config`](braindecode_pooling_extension_cfg.md) (the [braindecode pooling wrapper](../../model/braindecode_pooling_extension.md)). The braindecode one is deliberately different: it does **not** describe the model hyper-parameters (braindecode owns and validates those, so they travel as a raw `model_kwargs` dict) — it only carries the model name and the pooling operator to swap in.
 2. **The 1D pooling config family** — a single file, [`pooling_1d_cfg.py`](pooling_1d_cfg.md), holding one config per pooling operator (avg/blur/sinc/dwt/max), because pooling is reused several times inside a model and the operators share most parameters.
 
 ## The registry + factory pattern (models)
@@ -16,7 +16,7 @@ Two concerns live here:
 Defined in [`__init__.py`](__init__.md), mirroring the optimizer/loss families:
 
 - **`model_config`** ([generic.md](generic.md)) — base class carrying only `name`; overrides `from_dict` for **polymorphic** deserialization (reads `name`, looks it up in the registry, delegates to the concrete subclass). The registry is imported lazily inside the method to avoid a circular import.
-- **`MODEL_CONFIG_REGISTRY`** — `{"eegnet": EEGNet_config, "eegnet_classifier": EEGNet_config, "eegnetclassifier": EEGNet_config}` (the aliases mirror `jade.model.MODEL_REGISTRY`; all resolve to the one `EEGNet_config`, which carries the actual `name` used to pick `EEGNet` vs `EEGNet_Classifier`).
+- **`MODEL_CONFIG_REGISTRY`** — the `eegnet` / `eegnet_classifier` / `eegnetclassifier` aliases resolve to `EEGNet_config` (which carries the actual `name` used to pick `EEGNet` vs `EEGNet_Classifier`), and `braindecode` / `braindecode_wrapper` / `braindecode_pooling` resolve to `braindecode_wrapper_config`. The aliases mirror `jade.model.MODEL_REGISTRY`.
 - **`get_model_config(config)`** — returns a config untouched if already a `model_config`, promotes a `dict` (keyed on `name`) via `model_config.from_dict`, else raises `TypeError`. This is the promoter used by `jade.model.get_model`, `EEGNet.__init__` and `cross_check_config`.
 
 ## The pooling config family

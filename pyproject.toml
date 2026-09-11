@@ -44,6 +44,9 @@ dataset = [
 	"mne",
 	"moabb"
 ]
+braindecode = [
+	"braindecode",
+]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

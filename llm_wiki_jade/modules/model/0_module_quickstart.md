@@ -17,6 +17,7 @@ The single entry point for building a model is `get_model(config) -> nn.Module` 
 |---|---|
 | `eegnet` | `EEGNet` |
 | `eegnet_classifier`, `eegnetclassifier` | `EEGNet_Classifier` |
+| `braindecode_wrapper`, `braindecode`, `braindecode_pooling` | `braindecode_pooling_wrapper` |
 
 Raises `ValueError` if `name` is unknown. This mirrors the `get_pooling_layer` / `POOLING_REGISTRY` pattern one level down in `pooling_1d`, and the `get_optimizer` etc. registries elsewhere in `jade`. (The old `get_model({"model_name": ...})` dict interface is gone — the discriminator is `name`, matching the config families.)
 
@@ -33,6 +34,18 @@ The final feedforward + softmax classification layer of the original paper is **
 Both classes now consume an [`EEGNet_config`](../config/model/EEGNet_cfg.md) dataclass (a dict is still accepted and promoted via `get_model_config`); they call `get_model_config(config)` at the top of `__init__` and then read the attributes, so all defaulting and validation live in the config, not in the model.
 
 **Key fact:** EEGNet's two pooling stages are configured by the `[pooling]` section of `EEGNet_config` (fields `pooling_type_*`, `pooling_factor_*`, `params_*`) and built by `support_functions.get_multichannel_pooling`. `pooling_type='default'` reproduces the classic `nn.AvgPool2d`; `avg`/`max`/`blur`/`sinc`/`dwt` select a `pooling_1d` operator applied channel-wise. This replaced the old `p_kernel_1`/`p_kernel_2` fields.
+
+## `braindecode_pooling_wrapper` — the pooling ablation on braindecode models
+
+[`braindecode_pooling_wrapper`](braindecode_pooling_extension.md) lets the [`pooling_1d`](pooling_1d/0_module_quickstart.md) ablation run on models that already exist in [braindecode](https://braindecode.org/) (`ShallowFBCSPNet`, `EEGNet`, `Deep4Net`, …), instead of re-implementing each one. It builds the braindecode model named by its [`braindecode_wrapper_config`](../config/model/braindecode_pooling_extension_cfg.md), then walks the module tree and **replaces every pooling layer** (`nn.AvgPool1d`/`MaxPool1d`/`AvgPool2d`/`MaxPool2d`) with the chosen jade operator, **keeping each layer's decimation factor** — only the pooling *type* changes.
+
+Key points (details on the [page](braindecode_pooling_extension.md)):
+
+- **Factor and axis are read from the original kernel**, not hard-coded per model: a 2D kernel `(M, 1)` decimates axis 2 (ShallowFBCSPNet), `(1, M)` decimates axis 3 (EEGNet); a jade 1D operator is applied through a small axis-aware adapter (`_pool_along_axis_2d`) that reuses the same flatten-pool-restore trick as the `*_multichannel` wrappers. This is how the spec's "check 1D vs 2D / which axis" is answered.
+- **The braindecode model params are a raw `model_kwargs` dict** (braindecode validates them); only the pooling side uses a jade `pooling_config`.
+- **`keep_pool_nonlin`** (default `True`) keeps the post-pool nonlinearity some models wrap the pooling with (ShallowFBCSPNet's `safe_log` `pool_nonlin_exp`); `False` drops it for an extra ablation arm.
+- **Overlapping pooling** (ShallowFBCSPNet: kernel 75, stride 15) uses the stride as the factor and the wrapper re-sizes the trailing classifier with a dummy forward; non-overlapping models (EEGNet, Deep4Net) keep every downstream shape.
+- braindecode is an **optional dependency** (`pip install jade[braindecode]`), imported lazily — `import jade.model` never requires it.
 
 ## `aEEGNet` — attention variant (work in progress)
 
@@ -60,18 +73,19 @@ The family is **provably nested**: average pooling *is* the boxcar special case,
 
 ```
 model/
-├── __init__.py            get_model / MODEL_REGISTRY factory
-├── EEGNet.py              EEGNet + EEGNet_Classifier
-├── aEEGNet.py             attention variant (WIP stub) + channels_attention_head
-├── support_functions.py   get_activation, get_dropout, count_trainable_parameters, create_head, compute_attention_values
-├── support_modules.py     empty placeholder (TODO)
-└── pooling_1d/            anti-aliased 1D pooling research sub-package (self-contained)
+├── __init__.py                        get_model / MODEL_REGISTRY factory
+├── EEGNet.py                          EEGNet + EEGNet_Classifier
+├── braindecode_pooling_extension.py   braindecode_pooling_wrapper (swap braindecode pooling for pooling_1d)
+├── aEEGNet.py                         attention variant (WIP stub) + channels_attention_head
+├── support_functions.py               get_activation, get_dropout, count_trainable_parameters, create_head, compute_attention_values
+├── support_modules.py                 empty placeholder (TODO)
+└── pooling_1d/                        anti-aliased 1D pooling research sub-package (self-contained)
 ```
 
 ## Dependencies
 
-- **External:** `torch` (all models/layers), `numpy` (pooling kernel math), and — lazily, only inside `sinc_pool_1d` / optional `dwt_pool_1d` wavelets — `scipy` and `pywt`.
-- **Internal:** `EEGNet` and `aEEGNet` import `jade.model.support_functions`. `pooling_1d` is otherwise standalone (imports only its own submodules). Nothing in the models currently imports `pooling_1d`.
+- **External:** `torch` (all models/layers), `numpy` (pooling kernel math), and — lazily — `scipy` / `pywt` (inside `sinc_pool_1d` / optional `dwt_pool_1d` wavelets) and `braindecode` (the optional `braindecode` extra, imported only inside `braindecode_pooling_wrapper`).
+- **Internal:** `EEGNet` and `aEEGNet` import `jade.model.support_functions`; `braindecode_pooling_extension` imports `jade.model.pooling_1d` (`get_pooling_layer`) and `jade.config.model`. `pooling_1d` is otherwise standalone (imports only its own submodules).
 
 ## How `model` connects to the rest of `jade`
 

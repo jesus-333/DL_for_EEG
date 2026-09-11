@@ -10,6 +10,7 @@ Table of contents for the `model` module wiki. Start with the [quickstart](0_mod
 | [0_module_index.md](0_module_index.md) | — | This page. |
 | [__init__.md](__init__.md) | `model/__init__.py` | `get_model` / `MODEL_REGISTRY` top-level model factory. |
 | [EEGNet.md](EEGNet.md) | `model/EEGNet.py` | `EEGNet` (feature extractor) and `EEGNet_Classifier` (with head + `classify`). |
+| [braindecode_pooling_extension.md](braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` | `braindecode_pooling_wrapper` — wrap a braindecode model and swap its pooling layers for the `pooling_1d` operators. |
 | [aEEGNet.md](aEEGNet.md) | `model/aEEGNet.py` | Attention-augmented EEGNet variant — WIP stub — plus `channels_attention_head`. |
 | [support_functions.md](support_functions.md) | `model/support_functions.py` | `get_activation`, `get_dropout`, `count_trainable_parameters`, `create_head`, `compute_attention_values`. |
 | [support_modules.md](support_modules.md) | `model/support_modules.py` | Empty placeholder file (TODO). |
