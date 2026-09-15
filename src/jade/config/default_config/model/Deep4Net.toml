@@ -1,0 +1,110 @@
+# =====================================================================
+# Default Deep4Net model configuration (jade.config.model.Deep4Net_config)
+# =====================================================================
+# Skeleton config for Deep4Net / Deep4Net_Classifier, the Deep ConvNet of
+# Schirrmeister et al. 2017. The default values follow a BCI IV-2a style setup
+# (22 channels, 1000 time samples, 4 classes) and reproduce the original
+# architecture; edit them to match your data.
+# Load it with: Deep4Net_config.from_toml("Deep4Net.toml").
+
+# Which model to build: "deep4net" (feature extractor) or "deep4net_classifier" (extractor + head).
+name = "deep4net_classifier"
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# --- First block (split temporal + spatial convolution) ---
+# Number of filters of the temporal convolution.
+n_filters_time = 25
+# Length (in time samples) of the temporal convolution kernel, i.e. the kernel is (1, filter_time_length).
+filter_time_length = 10
+# Number of filters of the spatial convolution. Used only when split_first_layer = true.
+n_filters_spat = 25
+# true  -> the first layer is split in a temporal (1, filter_time_length) and a spatial (C, 1) convolution (the original);
+# false -> a single (C, filter_time_length) convolution does both at once (n_filters_spat is ignored).
+split_first_layer = true
+
+# --- Three deeper convolution + pooling blocks ---
+# Number of filters and kernel length (in time samples) of the second block.
+n_filters_2 = 50
+filter_length_2 = 10
+# Number of filters and kernel length of the third block.
+n_filters_3 = 100
+filter_length_3 = 10
+# Number of filters and kernel length of the fourth block.
+n_filters_4 = 200
+filter_length_4 = 10
+
+# --- Options shared by every block ---
+# Activation function after every convolution: "relu", "leaky_relu", "elu", "selu" or "gelu".
+activation = "elu"
+# Nonlinearity after every pooling stage: "identity" (the original), "square", "safe_log" or an activation name.
+pool_nonlin = "identity"
+# Add a batch normalization after every convolution.
+batch_norm = true
+# Momentum of the batch normalization, in [0, 1]. Ignored when batch_norm = false.
+batch_norm_alpha = 0.1
+# Dropout probability at the beginning of the second, third and fourth block, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = false
+
+# Flatten the (plain) Deep4Net output to (batch, n_features). Ignored by the classifier.
+flatten_output = false
+
+# --- Classifier head (used only when name = "deep4net_classifier") ---
+# Shape (batch, depth, channels, time) of a dummy input used to size the feedforward layer.
+input_size = [1, 1, 22, 1000]
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+use_softmax = false
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the four pooling stages, one per convolutional block) ---
+# Each stage is configured independently, so a single stage can be swapped at a time.
+[pooling]
+# Pooling operator per stage:
+#   "default"                      -> the original non overlapping nn.MaxPool2d (or nn.AvgPool2d, see pool_mode_N);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise.
+# If you only specify the type of pooling, without any additional hyper-parameters, the pooling layer will default to its own default parameters (see corresponding pooling layer class/config files).
+# The only exception is the pooling factor (decimation factor M). See notes at the end of the config.
+pooling_type_1 = "default"
+pooling_type_2 = "default"
+pooling_type_3 = "default"
+pooling_type_4 = "default"
+# Decimation factor M per stage: the number of time samples becomes T / M.
+# A negative value disables that pooling stage (a warning is printed when the config is built).
+# Note that "dwt" requires a power of two, so with it use 2 or 4 instead of 3.
+pooling_factor_1 = 3
+pooling_factor_2 = 3
+pooling_factor_3 = 3
+pooling_factor_4 = 3
+# Which pooling the "default" type builds per stage: "max" (nn.MaxPool2d, the original) or "mean" (nn.AvgPool2d).
+pool_mode_1 = "max"
+pool_mode_2 = "max"
+pool_mode_3 = "max"
+pool_mode_4 = "max"
+
+# Optional type-specific parameters for each stage (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params_1]
+# wavelet = "db4"
+# [pooling.params_2]
+# cutoff_scale = 0.9
+# [pooling.params_3]
+# [pooling.params_4]
+
+# Note that even if you specify a different decimation factor inside the pooling.params_N, the pooling_factor_N will be used.
+# The pooling layer implementation requires the decimation factor to be passed at build time by design, since they are generic pooling layers that can be used in any context.
+# In the case of Deep4Net, this is overridden when the config object is created. See the method `_stage_pooling_config` inside `Deep4Net_cfg.py`.
+
+# Note that the four blocks shrink the time axis (unpadded convolutions plus pooling), so a short input
+# window combined with large kernels / factors collapses it. The config raises a clear error in that case.

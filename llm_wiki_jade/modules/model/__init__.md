@@ -6,7 +6,7 @@ Package init for `jade.model`. Hosts the top-level model factory: a name→class
 
 ## Public API (`__all__`)
 
-`EEGNet`, `EEGNet_Classifier`, `EEGConformer`, `EEGConformer_Classifier`, `braindecode_pooling_wrapper`, `MODEL_REGISTRY`, `get_model`.
+`EEGNet`, `EEGNet_Classifier`, `EEGConformer`, `EEGConformer_Classifier`, `ShallowFBCSPNet`, `ShallowFBCSPNet_Classifier`, `Deep4Net`, `Deep4Net_Classifier`, `TIDNet`, `TIDNet_Classifier`, `braindecode_pooling_wrapper`, `MODEL_REGISTRY`, `get_model`.
 
 The 1D pooling layers are **intentionally not** re-exported here: they are building blocks (with their own factory in `jade.model.pooling_1d`), not full models.
 
@@ -22,6 +22,15 @@ A dict mapping lowercase string aliases → model class. Every registered class 
 | `eegconformer` | `EEGConformer` |
 | `eegconformer_classifier` | `EEGConformer_Classifier` |
 | `eegconformerclassifier` | `EEGConformer_Classifier` |
+| `shallowfbcspnet` | `ShallowFBCSPNet` |
+| `shallowfbcspnet_classifier` | `ShallowFBCSPNet_Classifier` |
+| `shallowfbcspnetclassifier` | `ShallowFBCSPNet_Classifier` |
+| `deep4net` | `Deep4Net` |
+| `deep4net_classifier` | `Deep4Net_Classifier` |
+| `deep4netclassifier` | `Deep4Net_Classifier` |
+| `tidnet` | `TIDNet` |
+| `tidnet_classifier` | `TIDNet_Classifier` |
+| `tidnetclassifier` | `TIDNet_Classifier` |
 | `braindecode_wrapper` | `braindecode_pooling_wrapper` |
 | `braindecode` | `braindecode_pooling_wrapper` |
 | `braindecode_pooling` | `braindecode_pooling_wrapper` |

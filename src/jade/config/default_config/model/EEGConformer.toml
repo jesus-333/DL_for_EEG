@@ -1,0 +1,89 @@
+# =====================================================================
+# Default EEG Conformer model configuration (jade.config.model.EEGConformer_config)
+# =====================================================================
+# Skeleton config for EEGConformer / EEGConformer_Classifier, the convolutional
+# transformer of Song et al. 2023. The default values follow a BCI IV-2a style
+# setup (22 channels, 1000 time samples, 4 classes) and reproduce the original
+# architecture; edit them to match your data.
+# Load it with: EEGConformer_config.from_toml("EEGConformer.toml").
+
+# Which model to build: "eegconformer" (patch embedding + transformer encoder) or "eegconformer_classifier" (extractor + MLP head).
+name = "eegconformer_classifier"
+
+# --- Patch embedding (convolutional front end) ---
+# Number of EEG channels of the input. It sets the height of the spatial convolution kernel (C, 1).
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+# Number of filters of both the temporal and the spatial convolution of the patch embedding.
+filter_temporal = 40
+# Kernel of the temporal convolution (height, width) = (1, time).
+c_kernel_temporal = [1, 25]
+# Embedding size of the transformer tokens. Must be divisible by num_heads.
+emb_size = 40
+# Activation function: "relu", "leaky_relu", "elu", "selu" or "gelu".
+activation = "elu"
+# Dropout probability of the patch embedding (applied after pooling), in [0, 1].
+prob_dropout = 0.5
+
+# --- Transformer encoder ---
+# Number of stacked transformer encoder blocks.
+depth = 6
+# Number of self-attention heads. emb_size must be divisible by it.
+num_heads = 10
+# Dropout probability of the attention weights and of the two post-sublayer dropouts, in [0, 1].
+transformer_dropout = 0.5
+# Expansion factor of the position-wise feedforward block (hidden size = forward_expansion * emb_size).
+forward_expansion = 4
+# Dropout probability inside the feedforward block, in [0, 1].
+forward_dropout = 0.5
+
+# --- Classification head (used only when name = "eegconformer_classifier") ---
+# Sizes of the two hidden layers of the MLP head.
+hidden_size_1 = 256
+hidden_size_2 = 32
+# Dropout probability after each hidden layer of the MLP head, in [0, 1].
+head_dropout_1 = 0.5
+head_dropout_2 = 0.3
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+use_softmax = false
+
+# --- Misc ---
+# Flatten the (plain) EEGConformer token sequence to (batch, n_tokens * emb_size). Ignored by the classifier.
+flatten_output = false
+# Shape (batch, depth, channels, time) of a dummy input used to size the first layer of the MLP head.
+input_size = [1, 1, 22, 1000]
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the single pooling stage of the patch embedding) ---
+# In the original model this pooling "acts as slicing to obtain the patches along the time dimension",
+# so its decimation factor directly sets the number of transformer tokens.
+[pooling]
+# Pooling operator:
+#   "default"                      -> the original overlapping nn.AvgPool2d, kernel (1, pooling_kernel) with stride (1, pooling_stride);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise, decimating by pooling_stride;
+#   "identity"/"none"              -> the stage is disabled (nn.Identity).
+# If you only specify the type of pooling, without any additional hyper-parameters, the pooling layer will default to its own default parameters (see corresponding pooling layer class/config files).
+# The only exception is the pooling factor (decimation factor M). See notes at the end of the config.
+pooling_type = "default"
+# Length of the averaging window of the "default" pooling. Ignored by the 1D operators.
+pooling_kernel = 75
+# Stride of the "default" pooling, and decimation factor M of the 1D operators (the time samples become T / M).
+# Note that "dwt" requires a power of two, so with it use 16 instead of 15.
+pooling_stride = 15
+
+# Optional type-specific parameters (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params]
+# wavelet = "db4"
+# cutoff_scale = 0.9
+
+# Note that even if you specify a different decimation factor inside pooling.params, the pooling_stride will be used.
+# The pooling layer implementation requires the decimation factor to be passed at build time by design, since they are generic pooling layers that can be used in any context.
+# In the case of the EEG Conformer, this is overridden when the config object is created. See the property `pooling_layer_config` inside `EEGConformer_cfg.py`.

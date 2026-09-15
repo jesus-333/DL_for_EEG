@@ -4,6 +4,11 @@ Model configuration subpackage.
 Configuration objects that describe a :mod:`jade.model` network, following the ``{model_name}_cfg.py`` naming convention (the ``cfg`` suffix keeps the config files apart from the model implementation files):
 
 * :class:`~jade.config.model.EEGNet_cfg.EEGNet_config` - :class:`~jade.model.EEGNet.EEGNet` / :class:`~jade.model.EEGNet.EEGNet_Classifier`.
+* :class:`~jade.config.model.EEGConformer_cfg.EEGConformer_config` - :class:`~jade.model.EEGConformer.EEGConformer` / :class:`~jade.model.EEGConformer.EEGConformer_Classifier`.
+* :class:`~jade.config.model.ShallowFBCSPNet_cfg.ShallowFBCSPNet_config` - :class:`~jade.model.ShallowFBCSPNet.ShallowFBCSPNet` / :class:`~jade.model.ShallowFBCSPNet.ShallowFBCSPNet_Classifier`.
+* :class:`~jade.config.model.Deep4Net_cfg.Deep4Net_config` - :class:`~jade.model.Deep4Net.Deep4Net` / :class:`~jade.model.Deep4Net.Deep4Net_Classifier`.
+* :class:`~jade.config.model.TIDNet_cfg.TIDNet_config` - :class:`~jade.model.TIDNet.TIDNet` / :class:`~jade.model.TIDNet.TIDNet_Classifier`.
+* :class:`~jade.config.model.braindecode_pooling_extension_cfg.braindecode_wrapper_config` - :class:`~jade.model.braindecode_pooling_extension.braindecode_pooling_wrapper` (any ``braindecode`` model, with its pooling layers swapped).
 
 Every model config carries its ``name`` inside; that value is what :func:`~jade.model.get_model` uses to pick the model class.
 The :data:`MODEL_CONFIG_REGISTRY` maps the lowercase model name to its config class, and :func:`get_model_config` promotes a plain dict (e.g. coming from a TOML/JSON file) into the proper config instance. This mirrors the optimizer/loss config families and the ``MODEL_REGISTRY`` / :func:`~jade.model.get_model` convention.
@@ -20,6 +25,9 @@ from __future__ import annotations
 from jade.config.model.generic import model_config
 from jade.config.model.EEGNet_cfg import EEGNet_config, eegnet_pooling_config
 from jade.config.model.EEGConformer_cfg import EEGConformer_config, conformer_pooling_config
+from jade.config.model.ShallowFBCSPNet_cfg import ShallowFBCSPNet_config, shallowfbcspnet_pooling_config
+from jade.config.model.Deep4Net_cfg import Deep4Net_config, deep4net_pooling_config
+from jade.config.model.TIDNet_cfg import TIDNet_config, tidnet_pooling_config
 from jade.config.model.braindecode_pooling_extension_cfg import braindecode_wrapper_config
 from jade.config.model.pooling_1d_cfg import (
     pooling_config,
@@ -37,15 +45,24 @@ from jade.config.model.pooling_1d_cfg import (
 
 # Map the lowercase model name to its config class (the aliases mirror jade.model.MODEL_REGISTRY).
 MODEL_CONFIG_REGISTRY = {
-    "eegnet"                  : EEGNet_config,
-    "eegnet_classifier"       : EEGNet_config,
-    "eegnetclassifier"        : EEGNet_config,
-    "eegconformer"            : EEGConformer_config,
-    "eegconformer_classifier" : EEGConformer_config,
-    "eegconformerclassifier"  : EEGConformer_config,
-    "braindecode_wrapper"     : braindecode_wrapper_config,
-    "braindecode"             : braindecode_wrapper_config,
-    "braindecode_pooling"     : braindecode_wrapper_config,
+    "eegnet"                     : EEGNet_config,
+    "eegnet_classifier"          : EEGNet_config,
+    "eegnetclassifier"           : EEGNet_config,
+    "eegconformer"               : EEGConformer_config,
+    "eegconformer_classifier"    : EEGConformer_config,
+    "eegconformerclassifier"     : EEGConformer_config,
+    "shallowfbcspnet"            : ShallowFBCSPNet_config,
+    "shallowfbcspnet_classifier" : ShallowFBCSPNet_config,
+    "shallowfbcspnetclassifier"  : ShallowFBCSPNet_config,
+    "deep4net"                   : Deep4Net_config,
+    "deep4net_classifier"        : Deep4Net_config,
+    "deep4netclassifier"         : Deep4Net_config,
+    "tidnet"                     : TIDNet_config,
+    "tidnet_classifier"          : TIDNet_config,
+    "tidnetclassifier"           : TIDNet_config,
+    "braindecode_wrapper"        : braindecode_wrapper_config,
+    "braindecode"                : braindecode_wrapper_config,
+    "braindecode_pooling"        : braindecode_wrapper_config,
 }
 
 
@@ -84,6 +101,12 @@ __all__ = [
     "eegnet_pooling_config",
     "EEGConformer_config",
     "conformer_pooling_config",
+    "ShallowFBCSPNet_config",
+    "shallowfbcspnet_pooling_config",
+    "Deep4Net_config",
+    "deep4net_pooling_config",
+    "TIDNet_config",
+    "tidnet_pooling_config",
     "braindecode_wrapper_config",
     "MODEL_CONFIG_REGISTRY",
     "get_model_config",

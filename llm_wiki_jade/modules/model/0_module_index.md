@@ -11,9 +11,12 @@ Table of contents for the `model` module wiki. Start with the [quickstart](0_mod
 | [__init__.md](__init__.md) | `model/__init__.py` | `get_model` / `MODEL_REGISTRY` top-level model factory. |
 | [EEGNet.md](EEGNet.md) | `model/EEGNet.py` | `EEGNet` (feature extractor) and `EEGNet_Classifier` (with head + `classify`). |
 | [EEGConformer.md](EEGConformer.md) | `model/EEGConformer.py` | `EEGConformer` (conv patch embedding + transformer encoder) and `EEGConformer_Classifier` (with flatten + MLP head + `classify`); `get_conformer_pooling` wires the `pooling_1d` operators into the patch embedding. |
+| [ShallowFBCSPNet.md](ShallowFBCSPNet.md) | `model/ShallowFBCSPNet.py` | `ShallowFBCSPNet` (temporal + spatial conv, squaring, pooling, logarithm) and `ShallowFBCSPNet_Classifier` (with flatten + `Linear` head + `classify`); `get_shallowfbcspnet_pooling` wires the `pooling_1d` operators into its single pooling stage. |
+| [Deep4Net.md](Deep4Net.md) | `model/Deep4Net.py` | `Deep4Net` (four convolution + pooling blocks) and `Deep4Net_Classifier`; `get_deep4net_pooling` wires the `pooling_1d` operators into each of the **four** independently configured stages. |
+| [TIDNet.md](TIDNet.md) | `model/TIDNet.py` | `TIDNet` (residual dilated temporal filter, decimating pooling, dense spatial filter, adaptive summary) and `TIDNet_Classifier`; `get_tidnet_pooling` wires the `pooling_1d` operators into its single decimating stage. |
 | [braindecode_pooling_extension.md](braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` | `braindecode_pooling_wrapper` — wrap a braindecode model and swap its pooling layers for the `pooling_1d` operators. |
 | [aEEGNet.md](aEEGNet.md) | `model/aEEGNet.py` | Attention-augmented EEGNet variant — WIP stub — plus `channels_attention_head`. |
-| [support_functions.md](support_functions.md) | `model/support_functions.py` | `get_activation`, `get_dropout`, `count_trainable_parameters`, `create_head`, `compute_attention_values`. |
+| [support_functions.md](support_functions.md) | `model/support_functions.py` | `get_activation`, `get_nonlinearity` (+ the `square` / `safe_log` modules), `get_dropout`, `get_multichannel_pooling`, `count_trainable_parameters`, `create_head`, `compute_attention_values`. |
 | [support_modules.md](support_modules.md) | `model/support_modules.py` | Empty placeholder file (TODO). |
 
 ## Sub-package `pooling_1d/` (`src/jade/model/pooling_1d/`)

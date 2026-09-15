@@ -2,7 +2,7 @@
 
 Source: `src/jade/model/support_functions.py`
 
-Small stateless helper functions used while building models. Two groups: generic construction helpers (used by [`EEGNet`](EEGNet.md)) and attention helpers (used by [`aEEGNet`](aEEGNet.md), still WIP). Imports `torch`, `torch.nn`.
+Small stateless helper functions (and two tiny `nn.Module`s) used while building models. Two groups: generic construction helpers (used by every model) and attention helpers (used by [`aEEGNet`](aEEGNet.md), still WIP). Imports `torch`, `torch.nn`.
 
 ---
 
@@ -15,11 +15,32 @@ Maps a string to a fresh PyTorch activation module. Case-insensitive.
 | `activation_name` (any case) | Returns |
 |---|---|
 | `relu` | `nn.ReLU()` |
+| `leaky_relu` | `nn.LeakyReLU()` |
 | `elu` | `nn.ELU()` |
 | `selu` | `nn.SELU()` |
 | `gelu` | `nn.GELU()` |
 
-**Raises `ValueError`** for any other string (message lists the four supported names).
+**Raises `ValueError`** for any other string (message lists the supported names). `leaky_relu` was added for [`TIDNet`](TIDNet.md), whose reference implementation uses it everywhere.
+
+### `class square(nn.Module)` and `class safe_log(nn.Module)`
+
+The two nonlinearities of the Schirrmeister 2017 convolutional networks, kept here (rather than in a model file) because both [`ShallowFBCSPNet`](ShallowFBCSPNet.md) and [`Deep4Net`](Deep4Net.md) can use them.
+
+- `square` — element-wise `x * x`. Applied **before** the pooling stage.
+- `safe_log` — element-wise `log(clamp(x, min=eps))`, `eps = 1e-6` by default. Applied **after** the pooling stage; its input is an average of squared values, so it is non negative and the logarithm would diverge on an exact zero — the clamping keeps the gradient finite.
+
+Together they turn the mean of the squared samples into a **log-variance** feature, the quantity the FBCSP pipeline `ShallowFBCSPNet` is inspired by classifies.
+
+### `get_nonlinearity(nonlin_name: str) -> nn.Module`
+
+Superset of `get_activation`, used by `ShallowFBCSPNet` (`conv_nonlin` / `pool_nonlin`) and `Deep4Net` (`pool_nonlin`). Case-insensitive.
+
+| `nonlin_name` (any case) | Returns |
+|---|---|
+| `square` | `square()` |
+| `safe_log` | `safe_log()` |
+| `identity` | `nn.Identity()` |
+| anything else | delegated to `get_activation` (which raises `ValueError` if it does not know it either) |
 
 ### `get_dropout(prob_dropout: float, use_droput_2d: bool) -> nn.Module`
 
@@ -32,7 +53,7 @@ Returns `nn.Dropout2d(prob_dropout)` if `use_droput_2d` else `nn.Dropout(prob_dr
 
 ### `get_multichannel_pooling(config: pooling_config | dict) -> nn.Module`
 
-Maps a per-stage pooling config to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called twice in `EEGNet.__init__` (once per pooling stage). Analogue of `get_activation` / `get_dropout`.
+Maps a per-stage pooling config to a ready-to-use pooling module for multichannel EEG tensors `[B x D x C x T]`. It is the bridge between the [`pooling` section](../config/model/EEGNet_cfg.md) of `EEGNet_config` and the [`pooling_1d`](pooling_1d/0_module_quickstart.md) family, and is called once per pooling stage by every model that supports the 1D operators (twice in `EEGNet.__init__`, once via `get_conformer_pooling` / `get_shallowfbcspnet_pooling` / `get_tidnet_pooling`, four times via `get_deep4net_pooling`). Analogue of `get_activation` / `get_dropout`.
 
 `config` may be a [`pooling_config`](../config/model/pooling_1d_cfg.md) **dataclass** or a plain **dict**. A dataclass is used **as an object** — its already-validated attributes (`pooling_type`, `decimation_factor`) are read directly, and it is handed straight to the channel-wise pooling layer, which now accepts a `pooling_config` as-is (**no `to_dict()` round-trip**). The **dict** form is for the EEGNet-only types that have no `pooling_config` dataclass (`'default'` / `'identity'` / `'none'`, and a disabled stage), which is exactly how [`eegnet_pooling_config.pooling_layer_1_config`](../config/model/EEGNet_cfg.md) passes them; a raw dict for a 1D operator is accepted too (dict alias `pooling_factor` for the decimation factor). Behaviour by `pooling_type` (case-insensitive):
 

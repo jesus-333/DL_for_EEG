@@ -1,0 +1,91 @@
+# =====================================================================
+# Default ShallowFBCSPNet model configuration (jade.config.model.ShallowFBCSPNet_config)
+# =====================================================================
+# Skeleton config for ShallowFBCSPNet / ShallowFBCSPNet_Classifier, the Shallow
+# ConvNet of Schirrmeister et al. 2017. The default values follow a BCI IV-2a
+# style setup (22 channels, 1000 time samples, 4 classes) and reproduce the
+# original architecture; edit them to match your data.
+# Load it with: ShallowFBCSPNet_config.from_toml("ShallowFBCSPNet.toml").
+
+# Which model to build: "shallowfbcspnet" (feature extractor) or "shallowfbcspnet_classifier" (extractor + head).
+name = "shallowfbcspnet_classifier"
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# Number of filters of the temporal convolution.
+n_filters_time = 40
+# Length (in time samples) of the temporal convolution kernel, i.e. the kernel is (1, filter_time_length).
+filter_time_length = 25
+# Number of filters of the spatial convolution. Used only when split_first_layer = true.
+n_filters_spat = 40
+# true  -> the first layer is split in a temporal (1, filter_time_length) and a spatial (C, 1) convolution (the original);
+# false -> a single (C, filter_time_length) convolution does both at once (n_filters_spat is ignored).
+split_first_layer = true
+
+# Add a batch normalization after the convolutional front end.
+batch_norm = true
+# Momentum of the batch normalization, in [0, 1]. Ignored when batch_norm = false.
+batch_norm_alpha = 0.1
+
+# Nonlinearity before the pooling: "square" (the original), "safe_log", "identity" or an activation name.
+conv_nonlin = "square"
+# Nonlinearity after the pooling: "safe_log" (the original), "square", "identity" or an activation name.
+# Together, square + safe_log turn the pooled samples into the log-variance feature of the FBCSP pipeline.
+pool_nonlin = "safe_log"
+
+# Dropout probability, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = false
+
+# Flatten the (plain) ShallowFBCSPNet output to (batch, n_features). Ignored by the classifier.
+flatten_output = false
+
+# --- Classifier head (used only when name = "shallowfbcspnet_classifier") ---
+# Shape (batch, depth, channels, time) of a dummy input used to size the feedforward layer.
+input_size = [1, 1, 22, 1000]
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+use_softmax = false
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the single pooling stage) ---
+[pooling]
+# Pooling operator:
+#   "default"                      -> the original overlapping pooling, kernel (1, pooling_kernel) with stride (1, pooling_stride);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise, decimating by pooling_stride;
+#   "identity"/"none"              -> the stage is disabled (nn.Identity).
+# If you only specify the type of pooling, without any additional hyper-parameters, the pooling layer will default to its own default parameters (see corresponding pooling layer class/config files).
+# The only exception is the pooling factor (decimation factor M). See notes at the end of the config.
+pooling_type = "default"
+# Length of the averaging window of the "default" pooling. Ignored by the 1D operators.
+pooling_kernel = 75
+# Stride of the "default" pooling, and decimation factor M of the 1D operators (the time samples become T / M).
+# Note that "dwt" requires a power of two, so with it use 16 instead of 15.
+pooling_stride = 15
+# Which pooling the "default" type builds: "mean" (nn.AvgPool2d, the original) or "max" (nn.MaxPool2d).
+pool_mode = "mean"
+
+# Optional type-specific parameters (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params]
+# wavelet = "db4"
+# cutoff_scale = 0.9
+
+# Note that even if you specify a different decimation factor inside pooling.params, the pooling_stride will be used.
+# The pooling layer implementation requires the decimation factor to be passed at build time by design, since they are generic pooling layers that can be used in any context.
+# In the case of ShallowFBCSPNet, this is overridden when the config object is created. See the property `pooling_layer_config` inside `ShallowFBCSPNet_cfg.py`.
+
+# Note on the overlapping window: the 1D pooling operators of jade.model.pooling_1d are decimators, and
+# always output exactly T / M samples. The original overlapping window (75 every 15) is therefore only
+# reproduced by "default"; with a 1D operator the pooling_kernel is ignored and the feature vector of the
+# classifier head is slightly longer. The head is sized by a dummy forward pass, so nothing else changes.

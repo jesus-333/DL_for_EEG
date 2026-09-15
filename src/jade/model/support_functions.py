@@ -22,13 +22,13 @@ from torch import nn
 def get_activation(activation_name : str) -> nn.Module:
     """
     Receive a string and return the relative activation function in PyTorch.
-    Currently supported activation functions are: relu, elu, selu and gelu. The function is not case sensitive.
+    Currently supported activation functions are: relu, leaky_relu, elu, selu and gelu. The function is not case sensitive.
 
 
     Parameters
     ----------
     activation_name : str
-        String with the name of the activation function. Supported activation functions are: relu, elu, selu and gelu. The function is not case sensitive.
+        String with the name of the activation function. Supported activation functions are: relu, leaky_relu, elu, selu and gelu. The function is not case sensitive.
 
 
     Returns
@@ -39,6 +39,8 @@ def get_activation(activation_name : str) -> nn.Module:
 
     if activation_name.lower() == 'relu':
         return nn.ReLU()
+    elif activation_name.lower() == 'leaky_relu':
+        return nn.LeakyReLU()
     elif activation_name.lower() == 'elu':
         return nn.ELU()
     elif activation_name.lower() == 'selu':
@@ -46,8 +48,72 @@ def get_activation(activation_name : str) -> nn.Module:
     elif activation_name.lower() == 'gelu':
         return nn.GELU()
     else:
-        error_message = 'The activation must have one of the following string: relu, elu, selu, gelu'
+        error_message = 'The activation must have one of the following string: relu, leaky_relu, elu, selu, gelu'
         raise ValueError(error_message)
+
+class square(nn.Module) :
+    """
+    Element-wise squaring, used as a nonlinearity by the Schirrmeister 2017 convolutional networks.
+
+    In :class:`~jade.model.ShallowFBCSPNet.ShallowFBCSPNet` it is applied before the pooling stage: together with the :class:`safe_log` that follows the pooling it turns the mean of the squared samples into a log-variance feature, the quantity the FBCSP pipeline the model is inspired by classifies.
+    """
+
+    def forward(self, x : torch.Tensor) -> torch.Tensor :
+        return x * x
+
+
+class safe_log(nn.Module) :
+    """
+    Element-wise logarithm clamped away from zero, used as a nonlinearity by the Schirrmeister 2017 convolutional networks.
+
+    In :class:`~jade.model.ShallowFBCSPNet.ShallowFBCSPNet` it is applied after the pooling stage. Its input is an average of squared values, so it is non negative and the logarithm would diverge on an exact zero: the clamping keeps the gradient finite.
+
+    Parameters
+    ----------
+    eps : float, default 1e-6
+        Lower bound the input is clamped to before the logarithm.
+    """
+
+    def __init__(self, eps : float = 1e-6) :
+        super().__init__()
+
+        self.eps = eps
+
+    def forward(self, x : torch.Tensor) -> torch.Tensor :
+        return torch.log(torch.clamp(x, min = self.eps))
+
+
+def get_nonlinearity(nonlin_name : str) -> nn.Module :
+    """
+    Receive a string and return the relative nonlinearity in PyTorch.
+
+    Superset of :func:`get_activation`: on top of the standard activations it also knows the two nonlinearities of the Schirrmeister 2017 convolutional networks (``square`` and ``safe_log``, see :class:`square` and :class:`safe_log`) and the no-op ``identity``.
+    Any other name is delegated to :func:`get_activation`, which raizes ``ValueError`` if it does not know it either. The function is not case sensitive.
+
+
+    Parameters
+    ----------
+    nonlin_name : str
+        String with the name of the nonlinearity. On top of the activations of :func:`get_activation` it accepts: square, safe_log and identity. The function is not case sensitive.
+
+
+    Returns
+    -------
+    nonlin_module : nn.Module
+        Nonlinearity corresponding to the input string.
+    """
+
+    nonlin_name = nonlin_name.lower()
+
+    if nonlin_name == 'square' :
+        return square()
+    elif nonlin_name == 'safe_log' :
+        return safe_log()
+    elif nonlin_name == 'identity' :
+        return nn.Identity()
+    else :
+        # Every other name is a standard activation.
+        return get_activation(nonlin_name)
 
 def get_dropout(prob_dropout: float, use_droput_2d : bool) -> nn.Module :
     """

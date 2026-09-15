@@ -20,6 +20,9 @@ from torch import nn
 from jade.config.model import get_model_config
 from jade.model.EEGNet import EEGNet, EEGNet_Classifier
 from jade.model.EEGConformer import EEGConformer, EEGConformer_Classifier
+from jade.model.ShallowFBCSPNet import ShallowFBCSPNet, ShallowFBCSPNet_Classifier
+from jade.model.Deep4Net import Deep4Net, Deep4Net_Classifier
+from jade.model.TIDNet import TIDNet, TIDNet_Classifier
 from jade.model.braindecode_pooling_extension import braindecode_pooling_wrapper
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -30,6 +33,12 @@ __all__ = [
     "EEGNet_Classifier",
     "EEGConformer",
     "EEGConformer_Classifier",
+    "ShallowFBCSPNet",
+    "ShallowFBCSPNet_Classifier",
+    "Deep4Net",
+    "Deep4Net_Classifier",
+    "TIDNet",
+    "TIDNet_Classifier",
     "braindecode_pooling_wrapper",
     "MODEL_REGISTRY",
     "get_model",
@@ -41,15 +50,24 @@ __all__ = [
 # Maps lowercase string aliases -> model class.
 # Every model class takes a single model config argument, so the factory can build any of them uniformly.
 MODEL_REGISTRY = {
-    "eegnet"                  : EEGNet,
-    "eegnet_classifier"       : EEGNet_Classifier,
-    "eegnetclassifier"        : EEGNet_Classifier,
-    "eegconformer"            : EEGConformer,
-    "eegconformer_classifier" : EEGConformer_Classifier,
-    "eegconformerclassifier"  : EEGConformer_Classifier,
-    "braindecode_wrapper"     : braindecode_pooling_wrapper,
-    "braindecode"             : braindecode_pooling_wrapper,
-    "braindecode_pooling"     : braindecode_pooling_wrapper,
+    "eegnet"                     : EEGNet,
+    "eegnet_classifier"          : EEGNet_Classifier,
+    "eegnetclassifier"           : EEGNet_Classifier,
+    "eegconformer"               : EEGConformer,
+    "eegconformer_classifier"    : EEGConformer_Classifier,
+    "eegconformerclassifier"     : EEGConformer_Classifier,
+    "shallowfbcspnet"            : ShallowFBCSPNet,
+    "shallowfbcspnet_classifier" : ShallowFBCSPNet_Classifier,
+    "shallowfbcspnetclassifier"  : ShallowFBCSPNet_Classifier,
+    "deep4net"                   : Deep4Net,
+    "deep4net_classifier"        : Deep4Net_Classifier,
+    "deep4netclassifier"         : Deep4Net_Classifier,
+    "tidnet"                     : TIDNet,
+    "tidnet_classifier"          : TIDNet_Classifier,
+    "tidnetclassifier"           : TIDNet_Classifier,
+    "braindecode_wrapper"        : braindecode_pooling_wrapper,
+    "braindecode"                : braindecode_pooling_wrapper,
+    "braindecode_pooling"        : braindecode_pooling_wrapper,
 }
 
 

@@ -84,6 +84,9 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [generic.md](modules/config/model/generic.md) | `config/model/generic.py` |
 | [EEGNet_cfg.md](modules/config/model/EEGNet_cfg.md) | `config/model/EEGNet_cfg.py` |
 | [EEGConformer_cfg.md](modules/config/model/EEGConformer_cfg.md) | `config/model/EEGConformer_cfg.py` |
+| [ShallowFBCSPNet_cfg.md](modules/config/model/ShallowFBCSPNet_cfg.md) | `config/model/ShallowFBCSPNet_cfg.py` |
+| [Deep4Net_cfg.md](modules/config/model/Deep4Net_cfg.md) | `config/model/Deep4Net_cfg.py` |
+| [TIDNet_cfg.md](modules/config/model/TIDNet_cfg.md) | `config/model/TIDNet_cfg.py` |
 | [braindecode_pooling_extension_cfg.md](modules/config/model/braindecode_pooling_extension_cfg.md) | `config/model/braindecode_pooling_extension_cfg.py` |
 | [pooling_1d_cfg.md](modules/config/model/pooling_1d_cfg.md) | `config/model/pooling_1d_cfg.py` |
 
@@ -127,6 +130,9 @@ torch EEG models (EEGNet family, EEG Conformer) + the `pooling_1d` anti-aliasing
 | [__init__.md](modules/model/__init__.md) | `model/__init__.py` |
 | [EEGNet.md](modules/model/EEGNet.md) | `model/EEGNet.py` |
 | [EEGConformer.md](modules/model/EEGConformer.md) | `model/EEGConformer.py` |
+| [ShallowFBCSPNet.md](modules/model/ShallowFBCSPNet.md) | `model/ShallowFBCSPNet.py` |
+| [Deep4Net.md](modules/model/Deep4Net.md) | `model/Deep4Net.py` |
+| [TIDNet.md](modules/model/TIDNet.md) | `model/TIDNet.py` |
 | [braindecode_pooling_extension.md](modules/model/braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` |
 | [aEEGNet.md](modules/model/aEEGNet.md) | `model/aEEGNet.py` |
 | [support_functions.md](modules/model/support_functions.md) | `model/support_functions.py` |

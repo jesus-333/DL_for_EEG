@@ -1,0 +1,86 @@
+# =====================================================================
+# Default TIDNet model configuration (jade.config.model.TIDNet_config)
+# =====================================================================
+# Skeleton config for TIDNet / TIDNet_Classifier, the Thinker Invariance DenseNet
+# of Kostas & Rudzicz 2020. The default values follow a BCI IV-2a style setup
+# (22 channels, 1000 time samples, 4 classes) and reproduce the original
+# architecture; edit them to match your data.
+# Load it with: TIDNet_config.from_toml("TIDNet.toml").
+
+# Which model to build: "tidnet" (feature extractor) or "tidnet_classifier" (extractor + head).
+name = "tidnet_classifier"
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# --- Temporal filter (residual, dilated) ---
+# Number of filters of the temporal filter.
+t_filters = 32
+# Number of stacked dilated convolutions. The dilation of the i-th one is temp_layers - i.
+temp_layers = 2
+# Length of the temporal kernel as a fraction of T: it covers ceil(temp_span * T) samples, in (0, 1].
+temp_span = 0.05
+
+# --- Spatial filter (densely connected) ---
+# Growth rate: every dense layer appends s_growth feature maps to its input.
+s_growth = 24
+# Number of dense layers. The extractor outputs t_filters + s_growth * spat_layers feature maps.
+spat_layers = 2
+# Bottleneck factor of a dense layer (its 1x1 convolution expands to bottleneck * s_growth feature maps).
+bottleneck = 3
+# Length the time axis is resized to by the adaptive average pooling that closes the extractor.
+# -1 means "keep the pooled length", i.e. T / pooling_factor. Any other value must be a positive integer.
+summary = -1
+
+# --- Options shared by every block ---
+# Activation function: "relu", "leaky_relu" (the original), "elu", "selu" or "gelu".
+activation = "leaky_relu"
+# Dropout probability, in [0, 1].
+prob_dropout = 0.4
+
+# Flatten the (plain) TIDNet output to (batch, n_features). Ignored by the classifier.
+flatten_output = false
+
+# --- Classifier head (used only when name = "tidnet_classifier") ---
+# Shape (batch, depth, channels, time) of a dummy input used to size the feedforward layer.
+input_size = [1, 1, 22, 1000]
+# Number of output classes.
+n_classes = 4
+# true  -> LogSoftmax head (log-probabilities, pair with the "nll" loss);
+# false -> Identity head (raw logits, pair with the "cross_entropy" loss).
+# The original TIDNet always ends with a log-softmax, so true is the faithful setting.
+use_softmax = false
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the single decimating stage, closing the temporal block) ---
+# The adaptive average pooling that summarizes the time axis is NOT configured here: it is an adaptive
+# resize, not a decimation, so it has no anti-aliasing counterpart (see the `summary` key above).
+[pooling]
+# Pooling operator:
+#   "default"                      -> the original non overlapping nn.MaxPool2d (or nn.AvgPool2d, see pool_mode);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise;
+#   "identity"/"none"              -> the stage is disabled (nn.Identity).
+# If you only specify the type of pooling, without any additional hyper-parameters, the pooling layer will default to its own default parameters (see corresponding pooling layer class/config files).
+# The only exception is the pooling factor (decimation factor M). See notes at the end of the config.
+pooling_type = "default"
+# Decimation factor M: the number of time samples becomes T / M. It also sets the default summary length.
+# Note that "dwt" requires a power of two, so with it use 16 instead of 15.
+pooling_factor = 15
+# Which pooling the "default" type builds: "max" (nn.MaxPool2d, the original) or "mean" (nn.AvgPool2d).
+pool_mode = "max"
+
+# Optional type-specific parameters (empty -> the pooling layer defaults).
+# Uncomment and fill in as needed, e.g. for "dwt" or "sinc":
+# [pooling.params]
+# wavelet = "db4"
+# cutoff_scale = 0.9
+
+# Note that even if you specify a different decimation factor inside pooling.params, the pooling_factor will be used.
+# The pooling layer implementation requires the decimation factor to be passed at build time by design, since they are generic pooling layers that can be used in any context.
+# In the case of TIDNet, this is overridden when the config object is created. See the property `pooling_layer_config` inside `TIDNet_cfg.py`.
