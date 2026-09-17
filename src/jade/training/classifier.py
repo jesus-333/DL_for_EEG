@@ -54,29 +54,9 @@ logger = logging.getLogger(__name__)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Helper
 
-def _require_config_instance(value, expected_class, name : str) -> None :
-    """
-    Ensure a config argument is a dataclass instance (and not a plain dict or another type).
-
-    The training entry points accept only config *instances*, consistently with the rest of the codebase, so a wrong type fails fast with a clear message.
-
-    Parameters
-    ----------
-    value : Any
-        The value to check.
-    expected_class : type
-        The config class ``value`` must be an instance of.
-    name : str
-        The name of the argument, used in the error message.
-
-    Raises
-    ------
-    TypeError
-        If ``value`` is not an instance of ``expected_class``.
-    """
-
-    if not isinstance(value, expected_class) :
-        raise TypeError(f"{name} must be a {expected_class.__name__} instance (a config dataclass), got {type(value)}")
+# The check is shared with the other training cycles (see jade.training.vae), so it lives in support_training.
+# The module-private name is kept as an alias for backward compatibility.
+_require_config_instance = support_training.require_config_instance
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Full training cycle

@@ -57,6 +57,7 @@ from jade.config.loss_functions import (
     loss_config,
     cross_entropy_config,
     nll_config,
+    elbo_config,
     LOSS_CONFIG_REGISTRY,
     get_loss_config,
 )
@@ -120,6 +121,7 @@ __all__ = [
     "loss_config",
     "cross_entropy_config",
     "nll_config",
+    "elbo_config",
     "LOSS_CONFIG_REGISTRY",
     "get_loss_config",
     # Model configs

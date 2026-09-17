@@ -1,0 +1,34 @@
+# ELBO loss for a variational autoencoder (jade.training.custom_loss_function.elbo.elbo_loss).
+# The loss is  L = alpha * reconstruction + beta * kl_weight(epoch) * KL.
+# IMPORTANT: it needs a GENERATIVE model, i.e. one whose forward returns the reconstruction and the
+# parameters of the latent distribution (e.g. vEEGNet). The pairing is checked by cross_check_config.
+# NOTE: this file has NO [loss] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `loss` key. To paste them into training_vae.toml instead, put them under a [loss] section (training_config.loss).
+name = "elbo"
+
+# Reconstruction term: "mse" (the term used in the original vEEGNet paper), "l1" or "gaussian_nll".
+reconstruction_type = "mse"
+# Weight of the reconstruction term.
+alpha = 1.0
+# Weight of the Kullback-Leibler term. beta = 0 turns the model into a plain (non variational) autoencoder,
+# while a value different from 1 corresponds to the so called beta-VAE.
+beta = 1.0
+# How both terms are reduced over the batch: "mean" or "sum".
+reduction = "mean"
+
+# --- KL warm-up (annealing) ---
+# A warm-up starts the training with a small KL weight, so the decoder can learn to reconstruct before
+# the regularization kicks in (it mitigates the posterior collapse).
+# Schedule of the KL weight: "none" (constant weight of 1) or "linear".
+kl_warmup_type = "none"
+# Number of epochs the warm-up lasts, i.e. the first epoch at which the KL weight reaches 1.
+# Ignored when kl_warmup_type = "none", REQUIRED (and > 0) otherwise.
+kl_warmup_epochs = 0
+# KL weight at epoch 0, linearly ramped up to 1 over kl_warmup_epochs. Must be in [0, 1].
+kl_warmup_start = 0.0
+
+# --- Gaussian negative log-likelihood (used only when reconstruction_type = "gaussian_nll") ---
+# Lower bound on the variance.
+# gaussian_nll_eps = 1e-6
+# Include the constant term of the Gaussian negative log-likelihood.
+# gaussian_nll_full = false

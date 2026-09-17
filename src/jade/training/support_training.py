@@ -46,6 +46,43 @@ from jade.config.model import get_model_config
 logger = logging.getLogger(__name__)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Module constants
+
+# Losses that consume the output of a classification head (a tensor of logits/log-probabilities).
+CLASSIFICATION_LOSSES = ("cross_entropy", "nll")
+
+# Losses that consume the output of a generative model (i.e. the reconstruction and the parameters of the latent distribution).
+GENERATIVE_LOSSES = ("elbo",)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Config checks
+
+def require_config_instance(value, expected_class, name : str) -> None :
+    """
+    Ensure a config argument is a dataclass instance (and not a plain dict or another type).
+
+    The training entry points accept only config *instances*, consistently with the rest of the codebase, so a wrong type fails fast with a clear message.
+    It lives here (and not in a single training module) because every training cycle needs it, i.e. both :mod:`jade.training.classifier` and :mod:`jade.training.vae`.
+
+    Parameters
+    ----------
+    value : Any
+        The value to check.
+    expected_class : type
+        The config class ``value`` must be an instance of.
+    name : str
+        The name of the argument, used in the error message.
+
+    Raises
+    ------
+    TypeError
+        If ``value`` is not an instance of ``expected_class``.
+    """
+
+    if not isinstance(value, expected_class) :
+        raise TypeError(f"{name} must be a {expected_class.__name__} instance (a config dataclass), got {type(value)}")
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Dataloader factory
 
 def get_dataloader(dataset, batch_size : int, dataloader_config_to_use : dataloader_config = None) -> torch.utils.data.DataLoader :
@@ -244,33 +281,45 @@ def get_loss_function(loss_config_to_use) -> torch.nn.Module :
     -------
     torch.nn.Module
         The loss module. Remember that :class:`torch.nn.CrossEntropyLoss` expects logits, while :class:`torch.nn.NLLLoss` expects log-probabilities.
+        A custom loss (see :mod:`jade.training.custom_loss_function`) is a module too, but it does not necessarily return a single scalar:
+        :class:`~jade.training.custom_loss_function.elbo.elbo_loss` returns a :class:`~jade.training.custom_loss_function.elbo.elbo_terms` named tuple, whose ``total`` field is the one to backpropagate (see :mod:`jade.training.vae_epoch`).
     """
 
     # Accept both a config instance and a plain dict.
     config = get_loss_config(loss_config_to_use)
 
-    # The class weights are stored as a plain list in the config; turn them into a tensor for torch.
-    weight = torch.tensor(config.weight, dtype = torch.float) if config.weight is not None else None
-
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Dispatch on the loss name
 
-    if config.name == "cross_entropy" :
-        loss_function = torch.nn.CrossEntropyLoss(
-            weight          = weight,
-            ignore_index    = config.ignore_index,
-            reduction       = config.reduction,
-            label_smoothing = config.label_smoothing,
-        )
-    elif config.name == "nll" :
-        loss_function = torch.nn.NLLLoss(
-            weight       = weight,
-            ignore_index = config.ignore_index,
-            reduction    = config.reduction,
-        )
+    if config.name in CLASSIFICATION_LOSSES :
+        # The class weights are stored as a plain list in the config; turn them into a tensor for torch.
+        # Note that this is done here, and not before the dispatch, because only a classification loss has a weight field.
+        weight = torch.tensor(config.weight, dtype = torch.float) if config.weight is not None else None
+
+        if config.name == "cross_entropy" :
+            loss_function = torch.nn.CrossEntropyLoss(
+                weight          = weight,
+                ignore_index    = config.ignore_index,
+                reduction       = config.reduction,
+                label_smoothing = config.label_smoothing,
+            )
+        else :
+            loss_function = torch.nn.NLLLoss(
+                weight       = weight,
+                ignore_index = config.ignore_index,
+                reduction    = config.reduction,
+            )
     else :
+        # Custom losses (the ELBO, for now) have no torch.nn counterpart and live in jade.training.custom_loss_function.
+        # The import is done here, and not at the top of the module, both to keep the import of this module light and to avoid a circular import
+        # (custom_loss_function is a subpackage of jade.training, whose __init__ imports this very module).
+        from jade.training.custom_loss_function import CUSTOM_LOSS_REGISTRY, get_custom_loss_function
+
         # This should never happen (the config validates the name), but keep a clear error just in case.
-        raise ValueError("unknown loss name {}".format(repr(config.name)))
+        if config.name not in CUSTOM_LOSS_REGISTRY :
+            raise ValueError("unknown loss name {}".format(repr(config.name)))
+
+        loss_function = get_custom_loss_function(config)
 
     return loss_function
 
