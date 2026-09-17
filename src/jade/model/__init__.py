@@ -23,6 +23,7 @@ from jade.model.EEGConformer import EEGConformer, EEGConformer_Classifier
 from jade.model.ShallowFBCSPNet import ShallowFBCSPNet, ShallowFBCSPNet_Classifier
 from jade.model.Deep4Net import Deep4Net, Deep4Net_Classifier
 from jade.model.TIDNet import TIDNet, TIDNet_Classifier
+from jade.model.vEEGNet import vEEGNet
 from jade.model.braindecode_pooling_extension import braindecode_pooling_wrapper
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -39,6 +40,7 @@ __all__ = [
     "Deep4Net_Classifier",
     "TIDNet",
     "TIDNet_Classifier",
+    "vEEGNet",
     "braindecode_pooling_wrapper",
     "MODEL_REGISTRY",
     "get_model",
@@ -65,6 +67,10 @@ MODEL_REGISTRY = {
     "tidnet"                     : TIDNet,
     "tidnet_classifier"          : TIDNet_Classifier,
     "tidnetclassifier"           : TIDNet_Classifier,
+    # vEEGNet is a variational autoencoder: the classification branch of the original paper is not implemented, so it has no *_classifier alias.
+    # Those two names are deliberately left unknown (instead of pointing here) so they stay available for the classifier variant, and so asking for one today fails with a clear error instead of silently building a generative model.
+    "veegnet"                    : vEEGNet,
+    "vae_eegnet"                 : vEEGNet,
     "braindecode_wrapper"        : braindecode_pooling_wrapper,
     "braindecode"                : braindecode_pooling_wrapper,
     "braindecode_pooling"        : braindecode_pooling_wrapper,

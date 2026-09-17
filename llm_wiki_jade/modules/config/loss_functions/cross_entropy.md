@@ -17,7 +17,7 @@ Defines `cross_entropy_config`, mirroring `torch.nn.CrossEntropyLoss`. This loss
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | `str` | `"cross_entropy"` | Discriminator (frozen). |
-| `weight` | `list[float] \| None` | `None` | Per-class rescaling weights (length `n_classes`). Stored as a plain list; `get_loss_function` turns it into a tensor. `None` = equal weighting. |
+| `class_weight` | `list[float] \| None` | `None` | Per-class rescaling coefficients (length `n_classes`), i.e. torch's `weight` argument. Stored as a plain list; `get_loss_function` turns it into a tensor. `None` = equal weighting. Named `class_weight` so it is not confused with the trainable weights of a model. |
 | `ignore_index` | `int` | `-100` | Target value ignored (no gradient contribution). |
 | `reduction` | `str` | `"mean"` | One of `REDUCTIONS`. Lower-cased in `__post_init__`. |
 | `label_smoothing` | `float` | `0.0` | Label smoothing in `[0, 1)`. |
@@ -25,10 +25,10 @@ Defines `cross_entropy_config`, mirroring `torch.nn.CrossEntropyLoss`. This loss
 ## `__post_init__`
 
 - Freeze `self.name = "cross_entropy"`.
-- If `weight` is not `None`: must be a list/tuple, coerced element-wise to `float` and re-stored as a list; else `ValueError`.
+- If `class_weight` is not `None`: must be a list/tuple, coerced element-wise to `float` and re-stored as a list; else `ValueError`.
 - `reduction` lower-cased and checked against `REDUCTIONS` else `ValueError`.
 - `0.0 <= label_smoothing < 1.0` else `ValueError`.
 
 ## Consumption
 
-`get_loss_function` builds `torch.nn.CrossEntropyLoss(weight=<tensor or None>, ignore_index=config.ignore_index, reduction=config.reduction, label_smoothing=config.label_smoothing)`, converting `weight` via `torch.tensor(config.weight, dtype=torch.float)`.
+`get_loss_function` builds `torch.nn.CrossEntropyLoss(weight=<tensor or None>, ignore_index=config.ignore_index, reduction=config.reduction, label_smoothing=config.label_smoothing)`, converting the config's `class_weight` via `torch.tensor(config.class_weight, dtype=torch.float)`.

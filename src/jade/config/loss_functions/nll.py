@@ -36,8 +36,9 @@ class nll_config(loss_config) :
 
     Parameters
     ----------
-    weight : list of float or None, default None
-        Manual rescaling weight given to each class (a list of ``n_classes`` values).
+    class_weight : list of float or None, default None
+        Manual rescaling weight given to each class (a list of ``n_classes`` values), i.e. the ``weight`` argument of the torch loss.
+        It is named ``class_weight`` (and not ``weight``, as in torch) to make clear that these are *per-class* coefficients, used to counter a class imbalance, and not the trainable weights of the model.
         Stored as a plain list in the config; :func:`~jade.training.support_training.get_loss_function` turns it into a tensor.
         ``None`` means every class is weighted equally.
     ignore_index : int, default -100
@@ -48,7 +49,7 @@ class nll_config(loss_config) :
 
     name : str = "nll"
 
-    weight       : Optional[List[float]] = None
+    class_weight : Optional[List[float]] = None
     ignore_index : int = -100
     reduction    : str = "mean"
 
@@ -62,10 +63,10 @@ class nll_config(loss_config) :
         self.name = "nll"
 
         # Class weights (must be a list/tuple of numbers when provided)
-        if self.weight is not None :
-            if not isinstance(self.weight, (list, tuple)) :
-                raise ValueError("weight must be a list of floats or None, got {}".format(type(self.weight)))
-            self.weight = [float(single_weight) for single_weight in self.weight]
+        if self.class_weight is not None :
+            if not isinstance(self.class_weight, (list, tuple)) :
+                raise ValueError("class_weight must be a list of floats or None, got {}".format(type(self.class_weight)))
+            self.class_weight = [float(single_weight) for single_weight in self.class_weight]
 
         # Reduction mode
         self.reduction = str(self.reduction).lower()

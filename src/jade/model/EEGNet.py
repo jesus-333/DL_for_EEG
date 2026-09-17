@@ -90,6 +90,11 @@ class EEGNet(nn.Module):
 
         self.flatten_output = config.flatten_output
 
+        # Plain-tuple reference to the two pooling stages, so they can be reached without indexing into the nn.Sequential above.
+        # Note that a tuple is NOT registered as a submodule by nn.Module, so the layers still appear exactly once in the state dict.
+        # It is used by debug_shape and by jade.model.vEEGNet, whose decoder needs the shape entering each pooling stage.
+        self.pooling_layers = (pooling_layer_1, pooling_layer_2)
+
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Print additional information after the creation of the network
         if config.print_var:
@@ -129,7 +134,7 @@ class EEGNet(nn.Module):
         x = self.spatial_filter[0](x)
         print("\tSpatial fitler (conv) :\t\t", x.shape)
 
-        x = self.spatial_filter[3](x)
+        x = self.pooling_layers[0](x)
         print("\tSpatial filter (pool) :\t\t", x.shape)
 
         x = self.separable_convolution[0](x)
@@ -138,7 +143,7 @@ class EEGNet(nn.Module):
         x = self.separable_convolution[1](x)
         print("\tSeparable convolution (conv 2): ", x.shape)
 
-        x = self.separable_convolution[4](x)
+        x = self.pooling_layers[1](x)
         print("\tSeparable convolution (pool) :  ", x.shape)
 
         print("\t(OPTIONAL) Flatten :\t\t", x.flatten(1).shape, "\n")

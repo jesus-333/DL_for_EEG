@@ -26,8 +26,8 @@ src/jade/                 <- the package (this wiki documents everything under h
   cli/                    <- thin command-line interface: console scripts that wrap existing jade code
   config/                 <- dataclass-based configuration objects (+ optimizers/, lr_schedulers/, loss_functions/, model/ subpackages; default_config/ = commented TOML skeletons shipped as package data)
   dataset/                <- download / preprocess / torch Dataset wrapping (moabb + MNE)
-  model/                  <- torch EEG models (EEGNet, EEGConformer, ShallowFBCSPNet, Deep4Net, TIDNet) + pooling_1d/ anti-aliasing research subpackage
-  training/               <- config-driven training loop, metrics, optional wandb
+  model/                  <- torch EEG models (EEGNet, EEGConformer, ShallowFBCSPNet, Deep4Net, TIDNet) + vEEGNet (a VAE) + pooling_1d/ anti-aliasing research subpackage
+  training/               <- config-driven training loops (classification + generative), metrics, custom losses, optional wandb
 other/antialiased_pooling_theory.pdf   <- background theory for pooling_1d
 ```
 
@@ -41,7 +41,7 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
 | **config** | Validated, (de)serializable dataclasses that *describe* a run (dataset, optimizer, scheduler, loss, dataloader, wandb, training, **and now models**). Data + validation only; imports no torch/moabb/mne/wandb. | [modules/config/0_module_quickstart.md](modules/config/0_module_quickstart.md) | `training_config`, `dataset_config`, `filter_config`, `dataloader_config`, `wandb_training_config`; `*_config` families + `get_optimizer_config` / `get_lr_scheduler_config` / `get_loss_config` / `get_model_config` / `get_pooling_config` + registries (incl. `model/`: `EEGNet_config`, `EEGConformer_config`, `ShallowFBCSPNet_config`, `Deep4Net_config`, `TIDNet_config`, the pooling config family) |
 | **dataset** | Data management: download public EEG (moabb), preprocess (optional filter + resample) / epoch (MNE), wrap as torch `Dataset`, plus time/freq inspection plots. Train/test split via moabb session names or a seeded random partition. | [modules/dataset/0_module_quickstart.md](modules/dataset/0_module_quickstart.md) | `EEG_Dataset`, `EEG_Dataset_ChWi`; `download_dataset`, `get_dataset`, `create_train_test_split_indices` (lazy moabb/mne) |
 | **model** | torch EEG models (EEGNet family, EEG Conformer, the two Schirrmeister 2017 ConvNets, TIDNet) **plus** a self-contained research subpackage on anti-aliased 1D pooling. | [modules/model/0_module_quickstart.md](modules/model/0_module_quickstart.md) | `get_model` / `MODEL_REGISTRY` (now config-instance driven); `EEGNet`, `EEGNet_Classifier` (consume an `EEGNet_config`); `EEGConformer`, `EEGConformer_Classifier` (convolutional transformer, consume an `EEGConformer_config`, patch-embedding pooling supports `pooling_1d`); `ShallowFBCSPNet`, `Deep4Net`, `TIDNet` (+ their `_Classifier`, jade-native re-implementations whose pooling stages support `pooling_1d`); `braindecode_pooling_wrapper` (swap a braindecode model's pooling for the `pooling_1d` operators); `pooling_1d` (`get_pooling_layer`, avg/blur/max/sinc/dwt) |
-| **training** | Config-driven orchestration of the training loop (classification only, for now); metrics; optional wandb run + model artifact. | [modules/training/0_module_quickstart.md](modules/training/0_module_quickstart.md) | `train` (builds the model from a `model_config`), `train_model` (trains a prebuilt model), and their wandb counterparts `wandb_train` / `wandb_train_model`; `train_epoch_function`, `validation_epoch_function`; `test`; `setup_logging` (opt-in logger setup); `support_training` (incl. `cross_check_config`), `metrics` |
+| **training** | Config-driven orchestration of the training loop, for **two objectives** (classification and generative/VAE); metrics; the custom losses; optional wandb run + model artifact. | [modules/training/0_module_quickstart.md](modules/training/0_module_quickstart.md) | `train` (builds the model from a `model_config`), `train_model` (trains a prebuilt model), and their wandb counterparts `wandb_train` / `wandb_train_model`; `train_epoch_function`, `validation_epoch_function`; `test`; `setup_logging` (opt-in logger setup); `support_training` (incl. `cross_check_config`), `metrics` |
 
 ## End-to-end mental model (how a run flows)
 
@@ -59,13 +59,15 @@ Everything outside `src/jade/` (notably anything under `test/` and secondary exp
                 │                                            │                            │  (e.g. EEGNet_Classifier)
                 └──────────────┐              ┌─────────────┴──────────────┬─────────────┘
                                ▼              ▼                            ▼
-                 jade.training.train(training_config, model_config, train_dataset, validation_dataset)
-                   • cross_check_config(training_config, model_config) (e.g. loss ↔ use_softmax), then get_model, then train_model
+        jade.training.{classifier|vae}.train(training_config, model_config, train_dataset, validation_dataset)
+                   • cross_check_config(training_config, model_config) (loss ↔ use_softmax, loss ↔ task), then get_model, then train_model
                    • support_training turns config → torch optimizer/scheduler/loss/DataLoader (dispatch on `name`)
                    • loops epochs: train_epoch_function / validation_epoch_function
-                   • metrics.compute_metrics (torchmetrics); logging via logging (NullHandler)
-                   • optional wandb_train / wandb_train_model wrappers: wandb run + model Artifact; test() for evaluation
+                   • metrics (torchmetrics for a classifier, reconstruction error for a VAE); logging via logging (NullHandler)
+                   • optional wandb_train / wandb_train_model wrappers (all in wandb_utils): wandb run + model Artifact; test() for evaluation
 ```
+
+Pick the cycle that matches the model: `classifier` for a `*_Classifier` with a `cross_entropy` / `nll` loss, `vae` for `vEEGNet` with the `elbo` loss. The pairing is checked, so a mistake fails before anything is built.
 
 The linchpin is **`jade.training.support_training`**: it is the *only* place where config dataclasses become live torch objects (optimizer, LR scheduler, loss, DataLoader), dispatching on each config's `name` discriminator.
 
@@ -95,7 +97,10 @@ The linchpin is **`jade.training.support_training`**: it is the *only* place whe
 - **`batch_size` lives in `training_config`, not `dataloader_config`** (it's shared by all loaders).
 - **Skeleton *option* files are header-less.** The per-option default configs (optimizer / loss / lr_scheduler / filter / wandb under `config/default_config/`) ship **without** their `[section]` header, so `toml.load` returns them flat and they can be nested directly under the parent config's key (`training_config_dict['loss'] = toml.load('nll.toml')`) or pasted under the matching `[section]` in a main file. The **main** skeletons (`training_clf.toml`, `dataset.toml`, `EEGNet.toml`) keep their inline sections (loaded whole via `from_toml`). Keeping a header on an option file re-nests it a level too deep and raises `unknown loss name ''` (or the optimizer/scheduler equivalent). See [cli/default_config.md](modules/cli/default_config.md#option-files-are-header-less-no-section).
 - **Loss ↔ model softmax coupling**: `cross_entropy_config` expects logits (`use_softmax=False`); `nll_config` expects log-probs (`use_softmax=True`). Mismatch applies `log_softmax` twice or not at all.
-- **Only the classification (finetuning) objective is implemented** in `training`; reconstruction/pretraining and a federated-learning submodule are anticipated in docstrings but absent.
+- **Two training objectives are implemented.** `jade.training.classifier` (classification) and `jade.training.vae` (generative), with the same four entry points and the same signatures. A federated-learning submodule is anticipated in docstrings but absent. The classification entry points keep their plain names in `jade.training`; the generative ones are exported with a `vae_` prefix, and the preferred style for new code is the module-qualified call (`from jade.training import vae` then `vae.train_model(...)`).
+- **`vEEGNet` is the first generative model.** Its `forward` returns `(x_reconstructed, mu, log_var, z)` rather than class scores, it has `reconstruct` / `generate` instead of `classify`, and its config sets `task = "generative"` (a `ClassVar`, so it never serializes) which makes `cross_check_config` reject a classification loss. The classification branch of the original paper is deliberately out of scope, so `veegnet_classifier` is **not** a registered name — the slot is reserved. Its decoder sizes each upsampling from the shape measured at build time, not from the pooling factor, because upsampling by the factor returns 992 samples for a 1000-sample trial with the default factors.
+- **Custom losses live in `jade.training.custom_loss_function`, their configs in `jade.config.loss_functions`.** The ELBO has no `torch.nn` counterpart so it is implemented in `training`, but its `elbo_config` must be in `LOSS_CONFIG_REGISTRY` to be loadable from a `[loss]` TOML section — and `jade.config` stays torch-free. `get_loss_function` dispatches to it with a function-local import.
+- **All the wandb code lives in `jade.training.wandb_utils`**, so neither training cycle imports `wandb`. `run_training_with_wandb` takes the training function as its first argument, which is how one implementation serves both cycles while `wandb_train_model` keeps its public signature.
 
 ## Full wiki index
 

@@ -45,6 +45,7 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [generic.md](modules/config/loss_functions/generic.md) | `config/loss_functions/generic.py` |
 | [cross_entropy.md](modules/config/loss_functions/cross_entropy.md) | `config/loss_functions/cross_entropy.py` |
 | [nll.md](modules/config/loss_functions/nll.md) | `config/loss_functions/nll.py` |
+| [elbo.md](modules/config/loss_functions/elbo.md) | `config/loss_functions/elbo.py` |
 
 ### Submodule: `config/lr_schedulers` — `modules/config/lr_schedulers/`
 
@@ -87,6 +88,7 @@ Dataclass-based configuration objects (data + validation only; imports no torch/
 | [ShallowFBCSPNet_cfg.md](modules/config/model/ShallowFBCSPNet_cfg.md) | `config/model/ShallowFBCSPNet_cfg.py` |
 | [Deep4Net_cfg.md](modules/config/model/Deep4Net_cfg.md) | `config/model/Deep4Net_cfg.py` |
 | [TIDNet_cfg.md](modules/config/model/TIDNet_cfg.md) | `config/model/TIDNet_cfg.py` |
+| [vEEGNet_cfg.md](modules/config/model/vEEGNet_cfg.md) | `config/model/vEEGNet_cfg.py` |
 | [braindecode_pooling_extension_cfg.md](modules/config/model/braindecode_pooling_extension_cfg.md) | `config/model/braindecode_pooling_extension_cfg.py` |
 | [pooling_1d_cfg.md](modules/config/model/pooling_1d_cfg.md) | `config/model/pooling_1d_cfg.py` |
 
@@ -133,6 +135,7 @@ torch EEG models (EEGNet family, EEG Conformer) + the `pooling_1d` anti-aliasing
 | [ShallowFBCSPNet.md](modules/model/ShallowFBCSPNet.md) | `model/ShallowFBCSPNet.py` |
 | [Deep4Net.md](modules/model/Deep4Net.md) | `model/Deep4Net.py` |
 | [TIDNet.md](modules/model/TIDNet.md) | `model/TIDNet.py` |
+| [vEEGNet.md](modules/model/vEEGNet.md) | `model/vEEGNet.py` |
 | [braindecode_pooling_extension.md](modules/model/braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` |
 | [aEEGNet.md](modules/model/aEEGNet.md) | `model/aEEGNet.py` |
 | [support_functions.md](modules/model/support_functions.md) | `model/support_functions.py` |
@@ -157,7 +160,7 @@ torch EEG models (EEGNet family, EEG Conformer) + the `pooling_1d` anti-aliasing
 
 ## Module: `training` — `modules/training/`
 
-Config-driven training loop (classification only, for now), metrics, optional wandb.
+Config-driven training loops — **classification** and **generative** (VAE) — metrics, the custom losses, optional wandb.
 
 | Page | Source `.py` |
 |---|---|
@@ -166,7 +169,22 @@ Config-driven training loop (classification only, for now), metrics, optional wa
 | [__init__.md](modules/training/__init__.md) | `training/__init__.py` |
 | [classifier.md](modules/training/classifier.md) | `training/classifier.py` |
 | [classifier_epoch.md](modules/training/classifier_epoch.md) | `training/classifier_epoch.py` |
+| [vae.md](modules/training/vae.md) | `training/vae.py` |
+| [vae_epoch.md](modules/training/vae_epoch.md) | `training/vae_epoch.py` |
+| [wandb_utils.md](modules/training/wandb_utils.md) | `training/wandb_utils.py` |
 | [test_functions.md](modules/training/test_functions.md) | `training/test_functions.py` |
 | [support_training.md](modules/training/support_training.md) | `training/support_training.py` |
 | [metrics.md](modules/training/metrics.md) | `training/metrics.py` |
 | [logging_utils.md](modules/training/logging_utils.md) | `training/logging_utils.py` |
+
+### Submodule: `training/custom_loss_function` — `modules/training/custom_loss_function/`
+
+The losses with no `torch.nn` counterpart (currently the ELBO). Their configs live in `config/loss_functions/`, not here.
+
+| Page | Source `.py` |
+|---|---|
+| [0_module_quickstart.md](modules/training/custom_loss_function/0_module_quickstart.md) | — |
+| [0_module_index.md](modules/training/custom_loss_function/0_module_index.md) | — |
+| [__init__.md](modules/training/custom_loss_function/__init__.md) | `training/custom_loss_function/__init__.py` |
+| [elbo.md](modules/training/custom_loss_function/elbo.md) | `training/custom_loss_function/elbo.py` |
+| [support_loss.md](modules/training/custom_loss_function/support_loss.md) | `training/custom_loss_function/support_loss.py` |

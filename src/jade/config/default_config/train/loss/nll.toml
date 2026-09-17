@@ -7,5 +7,7 @@ name = "nll"
 ignore_index = -100
 # Reduction applied to the output: "none", "mean" or "sum".
 reduction = "mean"
-# Optional per-class weights (a list with one entry per class; its length must match the model n_classes).
-# weight = [1.0, 1.0, 1.0, 1.0]
+# Optional per-class coefficients, used to counter a class imbalance (a list with one entry per class;
+# its length must match the model n_classes). They are the `weight` argument of the torch loss; the
+# config calls them class_weight so they are not mistaken for the trainable weights of the model.
+# class_weight = [1.0, 1.0, 1.0, 1.0]

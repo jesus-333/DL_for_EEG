@@ -31,6 +31,8 @@ A dict mapping lowercase string aliases → model class. Every registered class 
 | `tidnet` | `TIDNet` |
 | `tidnet_classifier` | `TIDNet_Classifier` |
 | `tidnetclassifier` | `TIDNet_Classifier` |
+| `veegnet` | [`vEEGNet`](vEEGNet.md) |
+| `vae_eegnet` | [`vEEGNet`](vEEGNet.md) |
 | `braindecode_wrapper` | `braindecode_pooling_wrapper` |
 | `braindecode` | `braindecode_pooling_wrapper` |
 | `braindecode_pooling` | `braindecode_pooling_wrapper` |

@@ -6,7 +6,7 @@
 
 `jade.model` holds the PyTorch neural-network models of the `jade` package (Just Another Deep-learning EEG package) **plus** a self-contained research sub-package for anti-aliased 1D pooling. Two concerns live side by side:
 
-1. **EEG models** — `EEGNet`, `EEGConformer` (convolutional transformer), `ShallowFBCSPNet` and `Deep4Net` (the two Schirrmeister 2017 ConvNets) and `TIDNet`, each with a classifier wrapper, plus small creation helpers. This is the production part used by `jade.training`.
+1. **EEG models** — `EEGNet`, `EEGConformer` (convolutional transformer), `ShallowFBCSPNet` and `Deep4Net` (the two Schirrmeister 2017 ConvNets) and `TIDNet`, each with a classifier wrapper, plus `vEEGNet`, the **generative** one (a variational autoencoder), and small creation helpers. This is the production part used by `jade.training`.
 2. **`pooling_1d`** — a DSP-grounded family of 1D decimation ("pooling") layers (`avg` / `blur` / `sinc` / `dwt` / `max`) built for an anti-aliasing ablation study. EEGNet consumes them channel-wise through its `[pooling]` config section (via `get_multichannel_pooling`); they also stand alone as research infrastructure.
 
 ## Top-level factory: `get_model` / `MODEL_REGISTRY`
@@ -25,6 +25,7 @@ The single entry point for building a model is `get_model(config) -> nn.Module` 
 | `deep4net_classifier`, `deep4netclassifier` | `Deep4Net_Classifier` |
 | `tidnet` | `TIDNet` |
 | `tidnet_classifier`, `tidnetclassifier` | `TIDNet_Classifier` |
+| `veegnet`, `vae_eegnet` | `vEEGNet` (no classifier variant — see below) |
 | `braindecode_wrapper`, `braindecode`, `braindecode_pooling` | `braindecode_pooling_wrapper` |
 
 Raises `ValueError` if `name` is unknown. This mirrors the `get_pooling_layer` / `POOLING_REGISTRY` pattern one level down in `pooling_1d`, and the `get_optimizer` etc. registries elsewhere in `jade`. (The old `get_model({"model_name": ...})` dict interface is gone — the discriminator is `name`, matching the config families.)
@@ -83,6 +84,20 @@ Key points (details on the [page](braindecode_pooling_extension.md)):
 - **Overlapping pooling** (ShallowFBCSPNet: kernel 75, stride 15) uses the stride as the factor and the wrapper re-sizes the trailing classifier with a dummy forward; non-overlapping models (EEGNet, Deep4Net) keep every downstream shape.
 - braindecode is an **optional dependency** (`pip install jade[braindecode]`), imported lazily — `import jade.model` never requires it.
 
+## vEEGNet at a high level
+
+[`vEEGNet`](vEEGNet.md) is the **first generative model** of the package: a variational autoencoder whose encoder is an `EEGNet` and whose decoder mirrors it (transposed convolutions in place of convolutions, upsampling in place of pooling). Between the two, a `gaussian_sampling_layer` turns the encoder output into the mean and log variance of a Gaussian and samples from it with the reparametrization trick.
+
+It breaks three assumptions that hold for every other model here, which is why it needed its own loss, training cycle and config marker:
+
+- **`forward` returns a 4-tuple** `(x_reconstructed, mu, log_var, z)`, not a tensor of scores. The order is append-only, so the reconstruction stays at index 0.
+- **There is no classification branch** (deliberately out of scope for now), so no `classify`, and no `n_classes` / `use_softmax` in its config. `vEEGNet_config.task = "generative"` makes `cross_check_config` reject a classification loss. For the same reason `veegnet_classifier` is **not** a registered name: the slot is reserved so that asking for it today fails loudly instead of silently building a generative model.
+- **It is trained with the [ELBO](../training/custom_loss_function/elbo.md)** by [`jade.training.vae`](../training/vae.md), not with `jade.training.classifier`.
+
+Two extra methods complete the generative side: `reconstruct(x)` and `generate(n_samples, z, device)`.
+
+**Key fact (pooling):** the encoder reuses EEGNet's `[pooling]` section unchanged, but **the decoder never reads the pooling factors**. Each decoder upsampler is sized from the shape its counterpart in the encoder *received*, measured at build time by a hooked dummy forward. This is what makes the reconstruction have exactly the shape of the input for any `T`: with the paper's own setup (`T = 1000`, factors 4 and 8) the encoder gives `1000 → 250 → 31`, so upsampling by the factors returns **992** samples — the bug the original implementation shipped with. Measuring the shape also makes every `pooling_1d` operator, and a disabled stage, work through one code path. Note that upsampling is *not* the inverse of pooling: each anti-aliasing arm changes how much information reaches the latent space, so reconstruction errors across arms compare different bottlenecks.
+
 ## `aEEGNet` — attention variant (work in progress)
 
 [`aEEGNet`](aEEGNet.md) is despite its filename **not** about anti-aliasing: its own docstring describes an **attention-augmented** EEGNet. It is currently a **stub** (`aEEGNet.forward` returns its input unchanged). The real work-in-progress there is `channels_attention_head`, a multichannel-EEG attention head using query/key/value linear maps from [`support_functions.create_head`](support_functions.md). It has a live bug (subclasses `torch.nn.module`, lowercase) and is not usable yet — see its page.
@@ -115,6 +130,7 @@ model/
 ├── ShallowFBCSPNet.py                 ShallowFBCSPNet + ShallowFBCSPNet_Classifier (Schirrmeister 2017 Shallow ConvNet)
 ├── Deep4Net.py                        Deep4Net + Deep4Net_Classifier (Schirrmeister 2017 Deep ConvNet, 4 pooling stages)
 ├── TIDNet.py                          TIDNet + TIDNet_Classifier (Kostas 2020 Thinker Invariance DenseNet)
+├── vEEGNet.py                         vEEGNet (variational autoencoder: EEGNet encoder + mirrored decoder) + its building blocks
 ├── braindecode_pooling_extension.py   braindecode_pooling_wrapper (swap braindecode pooling for pooling_1d)
 ├── aEEGNet.py                         attention variant (WIP stub) + channels_attention_head
 ├── support_functions.py               get_activation, get_nonlinearity (+ square / safe_log), get_dropout, get_multichannel_pooling, count_trainable_parameters, create_head, compute_attention_values
@@ -129,6 +145,6 @@ model/
 
 ## How `model` connects to the rest of `jade`
 
-- **`jade.training`** consumes models as opaque `nn.Module`s. It builds/receives a model, calls `model.to(device)` and `model(x)`, and for metrics prefers `model.classify(x)` (which `EEGNet_Classifier` provides), falling back to `argmax(model(x))`. `get_model` is the intended construction path.
+- **`jade.training`** consumes models as opaque `nn.Module`s. It builds/receives a model, calls `model.to(device)` and `model(x)`, and for metrics prefers `model.classify(x)` (which `EEGNet_Classifier` provides), falling back to `argmax(model(x))` — or, for a generative model, prefers `model.reconstruct(x)` falling back to `model(x)[0]`. `get_model` is the intended construction path. A classifier is trained by `jade.training.classifier`, a generative model by `jade.training.vae`.
 - **`jade.config`** now has a [`model/` sub-package](../config/model/0_module_quickstart.md) (one `{model}_cfg.py` per model + the pooling config family), so model hyperparameters are a validated dataclass like everything else. `get_model` consumes a `model_config` instance (selecting on `config.name`); `config/optimizers/__init__.py` cites `MODEL_REGISTRY` / `get_model` as the convention its own registry mirrors, and the new `MODEL_CONFIG_REGISTRY` / `get_model_config` closes the loop on the config side.
 - **`jade.dataset`** produces the `(B, depth, C, T)` tensors EEGNet consumes.
