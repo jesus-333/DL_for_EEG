@@ -6,6 +6,8 @@ Classification metrics computed with the `torchmetrics` **multiclass functional 
 
 Predicted labels come from `model.classify(x)` when the model exposes such a method (as `jade.model.EEGNet.EEGNet_Classifier` does), otherwise from `argmax(model(x), dim=1)`.
 
+A **generative** model has no label to compare, so it gets its own function, [`compute_reconstruction_metrics`](#compute_reconstruction_metricsmodel-loader-device---dict), described at the end of this page.
+
 Imports: `torch`, and from `torchmetrics.functional.classification`: `multiclass_accuracy`, `multiclass_cohen_kappa`, `multiclass_confusion_matrix`, `multiclass_f1_score`, `multiclass_recall`, `multiclass_specificity`. Module logger: `logger = logging.getLogger(__name__)`.
 
 ---
@@ -94,3 +96,22 @@ Returns a `num_classes × num_classes` `torch.Tensor`. Not called by the trainin
 Returns `num_classes` unchanged when provided; otherwise infers `max(max(true_label), max(predict_label)) + 1`. If the inference yields `< 2`, it logs a WARNING and **forces `num_classes = 2`**, because torchmetrics multiclass metrics require at least two classes.
 
 > Gotcha: inferring from labels means a set that happens to contain only some of the classes could yield a smaller `num_classes` than the true number — pass `num_classes` explicitly when you know it (note: the training loop does **not** pass it, so it always relies on inference).
+
+---
+
+## Reconstruction metrics
+
+### `compute_reconstruction_metrics(model, loader, device) -> dict`
+
+The metric function of a **generative** model, used by [`jade.training.vae`](vae.md) in place of `compute_metrics`. It needs no label: it measures how far the output of the model is from its input, over a whole dataloader, in one `torch.no_grad()` pass with the model in `eval()` mode.
+
+| Key | Meaning |
+|---|---|
+| `reconstruction_mse` | Mean squared error between the input and its reconstruction. |
+| `reconstruction_mae` | Mean absolute error. |
+
+Both are **per-sample averages**, accumulated as `value * batch_size` and divided by the total, so a short last batch does not skew them.
+
+The reconstruction comes from `model.reconstruct(x)` when the model exposes it (as `jade.model.vEEGNet.vEEGNet` does), otherwise from the first element of the model output — the same fallback idiom `compute_label` uses for `classify`. A batch may be a plain tensor or a `(data, label)` pair; the label is ignored.
+
+> **These are not the reconstruction term of the loss**, even when that term is the MSE. They are computed in evaluation mode over the whole set, so they are comparable across epochs and across runs whatever objective is being optimized (in particular, they are unaffected by a KL warm-up). Like the classification metrics they are gated by `training_config.measure_metrics_during_training`.

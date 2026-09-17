@@ -72,7 +72,19 @@ Runs `temporal_filter -> spatial_filter -> separable_convolution`, then returns 
 
 ### `debug_shape(self, input_size)`
 
-Diagnostic (invoked when `print_var=True`, using the config's `input_size`). Creates a random tensor of `input_size` and prints the shape after each named step by indexing into the sequential blocks (e.g. `spatial_filter[0]` conv, `spatial_filter[3]` pool, `separable_convolution[0]`/`[1]`/`[4]`). Purely for interactive inspection; the hard-coded indices assume the block structure above.
+Diagnostic (invoked when `print_var=True`, using the config's `input_size`). Creates a random tensor of `input_size` and prints the shape after each named step by indexing into the sequential blocks (e.g. `spatial_filter[0]` conv, `separable_convolution[0]`/`[1]`), reaching the two pooling stages through `self.pooling_layers` (see below) rather than by index. Purely for interactive inspection; the remaining hard-coded indices assume the block structure above.
+
+### `self.pooling_layers`
+
+A plain tuple holding the two pooling stages:
+
+```python
+self.pooling_layers = (pooling_layer_1, pooling_layer_2)
+```
+
+It exists so the stages can be reached **without indexing into the `nn.Sequential`** (`spatial_filter[3]`, `separable_convolution[4]`), which silently breaks if a layer is ever inserted. Used by `debug_shape` and, more importantly, by [`vEEGNet`](vEEGNet.md), whose decoder hooks each stage to record the shape entering it.
+
+> **Why a tuple and not an `nn.ModuleList`.** `nn.Module.__setattr__` does **not** register a plain tuple, so the layers still appear exactly once in the `state_dict` — a list would duplicate every key, which matters for the `dwt` / `sinc` / `blur` operators that carry FIR buffers. Verified: the state dict of a `dwt`-pooled EEGNet has 21 keys, all unique.
 
 ---
 

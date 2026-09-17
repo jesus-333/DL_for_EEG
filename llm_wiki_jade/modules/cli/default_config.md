@@ -29,9 +29,10 @@ Behaviour:
 ```
 train/
   training_clf.toml             # classifier training config: flat fields + default [optimizer]/[loss]/[dataloader], with comments pointing to the option files
+  training_vae.toml             # generative (VAE) training config: same skeleton, with the [loss] section pre-filled with the ELBO keys
   optimizer/{adam,adamw,sgd,rmsprop,lbfgs}.toml
   lr_scheduler/{exponential_lr,step_lr,cosine_annealing_lr,cosine_annealing_warm_restarts,cyclic_lr}.toml
-  loss/{cross_entropy,nll}.toml
+  loss/{cross_entropy,nll,elbo}.toml
   wandb.toml                    # header-less [wandb] settings (load flat / nest under `wandb`); the [wandb] section of training_clf.toml is optional, shipped commented-out
 model/
   EEGNet.toml                   # from EEGNet_config() defaults (use_softmax = false, matching the default cross_entropy loss)
@@ -39,6 +40,7 @@ model/
   ShallowFBCSPNet.toml          # from ShallowFBCSPNet_config() defaults
   Deep4Net.toml                 # from Deep4Net_config() defaults (four [pooling] stages)
   TIDNet.toml                   # from TIDNet_config() defaults
+  vEEGNet.toml                  # from vEEGNet_config() defaults (a variational autoencoder: no n_classes / use_softmax, pair it with training_vae.toml)
   pooling/{avg,blur,sinc,dwt,max}.toml
 dataset/
   dataset.toml                  # dataset_config; its [filter] section is optional, shipped commented-out
@@ -51,7 +53,7 @@ Multi-choice sections come as **one file per option** under a subfolder, and the
 - **Optional** picks ship **commented-out** in the main file with a pointer to their option file(s): `[lr_scheduler]` in `training_clf.toml` (options in `train/lr_scheduler/`); `[filter]` in `dataset.toml` (options in `dataset/filter/`, one file per filter type — bandpass / bandstop / lowpass / highpass / notch), since `dataset_config.filter` defaults to `None` (no filtering, raw data kept); and `[wandb]` in `training_clf.toml` (header-less settings in `train/wandb.toml`), since `training_config.wandb` defaults to `None` (no wandb logging).
 - `[dataloader]` in `training_clf.toml` is the one optional section shipped **filled-in** (torch's DataLoader defaults) but explicitly marked optional in a comment — remove it to use those defaults, since `training_config.dataloader` defaults to `None`.
 
-Each file's values track the corresponding config's defaults, and every shipped **main** TOML (`training_clf.toml`, `dataset.toml`, and the five model files `EEGNet.toml` / `EEGConformer.toml` / `ShallowFBCSPNet.toml` / `Deep4Net.toml` / `TIDNet.toml`) round-trips through the matching `from_toml` (the option files under the subfolders carry **no** `[section]` header — see [below](#option-files-are-header-less-no-section) — so they can be nested directly under the main config's key **or** pasted under the matching `[section]` in a main file). Finally, the shipped `EEGNet.toml` (`use_softmax = false`, Identity head → raw logits) and `training_clf.toml` (default `cross_entropy` loss, which expects logits) are deliberately consistent, so the pair passes [`cross_check_config`](../training/support_training.md) out of the box.
+Each file's values track the corresponding config's defaults, and every shipped **main** TOML (`training_clf.toml`, `training_vae.toml`, `dataset.toml`, and the six model files `EEGNet.toml` / `EEGConformer.toml` / `ShallowFBCSPNet.toml` / `Deep4Net.toml` / `TIDNet.toml` / `vEEGNet.toml`) round-trips through the matching `from_toml` (the option files under the subfolders carry **no** `[section]` header — see [below](#option-files-are-header-less-no-section) — so they can be nested directly under the main config's key **or** pasted under the matching `[section]` in a main file). Finally, the shipped `EEGNet.toml` (`use_softmax = false`, Identity head → raw logits) and `training_clf.toml` (default `cross_entropy` loss, which expects logits) are deliberately consistent, so the pair passes [`cross_check_config`](../training/support_training.md) out of the box.
 
 ## Option files are header-less (no `[section]`)
 

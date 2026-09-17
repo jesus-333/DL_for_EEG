@@ -54,8 +54,13 @@ Returns a `torch.optim.lr_scheduler.*`. Called by `train` only when a scheduler 
 |---|---|---|
 | `cross_entropy` | `torch.nn.CrossEntropyLoss` | `weight`, `ignore_index`, `reduction`, `label_smoothing` |
 | `nll` | `torch.nn.NLLLoss` | `weight`, `ignore_index`, `reduction` |
+| anything else (currently `elbo`) | the matching class of [`custom_loss_function`](custom_loss_function/0_module_quickstart.md) | the whole config |
 
 Class weights are stored as a plain list in the config and converted here: `weight = torch.tensor(config.weight, dtype=torch.float) if config.weight is not None else None`. Reminder embedded in the docstring: `CrossEntropyLoss` expects **logits**, `NLLLoss` expects **log-probabilities** — the caller (`train_model`) moves the loss to the device after building it, which matters precisely because `weight` is a tensor.
+
+> **Gotcha fixed with the ELBO.** That conversion used to run *before* the dispatch, so it read `config.weight` for every loss. An `elbo_config` has no `weight` field (a per-class rescaling is meaningless for a reconstruction objective), so it would have raised an `AttributeError` before reaching any branch. The conversion now lives **inside** the classification branches, guarded by `config.name in CLASSIFICATION_LOSSES`.
+
+The custom-loss branch does a **function-local import** of `jade.training.custom_loss_function` — both to keep this module's import light and to avoid a cycle, since that subpackage lives under `jade.training`, whose `__init__` imports this very module. It is the same idiom used by `loss_config.from_dict`, `get_pooling_layer` and `cpu_memory_usage_in_gb`. An unknown name still raises the original `"unknown loss name ..."`.
 
 ---
 
@@ -72,10 +77,23 @@ The single place where constraints spanning **two** configs are verified. `jade.
 
 Checks enforced (extend here for future constraints):
 
-1. **Loss ↔ last-layer activation.** `loss.name == "nll"` requires `model_config.use_softmax == True` (the classifier ends in `LogSoftmax`, emitting log-probabilities); `loss.name == "cross_entropy"` requires `use_softmax == False` (the classifier ends in `Identity`, emitting raw logits). Read via `getattr(model_config, "use_softmax", None)`, so a model without that field (e.g. a pure feature extractor) skips the check.
+1. **Loss ↔ last-layer activation.** `loss.name == "nll"` requires `model_config.use_softmax == True` (the classifier ends in `LogSoftmax`, emitting log-probabilities); `loss.name == "cross_entropy"` requires `use_softmax == False` (the classifier ends in `Identity`, emitting raw logits). Read via `getattr(model_config, "use_softmax", None)`, so a model without that field (e.g. a pure feature extractor, or a generative model) skips the check.
 2. **Class weights ↔ number of classes.** If `loss.weight` is set, `len(weight)` must equal `model_config.n_classes`.
+3. **Training objective.** A model with `task == "generative"` (see [`model_config`](../config/model/generic.md)) returns a reconstruction and the parameters of a latent distribution, which a loss in `CLASSIFICATION_LOSSES` cannot consume; conversely a loss in `GENERATIVE_LOSSES` needs those parameters, which a classifier never produces. Both directions raise, with a message naming the two sides.
 
-Raises `ValueError` on any violation; returns `None` otherwise.
+Raises `ValueError` on any violation; returns `None` otherwise. It also **warns** (it does not raise) when `loss.kl_warmup_epochs > training_config.epochs`: a truncated run is legitimate, but the KL term then never reaches its full weight.
+
+### Why a `task` marker and not a name list
+
+Two tempting alternatives were rejected. *Inferring the objective from the absence of `n_classes`* would falsely reject `braindecode_wrapper_config`, whose hyper-parameters travel as a raw `model_kwargs` dict. *Hard-coding a list of generative model names here* would put model knowledge in the training module and would have to be edited for every future generative model — exactly the coupling the registries exist to avoid. The `ClassVar` on the config keeps the fact where the model is described, at no serialization cost.
+
+### `require_config_instance(value, expected_class, name) -> None`
+
+Raises `TypeError` unless `value` is an instance of `expected_class`. The training entry points accept only config *instances*, so a wrong type fails fast with a clear message. It lives here (rather than in one training module) because **every** cycle needs it; `classifier._require_config_instance` is kept as an alias for backward compatibility.
+
+## Module constants
+
+`CLASSIFICATION_LOSSES = ("cross_entropy", "nll")` and `GENERATIVE_LOSSES = ("elbo",)` — the two loss families, used by both `get_loss_function` and `cross_check_config`.
 
 ---
 
