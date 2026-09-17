@@ -3,7 +3,7 @@ Implementation of the cli commands that interact with wandb.
 
 This is the *implementation* side of the wandb-related cli commands: it receives the already-parsed ``argparse`` arguments (the parsing itself lives in :mod:`jade.cli.cli`) and talks to the wandb public API (:class:`wandb.Api`).
 
-Unlike the other thematic cli files, the small helpers this command needs (reading a run history and stripping the model parameters/gradients that :func:`~jade.training.classifier.wandb_train_model` logs through ``wandb.watch``) do not yet live elsewhere in the package, so they are reconstructed here as module-level helpers.
+The small helpers this command needs (reading a run history and stripping the model parameters/gradients that :mod:`jade.training.wandb_utils` logs through ``wandb.watch``) read a run back *after* it is over, while :mod:`jade.training.wandb_utils` only writes during a run, so they stay here as module-level helpers.
 If more wandb functionality is added later they can be promoted to a dedicated ``jade`` module and the cli reduced back to a thin wrapper.
 
 Authors
@@ -63,7 +63,7 @@ def remove_parameters_from_history(run_history : pd.DataFrame) -> pd.DataFrame :
     """
     Remove from a run history the columns logged by ``wandb.watch`` (the model parameters and gradients).
 
-    When a run is tracked with ``wandb.watch(model, log = "all", ...)`` (as :func:`~jade.training.classifier.wandb_train_model` does), wandb logs the per-layer parameters and gradients under the ``parameters/`` and ``gradients/`` column prefixes.
+    When a run is tracked with ``wandb.watch(model, log = "all", ...)`` (as :func:`~jade.training.wandb_utils.watch_model` does), wandb logs the per-layer parameters and gradients under the ``parameters/`` and ``gradients/`` column prefixes.
     Those are model internals, not training metrics, so they are dropped here before the metrics are exported.
 
     Parameters

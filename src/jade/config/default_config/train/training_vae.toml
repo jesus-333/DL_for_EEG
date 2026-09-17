@@ -1,0 +1,132 @@
+# =====================================================================
+# Default VAE training configuration (jade.config.training.training_config)
+# =====================================================================
+# This is a skeleton: every parameter is present with a reasonable value so it
+# is easy to see what can be tuned. Edit the values, do not treat them as tuned.
+# Load it with: training_config.from_toml("training_vae.toml")
+#
+# This is the config consumed by jade.training.vae, i.e. the training cycle of a
+# GENERATIVE model (one whose forward returns the reconstruction and the parameters
+# of the latent distribution, e.g. vEEGNet). It differs from training_clf.toml only
+# in the [loss] section: pairing a generative model with a classification loss (or the
+# other way around) is rejected by cross_check_config.
+# For a classifier use training_clf.toml instead.
+
+# Number of training epochs.
+epochs = 100
+
+# Mini-batch size (shared by every dataloader, so it lives here and not in [dataloader]).
+batch_size = 32
+
+# Torch device: "cpu", "cuda", "cuda:0", ...
+device = "cpu"
+
+# Folder where the model/optimizer checkpoints are written.
+path_to_save_model = "model_weights"
+
+# Save a periodic checkpoint every N epochs. 0 (or any non-positive value) disables periodic checkpoints.
+# When the training config object is created every value lower or equal to 0 is automatically set to epochs + 1 (i.e. the first epoch after the last one, so no checkpoint is saved). In this case only the final checkpoint is saved at the end of training.
+epoch_to_save_model = 0
+
+# If true, also overwrite an alternating A/B backup of the model every epoch (handy for long HPC runs).
+backup_model_every_epoch = false
+
+# If true, compute the reconstruction metrics (MSE and MAE between the input and its
+# reconstruction) during training. They are NOT classification metrics, which need a label the
+# model never predicts, and they are not the reconstruction term of the loss either: they are
+# measured in evaluation mode over the whole set. It adds a forward pass per epoch.
+# Note that every term of the loss is tracked anyway, whatever this flag is.
+measure_metrics_during_training = true
+
+# If true, emit the per-epoch INFO log lines.
+print_var = true
+
+# Random seed for numpy/torch. Uncomment to make a run reproducible (must be a non-negative integer).
+# seed = 42
+
+# Resume from a previous run. Uncomment and set the paths to the saved state dicts.
+# path_past_weights = "model_weights/model_END.pth"
+# path_past_optimizer = "model_weights/optimizer_END.pth"
+
+# ---------------------------------------------------------------------
+# Optimizer (REQUIRED, pick ONE)
+# ---------------------------------------------------------------------
+# The default below is Adam. To use another optimizer, replace the keys under this
+# [optimizer] table with the content of one of the files in ./optimizer/
+# (adam.toml, adamw.toml, sgd.toml, rmsprop.toml, lbfgs.toml). Those files hold just the
+# keys (no [optimizer] header), so keep the [optimizer] line below and paste them under it.
+[optimizer]
+name = "adam"
+lr = 0.001
+betas = [0.9, 0.999]
+eps = 1e-8
+weight_decay = 0.0
+decoupled_weight_decay = false
+amsgrad = false
+maximize = false
+
+# ---------------------------------------------------------------------
+# Learning-rate scheduler (OPTIONAL, pick at most ONE)
+# ---------------------------------------------------------------------
+# No scheduler is used unless a [lr_scheduler] table is present. To add one, uncomment the
+# [lr_scheduler] block below and fill it with the keys from one of the files in ./lr_scheduler/
+# (exponential_lr.toml, step_lr.toml, cosine_annealing_lr.toml, cosine_annealing_warm_restarts.toml,
+# cyclic_lr.toml). Those files hold just the keys (no [lr_scheduler] header).
+# [lr_scheduler]
+# name = "exponential_lr"
+# gamma = 0.95
+
+# ---------------------------------------------------------------------
+# Loss function (REQUIRED)
+# ---------------------------------------------------------------------
+# A generative model is trained with the ELBO, so this is the only loss available here.
+# The keys below are the content of ./loss/elbo.toml (which holds them without the [loss]
+# header, so it can also be nested directly under the parent's `loss` key); see that file for
+# the full description of each one.
+[loss]
+name = "elbo"
+# Reconstruction term: "mse" (the term used in the original vEEGNet paper), "l1" or "gaussian_nll".
+reconstruction_type = "mse"
+# Weight of the reconstruction term.
+alpha = 1.0
+# Weight of the Kullback-Leibler term. beta = 0 turns the model into a plain autoencoder.
+beta = 1.0
+# How both terms are reduced over the batch: "mean" or "sum".
+reduction = "mean"
+# KL warm-up (annealing): "none" (constant weight of 1) or "linear". A warm-up starts the training
+# with a small KL weight, so the decoder can learn to reconstruct before the regularization kicks
+# in (it mitigates the posterior collapse).
+kl_warmup_type = "none"
+# Number of epochs the warm-up lasts. Ignored when kl_warmup_type = "none", REQUIRED (> 0) otherwise.
+kl_warmup_epochs = 0
+# KL weight at epoch 0, linearly ramped up to 1 over kl_warmup_epochs. Must be in [0, 1].
+kl_warmup_start = 0.0
+
+# ---------------------------------------------------------------------
+# Dataloader (single option)
+# ---------------------------------------------------------------------
+# This whole [dataloader] section is OPTIONAL. Remove it (or comment it out) to use
+# a default dataloader (torch's default DataLoader values, with shuffle = true).
+# Keep it to customize the values below.
+[dataloader]
+# Worker processes for data loading. 0 loads in the main process.
+num_workers = 0
+# Batches prefetched per worker (only meaningful when num_workers > 0).
+# prefetch_factor = 2
+# Pin host memory (faster host -> GPU copies).
+pin_memory = false
+# Keep the worker processes alive between epochs (only meaningful when num_workers > 0).
+persistent_workers = false
+# Shuffle the training data every epoch.
+shuffle = true
+
+# ---------------------------------------------------------------------
+# wandb logging (OPTIONAL)
+# ---------------------------------------------------------------------
+# No wandb logging unless a [wandb] table is present (training_config.wandb defaults
+# to None). To enable it, uncomment the [wandb] block below and fill in the required fields,
+# or paste the keys from ./wandb.toml under it (that file holds just the keys, no [wandb]
+# header). Needs the optional "extra" dependency.
+# [wandb]
+# project_name = "my_project"
+# model_artifact_name = "my_model"

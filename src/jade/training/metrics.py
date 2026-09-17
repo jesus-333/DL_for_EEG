@@ -1,10 +1,12 @@
 """
-Functions to compute classification metrics (accuracy, Cohen's kappa, sensitivity, specificity, F1).
+Functions to compute the metrics of a training run.
 
-The metrics are computed with :mod:`torchmetrics` (multiclass functional API), so everything stays on tensors and there is no scikit-learn dependency.
+Most of them are classification metrics (accuracy, Cohen's kappa, sensitivity, specificity, F1), computed with :mod:`torchmetrics` (multiclass functional API), so everything stays on tensors and there is no scikit-learn dependency.
 Specificity in particular is provided natively by torchmetrics, which avoids the manual (and error prone) one-vs-rest computation of the old code.
 
 The predicted labels are obtained through ``model.classify(x)`` when the model exposes such a method (as :class:`~jade.model.EEGNet.EEGNet_Classifier` does), otherwise they fall back to ``argmax(model(x))``.
+
+A generative model has no label to compare, so it gets its own metric function, :func:`compute_reconstruction_metrics`, which measures how far the reconstruction is from the input.
 
 Authors
 -------
@@ -234,3 +236,60 @@ def _infer_num_classes(true_label : torch.Tensor, predict_label : torch.Tensor, 
         num_classes = 2
 
     return num_classes
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Reconstruction metrics
+
+def compute_reconstruction_metrics(model, loader, device) -> dict :
+    """
+    Compute the reconstruction metrics of a generative model over a dataloader.
+
+    Contrary to the classification metrics these do not need a label: they measure how far the output of the model is from its input.
+    They are *not* the reconstruction term of the loss, even when that term is the mean squared error: they are computed in evaluation mode over the whole set, so they can be compared across epochs and across runs whatever loss is being optimized.
+
+    The reconstruction is obtained through ``model.reconstruct(x)`` when the model exposes such a method (as :class:`~jade.model.vEEGNet.vEEGNet` does), otherwise it falls back to the first element of the model output, mirroring what :func:`compute_label` does with ``classify``.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The model to evaluate. It is set in evaluation mode inside the function.
+    loader : torch.utils.data.DataLoader
+        Dataloader yielding either ``(data, label)`` batches or plain data batches. The label, when present, is ignored.
+    device : str or torch.device
+        Device the data is moved to before the forward pass.
+
+    Returns
+    -------
+    dict
+        A dictionary with the keys ``reconstruction_mse`` (mean squared error) and ``reconstruction_mae`` (mean absolute error), both per-sample averages over the whole set.
+    """
+
+    # Set the model in evaluation mode and move it to the device.
+    model.eval()
+    model.to(device)
+
+    squared_error_sum  = 0.0
+    absolute_error_sum = 0.0
+    n_samples          = 0
+
+    with torch.no_grad() :
+        for sample_batch in loader :
+            # A dataset may yield a plain tensor or a (data, label) pair; the label is not used here.
+            x = (sample_batch[0] if isinstance(sample_batch, (tuple, list)) else sample_batch).to(device)
+
+            # Prefer the dedicated method of the model, and fall back to the first element of its output.
+            if hasattr(model, "reconstruct") and callable(model.reconstruct) :
+                x_reconstructed = model.reconstruct(x)
+            else :
+                model_output = model(x)
+                x_reconstructed = model_output[0] if isinstance(model_output, (tuple, list)) else model_output
+
+            # Accumulate the per-sample averages, weighted by the batch size (so the last, smaller batch is handled correctly).
+            squared_error_sum  += torch.mean((x_reconstructed - x) ** 2).item() * x.shape[0]
+            absolute_error_sum += torch.mean(torch.abs(x_reconstructed - x)).item() * x.shape[0]
+            n_samples          += x.shape[0]
+
+    return dict(
+        reconstruction_mse = squared_error_sum / n_samples,
+        reconstruction_mae = absolute_error_sum / n_samples,
+    )

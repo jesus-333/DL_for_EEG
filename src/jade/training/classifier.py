@@ -13,7 +13,7 @@ Every function is driven by config *instances*: a :class:`~jade.config.training.
 Consistently with the rest of the codebase these functions accept only the config dataclasses, not plain dicts (build the config with ``training_config.from_dict(...)`` first if you have a dict).
 The single-epoch logic lives in :mod:`jade.training.classifier_epoch`, the factories and helpers in :mod:`jade.training.support_training`, and the metrics in :mod:`jade.training.metrics`.
 
-Only the classification (finetuning) objective is implemented for now; a reconstruction/pretraining cycle may be added later in a sibling module.
+This module covers the classification (finetuning) objective; the generative (variational autoencoder) one lives in the sibling module :mod:`jade.training.vae`, which offers the same four entry points with the same signatures.
 
 Authors
 -------
