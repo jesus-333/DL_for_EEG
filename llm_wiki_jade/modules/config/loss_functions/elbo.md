@@ -46,7 +46,7 @@ The instructions put the *loss module* under `jade.training`; the config stays i
 
 ### What is deliberately absent
 
-**No `weight`, no `ignore_index`.** They describe a per-class rescaling, which has no meaning for a reconstruction objective. Their absence is precisely why `get_loss_function` had to be restructured: it used to read `config.weight` *before* dispatching, which would raise an `AttributeError` on an `elbo_config` before reaching any branch. See [`support_training.md`](../../training/support_training.md).
+**No `class_weight`, no `ignore_index`.** They describe a per-class rescaling, which has no meaning for a reconstruction objective. Their absence is precisely why `get_loss_function` had to be restructured: it used to read the class-weight field *before* dispatching, which would raise an `AttributeError` on an `elbo_config` before reaching any branch. See [`support_training.md`](../../training/support_training.md).
 
 ---
 

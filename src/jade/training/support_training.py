@@ -293,19 +293,20 @@ def get_loss_function(loss_config_to_use) -> torch.nn.Module :
 
     if config.name in CLASSIFICATION_LOSSES :
         # The class weights are stored as a plain list in the config; turn them into a tensor for torch.
-        # Note that this is done here, and not before the dispatch, because only a classification loss has a weight field.
-        weight = torch.tensor(config.weight, dtype = torch.float) if config.weight is not None else None
+        # Note that this is done here, and not before the dispatch, because only a classification loss has a class_weight field.
+        # Note also the rename: the config calls them class_weight (they are per-class coefficients, not model weights), while torch calls the argument weight.
+        class_weight = torch.tensor(config.class_weight, dtype = torch.float) if config.class_weight is not None else None
 
         if config.name == "cross_entropy" :
             loss_function = torch.nn.CrossEntropyLoss(
-                weight          = weight,
+                weight          = class_weight,
                 ignore_index    = config.ignore_index,
                 reduction       = config.reduction,
                 label_smoothing = config.label_smoothing,
             )
         else :
             loss_function = torch.nn.NLLLoss(
-                weight       = weight,
+                weight       = class_weight,
                 ignore_index = config.ignore_index,
                 reduction    = config.reduction,
             )
@@ -335,7 +336,7 @@ def cross_check_config(training_config, model_config) -> None :
     The checks currently enforced are:
 
     * **loss vs last-layer activation** - a ``nll`` loss expects log-probabilities, so the classifier must end with a :class:`torch.nn.LogSoftmax` (model ``use_softmax = True``); a ``cross_entropy`` loss expects raw logits, so it must end with a :class:`torch.nn.Identity` (model ``use_softmax = False``). See :func:`get_loss_function` and :class:`~jade.model.EEGNet.EEGNet_Classifier`.
-    * **class weights vs number of classes** - when the loss carries a per-class ``weight`` list, its length must equal the model ``n_classes``.
+    * **class weights vs number of classes** - when the loss carries a per-class ``class_weight`` list, its length must equal the model ``n_classes``.
     * **training objective** - a generative model (``model_config.task = 'generative'``, e.g. :class:`~jade.config.model.vEEGNet_cfg.vEEGNet_config`) returns a reconstruction and the parameters of a latent distribution, which a classification loss cannot consume; conversely a generative loss needs those parameters, which a classifier does not produce. The two families are listed in :data:`CLASSIFICATION_LOSSES` and :data:`GENERATIVE_LOSSES`.
 
     A warning (not an error) is emitted when the KL warm-up of the loss lasts longer than the whole training: it is a legitimate setup for a truncated run, but the KL term never reaches its full weight.
@@ -380,10 +381,10 @@ def cross_check_config(training_config, model_config) -> None :
     # Class weights vs number of classes
 
     # A per-class weight list must have exactly one entry per class.
-    weight = getattr(training_config.loss, "weight", None)
+    class_weight = getattr(training_config.loss, "class_weight", None)
     n_classes = getattr(model_config, "n_classes", None)
-    if weight is not None and n_classes is not None and len(weight) != n_classes :
-        raise ValueError("the loss has {} class weights but the model has {} classes".format(len(weight), n_classes))
+    if class_weight is not None and n_classes is not None and len(class_weight) != n_classes :
+        raise ValueError("the loss has {} class weights but the model has {} classes".format(len(class_weight), n_classes))
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Training objective (classification vs generative)

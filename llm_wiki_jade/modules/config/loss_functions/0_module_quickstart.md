@@ -34,7 +34,13 @@ Each concrete config **freezes** its `name` in `__post_init__`.
 
 ## Shared design
 
-- The two **classification** configs share the module-level `REDUCTIONS = ("none", "mean", "sum")` constant and a `weight`/`ignore_index`/`reduction` field set. `elbo_config` has neither `weight` nor `ignore_index` (a per-class rescaling is meaningless for a reconstruction objective) and its `REDUCTIONS` excludes `"none"` (a non-reduced ELBO is not a scalar and cannot be backpropagated).
-- `weight` is stored as a **plain list** (or `None`); `get_loss_function` converts it to a `torch.tensor(..., dtype=torch.float)`. This keeps the config JSON/TOML-serializable (no tensors on disk).
+- The two **classification** configs share the module-level `REDUCTIONS = ("none", "mean", "sum")` constant and a `class_weight`/`ignore_index`/`reduction` field set. `elbo_config` has neither `class_weight` nor `ignore_index` (a per-class rescaling is meaningless for a reconstruction objective) and its `REDUCTIONS` excludes `"none"` (a non-reduced ELBO is not a scalar and cannot be backpropagated).
+- `class_weight` is stored as a **plain list** (or `None`); `get_loss_function` converts it to a `torch.tensor(..., dtype=torch.float)`. This keeps the config JSON/TOML-serializable (no tensors on disk).
+
+### The `class_weight` name
+
+The field maps to torch's `weight` argument, but it is **not** called `weight` in the config: these are *per-class* coefficients used to counter a class imbalance, and the name `weight` reads as the trainable weights of a model. They are a property of the dataset's label distribution, not of the network.
+
+Because `generic_config.from_dict` silently ignores unknown keys, an old config carrying `weight = [...]` would have trained **without** its class weights and without any warning. `loss_config.from_dict` therefore rejects the legacy key with an explicit message.
 
 Same pattern as [optimizers](../optimizers/0_module_quickstart.md) and [lr_schedulers](../lr_schedulers/0_module_quickstart.md).

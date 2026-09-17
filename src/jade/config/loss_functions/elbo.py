@@ -106,7 +106,7 @@ class elbo_config(loss_config) :
 
     Notes
     -----
-    Contrary to :class:`~jade.config.loss_functions.cross_entropy.cross_entropy_config` and :class:`~jade.config.loss_functions.nll.nll_config` there is no ``weight`` and no ``ignore_index`` field: they describe a per-class rescaling, which has no meaning for a reconstruction objective.
+    Contrary to :class:`~jade.config.loss_functions.cross_entropy.cross_entropy_config` and :class:`~jade.config.loss_functions.nll.nll_config` there is no ``class_weight`` and no ``ignore_index`` field: they describe a per-class rescaling, which has no meaning for a reconstruction objective.
     """
 
     name : str = "elbo"
