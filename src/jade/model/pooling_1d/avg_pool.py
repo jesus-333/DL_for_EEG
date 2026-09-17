@@ -66,7 +66,6 @@ class avg_pool_1d(_fir_decimation_pool_1d) :
         M = self.decimation_factor
         return np.ones(M, dtype = np.float64) / M
 
-
     def _check_against_boxcar(self) -> None :
         """
         Do nothing: this layer *is* the boxcar, so there is nothing to warn about.

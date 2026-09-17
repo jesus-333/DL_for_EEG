@@ -140,7 +140,6 @@ class conformer_pooling_config(generic_config) :
     pooling_stride : int  = 15
     params         : dict = field(default_factory = dict)
 
-
     @property
     def pooling_layer_config(self) :
         """
