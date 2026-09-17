@@ -17,6 +17,7 @@ from __future__ import annotations
 
 # Specific imports
 from dataclasses import dataclass
+from typing import ClassVar
 
 # Internal imports
 from jade.config.generic import generic_config
@@ -35,7 +36,18 @@ class model_config(generic_config) :
         Discriminator with the name of the concrete model (e.g. ``'eegnet_classifier'``).
         Concrete subclasses validate (and normalize) this value in their ``__post_init__``.
         It is also the key used by :func:`~jade.model.get_model` to select the model class through the ``MODEL_REGISTRY``.
+
+    Attributes
+    ----------
+    task : str
+        The family of training objective the model is meant for, either ``'classification'`` (the default) or ``'generative'``.
+        A concrete config overrides it when the model is not a classifier, e.g. :class:`~jade.config.model.vEEGNet_cfg.vEEGNet_config`.
+        It is used by :func:`~jade.training.support_training.cross_check_config` to reject a model paired with a loss that cannot consume its output.
     """
+
+    # Note that this is a ClassVar, so dataclasses ignores it: it is not a field, it never appears in to_dict/from_dict nor in a serialized config file, and it cannot be set per instance.
+    # This is deliberate: the training objective is a property of the model class, not a parameter the user tunes.
+    task : ClassVar[str] = "classification"
 
     name : str = ""
 

@@ -1,0 +1,100 @@
+# =====================================================================
+# Default vEEGNet model configuration (jade.config.model.vEEGNet_config)
+# =====================================================================
+# Skeleton config for vEEGNet, the variational autoencoder whose encoder is an EEGNet
+# and whose decoder mirrors it. The default values follow a BCI IV-2a style setup
+# (22 channels, 1000 time samples); edit them to match your data.
+# Load it with: vEEGNet_config.from_toml("vEEGNet.toml").
+#
+# NOTE: only the generative half of the original vEEGNet is implemented, so there is no
+# classification branch (hence no n_classes / use_softmax key). Train it with the "elbo"
+# loss; a classification loss is rejected by cross_check_config.
+
+# Which model to build. Only "veegnet" (or its alias "vae_eegnet") is available for now.
+name = "veegnet"
+
+# --- Encoder (EEGNet). These keys mirror the ones of EEGNet.toml ---
+# Convolutional layers (of both the encoder and the decoder) use a bias term.
+use_bias = false
+# Number of spatial filters learned per temporal filter (total spatial filters = D * filter_1).
+D = 2
+# Activation function: "relu", "elu", "selu" or "gelu".
+activation = "elu"
+# Dropout probability, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = false
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# Number of temporal filters (first convolution).
+filter_1 = 8
+# Temporal convolution kernel (height, width) = (1, time).
+c_kernel_1 = [1, 64]
+# Spatial (depthwise) convolution kernel, usually (C, 1). Its height must not exceed C.
+c_kernel_2 = [22, 1]
+
+# Number of filters of the separable convolution (pointwise output).
+filter_2 = 16
+# Depthwise convolution kernel of the separable block.
+c_kernel_3 = [1, 16]
+
+# --- Latent space ---
+# How the encoder output is mapped to the mean and the log variance of the approximate posterior:
+#   "linear"        -> the output is flattened and two feedforward layers produce two vectors of
+#                      hidden_space_dimension elements. This is the mapping of the original paper.
+#   "convolutional" -> two 1x1 convolutions produce two tensors with the shape of the encoder
+#                      output, so the latent space keeps the time axis.
+parameters_map_type = "linear"
+# Dimension d of the latent space (64 is the value used in the original paper).
+# Used only when parameters_map_type = "linear": with the convolutional mapping the size of the
+# latent space is set by the shape of the encoder output.
+hidden_space_dimension = 64
+
+# --- Decoder ---
+# Interpolation used to invert the pooling stages: "nearest", "bilinear", "bicubic" or "area".
+upsample_mode = "nearest"
+
+# --- Misc ---
+# Shape (batch, depth, channels, time) of the dummy input used to probe the geometry of the encoder
+# at build time. Contrary to the classifiers it drives the WHOLE decoder, so its last three values
+# must match depth_first_layer, C and T.
+input_size = [1, 1, 22, 1000]
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the two pooling stages of the encoder) ---
+# Identical to the [pooling] section of EEGNet.toml: the encoder IS an EEGNet.
+[pooling]
+# Pooling operator per stage:
+#   "default"              -> classic EEGNet nn.AvgPool2d (average pooling along time only);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise.
+pooling_type_1 = "default"
+pooling_type_2 = "default"
+# Decimation factor M per stage: the number of time samples becomes T / M.
+# A negative value disables that pooling stage (a warning is printed when the config is built).
+pooling_factor_1 = 4
+pooling_factor_2 = 8
+
+# Optional type-specific parameters for each stage (empty -> the pooling layer defaults).
+# [pooling.params_1]
+# wavelet = "db4"
+# [pooling.params_2]
+# cutoff_scale = 0.9
+
+# Note that the DECODER does not read the pooling factors. It inverts each stage by resizing the
+# tensor back to the shape that stage received, measured at build time. This is what makes the
+# reconstruction have exactly the shape of the input for any T and any factor (upsampling by the
+# factor would give 992 samples instead of 1000 with the defaults above), and it makes every
+# pooling operator, and a disabled stage, work through the same code path.
+# Keep in mind that upsampling is NOT the inverse of pooling: pooling discards information (it
+# low-passes, or drops a sub-band, or is non-linear), so the upsampling restores the geometry and
+# the transposed convolutions learn to repair the content. For the anti-aliasing ablation this
+# means each pooling arm changes how much information reaches the latent space, so the
+# reconstruction errors of two arms compare different bottlenecks, not only different filters.

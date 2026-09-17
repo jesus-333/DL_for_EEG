@@ -336,6 +336,9 @@ def cross_check_config(training_config, model_config) -> None :
 
     * **loss vs last-layer activation** - a ``nll`` loss expects log-probabilities, so the classifier must end with a :class:`torch.nn.LogSoftmax` (model ``use_softmax = True``); a ``cross_entropy`` loss expects raw logits, so it must end with a :class:`torch.nn.Identity` (model ``use_softmax = False``). See :func:`get_loss_function` and :class:`~jade.model.EEGNet.EEGNet_Classifier`.
     * **class weights vs number of classes** - when the loss carries a per-class ``weight`` list, its length must equal the model ``n_classes``.
+    * **training objective** - a generative model (``model_config.task = 'generative'``, e.g. :class:`~jade.config.model.vEEGNet_cfg.vEEGNet_config`) returns a reconstruction and the parameters of a latent distribution, which a classification loss cannot consume; conversely a generative loss needs those parameters, which a classifier does not produce. The two families are listed in :data:`CLASSIFICATION_LOSSES` and :data:`GENERATIVE_LOSSES`.
+
+    A warning (not an error) is emitted when the KL warm-up of the loss lasts longer than the whole training: it is a legitimate setup for a truncated run, but the KL term never reaches its full weight.
 
     New cross-config constraints should be added here.
 
@@ -381,6 +384,26 @@ def cross_check_config(training_config, model_config) -> None :
     n_classes = getattr(model_config, "n_classes", None)
     if weight is not None and n_classes is not None and len(weight) != n_classes :
         raise ValueError("the loss has {} class weights but the model has {} classes".format(len(weight), n_classes))
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Training objective (classification vs generative)
+
+    # The task is a class attribute of the model config (a ClassVar, so it is not a serialized field): it says what the forward of the model returns.
+    model_task = getattr(model_config, "task", "classification")
+
+    if model_task == "generative" and loss_name in CLASSIFICATION_LOSSES :
+        raise ValueError("model {} is trained with a generative objective (its forward returns the reconstruction and the parameters of the latent distribution): pair it with one of {}, not {}".format(repr(model_config.name), GENERATIVE_LOSSES, repr(loss_name)))
+
+    if model_task != "generative" and loss_name in GENERATIVE_LOSSES :
+        raise ValueError("loss {} needs a model whose forward returns the reconstruction and the parameters of the latent distribution, but {} is a classifier: use one of {} instead".format(repr(loss_name), repr(model_config.name), CLASSIFICATION_LOSSES))
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Warm-up vs number of epochs
+
+    # A warm-up longer than the training is not an error (a run can be deliberately truncated), but the KL term never reaches its full weight, so it is worth a warning.
+    kl_warmup_epochs = getattr(training_config.loss, "kl_warmup_epochs", 0)
+    if kl_warmup_epochs > training_config.epochs :
+        logger.warning("the KL warm-up lasts %d epochs but the training runs for only %d: the KL term never reaches its full weight", kl_warmup_epochs, training_config.epochs)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Helpers used during training
