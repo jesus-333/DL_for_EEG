@@ -30,12 +30,6 @@ import logging
 import os
 import sys
 
-# Optional third party import (wandb is an optional extra of the package).
-try :
-    import wandb
-except ImportError :
-    wandb = None
-
 # Third party imports
 import torch
 
@@ -44,7 +38,7 @@ from jade.config.training import training_config as training_config_class
 from jade.config.model.generic import model_config as model_config_class
 from jade.config.dataset import dataset_config as dataset_config_class
 from jade.model import get_model
-from jade.training import classifier_epoch, metrics, support_training
+from jade.training import classifier_epoch, metrics, support_training, wandb_utils
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Module logger
@@ -163,8 +157,7 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
     use_wandb = training_config.wandb is not None
 
     # If wandb logging is requested, make sure wandb is actually installed.
-    if use_wandb and wandb is None :
-        raise ImportError('wandb logging was requested but wandb is not installed. Install it with "pip install wandb" (or the "extra" optional dependency of this package).')
+    if use_wandb : wandb_utils.require_wandb()
 
     # (OPTIONAL) Seed numpy/torch for reproducibility.
     if training_config.seed is not None : support_training.set_seed(training_config.seed)
@@ -220,7 +213,7 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
 
     # (OPTIONAL) Ask wandb to track the model parameters/gradients.
     if use_wandb :
-        wandb.watch(model, criterion = loss_function, log = "all", log_freq = training_config.wandb.log_freq, log_graph = True)
+        wandb_utils.watch_model(model, loss_function, training_config.wandb)
 
     # Variable to track the best (lowest) validation loss.
     best_loss_val = sys.maxsize
@@ -352,13 +345,12 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
                     support_training.update_log_dict_metrics(validation_metrics_dict, log_dict, "validation")
 
             # Add the periodic checkpoint to the artifact.
-            if (epoch + 1) % training_config.epoch_to_save_model == 0 and training_config.wandb.log_model_artifact and wandb_model_artifact is not None :
+            if (epoch + 1) % training_config.epoch_to_save_model == 0 :
                 model_file_path = os.path.join(training_config.path_to_save_model, f"model_{epoch + 1}.pth")
-                wandb_model_artifact.add_file(model_file_path)
-                wandb.save(model_file_path)
+                wandb_utils.add_file_to_artifact(wandb_model_artifact, model_file_path)
 
             # Log everything for this epoch.
-            wandb.log(log_dict)
+            wandb_utils.log_epoch(log_dict)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # End of training: save the final model
@@ -367,15 +359,13 @@ def train_model(training_config, model, train_dataset, validation_dataset = None
     torch.save(model.state_dict(), model_file_path_END)
 
     # (OPTIONAL) Upload the final (and best) model to the wandb artifact.
-    if use_wandb and training_config.wandb.log_model_artifact and wandb_model_artifact is not None :
-        wandb_model_artifact.add_file(model_file_path_END)
-        wandb.save(model_file_path_END)
+    if use_wandb and wandb_model_artifact is not None :
+        wandb_utils.add_file_to_artifact(wandb_model_artifact, model_file_path_END)
 
         # If validation was performed, upload the best model too.
         if validation_loader is not None :
             model_file_path_BEST = os.path.join(training_config.path_to_save_model, "model_BEST.pth")
-            wandb_model_artifact.add_file(model_file_path_BEST)
-            wandb.save(model_file_path_BEST)
+            wandb_utils.add_file_to_artifact(wandb_model_artifact, model_file_path_BEST)
 
     return model, computed_metrics_during_training
 
@@ -487,65 +477,13 @@ def wandb_train_model(training_config, model, train_dataset, validation_dataset 
     if dataset_config is not None :
         _require_config_instance(dataset_config, dataset_config_class, "dataset_config")
 
-    # wandb must be installed and the wandb config must be set.
-    if wandb is None :
-        raise ImportError('wandb is not installed. Install it with "pip install wandb" (or the "extra" optional dependency of this package).')
-    if training_config.wandb is None :
-        raise ValueError("training_config.wandb must be set (a wandb_training_config) to use wandb_train_model")
-
-    wandb_config = training_config.wandb
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Build the config logged on wandb
-
-    config_to_log = {}
-
-    # The whole training config is logged
-    config_to_log["training_config"] = training_config.to_dict()
-
-    # The model and dataset configs are logged too when provided (for reproducibility only, they do not affect training).
-    if model_config is not None :
-        config_to_log["model_config"] = model_config.to_dict()
-    if dataset_config is not None :
-        config_to_log["dataset_config"] = dataset_config.to_dict()
-
-    # Use the seed (if any) and the name of the training run as the wandb run id, so a run can be resumed with the same id.
-    if training_config.seed is not None and wandb_config.name_training_run is not None :
-        run_id = f"{str(training_config.seed)}_{wandb_config.name_training_run}"
-    else :
-        run_id = None
-
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Open the wandb run and train
 
-    with wandb.init(
-        project  = wandb_config.project_name,
-        entity   = wandb_config.entity,
-        name     = wandb_config.name_training_run,
-        job_type = "train",
-        config   = config_to_log,
-        notes    = wandb_config.notes,
-        id       = run_id,
-        resume   = "allow",
-    ) as run :
-
-        # Setup the artifact used to store the model.
-        model_artifact_name = wandb_config.model_artifact_name + "_trained"
-        if wandb_config.log_model_artifact :
-            wandb_model_artifact = wandb.Artifact(
-                model_artifact_name,
-                type        = "model",
-                description = f"Trained {wandb_config.model_artifact_name} model",
-                metadata    = config_to_log,
-            )
-        else :
-            wandb_model_artifact = None
-
-        # Train the model. The model is already built, so call train_model directly.
-        model, computed_metrics_during_training = train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)
-
-        # Log the model artifact.
-        if wandb_config.log_model_artifact :
-            run.log_artifact(wandb_model_artifact)
-
-    return model, computed_metrics_during_training
+    # Everything about the wandb run is model-agnostic, so it lives in jade.training.wandb_utils and it is shared with the other training cycles.
+    # The only classifier-specific part is which training function runs inside the run, which is why train_model is passed as first argument.
+    return wandb_utils.run_training_with_wandb(
+        train_model, training_config, model, train_dataset, validation_dataset,
+        model_config   = model_config,
+        dataset_config = dataset_config,
+    )
