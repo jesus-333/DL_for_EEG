@@ -216,3 +216,5 @@ training/logs/
 /wandb
 wandb
 /analysis/metrics_paper
+/other/aliasing_experiment/config
+/other/aliasing_experiment/results/
