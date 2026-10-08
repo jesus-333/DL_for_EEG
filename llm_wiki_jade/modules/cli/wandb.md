@@ -4,7 +4,9 @@ Source: `src/jade/cli/wandb.py`
 
 Implementation (thematic) file behind the `download-project-runs-metrics` command. It receives the already-parsed `argparse` arguments from [`jade.cli.cli.download_project_runs_metrics`](./cli.md) and talks to the wandb public API (`wandb.Api`).
 
-**Small exception to the "cli adds no new behavior" rule.** The two helpers this command needs — reading a run history and stripping the model parameters/gradients — do not exist elsewhere in `jade` yet, so (as agreed with the author) they are reconstructed here as module-level helpers instead of adding a submodule under `cli/`. If more wandb functionality is added later they can be promoted to a dedicated `jade` module and this file reduced back to a thin wrapper.
+**Small exception to the "cli adds no new behavior" rule.** The two helpers this command needs — reading a run history and stripping the model parameters/gradients — do not exist elsewhere in `jade` yet, so (as agreed with the author) they are reconstructed here as module-level helpers instead of adding a submodule under `cli/`.
+
+> That dedicated wandb module now exists — [`jade.training.wandb_utils`](../training/wandb_utils.md) — but these helpers stay here on purpose: they read a run **back** after it is over (`wandb.Api`, run histories), while `wandb_utils` only **writes** during a run. Only the cross-reference changed.
 
 ## Imports
 - `import json` — to serialize the collected metrics.
@@ -33,7 +35,7 @@ The history is downloaded with **`run.scan_history()`** — the full, unsampled 
 
 ## `remove_parameters_from_history(run_history) -> pandas.DataFrame`
 
-Drop the columns logged by `wandb.watch` — the per-layer **model parameters and gradients**, which land under the `parameters/` and `gradients/` column prefixes (see [`training/classifier.py`](../training/classifier.md), where `wandb_train_model` calls `wandb.watch(model, log="all", ...)`). These are model internals, not training metrics.
+Drop the columns logged by `wandb.watch` — the per-layer **model parameters and gradients**, which land under the `parameters/` and `gradients/` column prefixes (see [`training/wandb_utils.py`](../training/wandb_utils.md), whose `watch_model` calls `wandb.watch(model, log="all", ...)`). These are model internals, not training metrics.
 
 **Parameter:** `run_history` — the `history` DataFrame from `get_run_information`.
 

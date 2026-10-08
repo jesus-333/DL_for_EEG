@@ -52,6 +52,7 @@ See the [loss_functions quickstart](loss_functions/0_module_quickstart.md) and [
 | `loss_functions/generic.py` | [loss_functions/generic.md](loss_functions/generic.md) | `loss_config` base + polymorphic `from_dict`. |
 | `loss_functions/cross_entropy.py` | [loss_functions/cross_entropy.md](loss_functions/cross_entropy.md) | `cross_entropy_config` → `torch.nn.CrossEntropyLoss` (logits). |
 | `loss_functions/nll.py` | [loss_functions/nll.md](loss_functions/nll.md) | `nll_config` → `torch.nn.NLLLoss` (log-probabilities). |
+| `loss_functions/elbo.py` | [loss_functions/elbo.md](loss_functions/elbo.md) | `elbo_config` → the ELBO of `jade.training.custom_loss_function` (a custom loss; expects a generative model). |
 
 ## Subpackage `model/`
 
@@ -66,6 +67,7 @@ See the [model-config quickstart](model/0_module_quickstart.md) and [index](mode
 | `model/ShallowFBCSPNet_cfg.py` | [model/ShallowFBCSPNet_cfg.md](model/ShallowFBCSPNet_cfg.md) | `ShallowFBCSPNet_config` → `jade.model.ShallowFBCSPNet.ShallowFBCSPNet` / `ShallowFBCSPNet_Classifier`. |
 | `model/Deep4Net_cfg.py` | [model/Deep4Net_cfg.md](model/Deep4Net_cfg.md) | `Deep4Net_config` → `jade.model.Deep4Net.Deep4Net` / `Deep4Net_Classifier`. |
 | `model/TIDNet_cfg.py` | [model/TIDNet_cfg.md](model/TIDNet_cfg.md) | `TIDNet_config` → `jade.model.TIDNet.TIDNet` / `TIDNet_Classifier`. |
+| `model/vEEGNet_cfg.py` | [model/vEEGNet_cfg.md](model/vEEGNet_cfg.md) | `vEEGNet_config` → `jade.model.vEEGNet.vEEGNet` (the first **generative** model config). |
 | `model/braindecode_pooling_extension_cfg.py` | [model/braindecode_pooling_extension_cfg.md](model/braindecode_pooling_extension_cfg.md) | `braindecode_wrapper_config` → `jade.model.braindecode_pooling_extension.braindecode_pooling_wrapper`. |
 | `model/pooling_1d_cfg.py` | [model/pooling_1d_cfg.md](model/pooling_1d_cfg.md) | 1D pooling config family + `POOLING_CONFIG_REGISTRY` + `get_pooling_config`. |
 

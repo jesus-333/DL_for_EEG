@@ -4,19 +4,21 @@ Source: `src/jade/training/classifier.py`
 
 The full classification training cycle, as **two mirrored pairs**: `train` / `wandb_train` build the model from a `model_config`, while `train_model` / `wandb_train_model` train an already-built model.
 
+> The **generative** counterpart of this module is [`vae.py`](vae.md), which offers the same four entry points with the same signatures.
+
 - `train` is the standard entry point: it cross-checks the training/model configs, builds the model from a `model_config` with `jade.model.get_model`, and delegates to `train_model`.
 - `train_model` runs the entire loop on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics.
 - `wandb_train` is the wandb counterpart of `train` (it cross-checks, builds the model, delegates to `wandb_train_model`).
-- `wandb_train_model` is the wandb counterpart of `train_model`: it opens the wandb run (and optional model artifact) around a call to `train_model`.
+- `wandb_train_model` is the wandb counterpart of `train_model`: after the config checks it delegates the whole run to [`wandb_utils.run_training_with_wandb`](wandb_utils.md), passing its own `train_model` as the function to call inside the run. Its signature and return value are unchanged, which matters because `training/EEGNet/train_eegnet.py` and `train_pooling.py` call it with six positional arguments.
 
-**Config contract:** all four functions accept only config **dataclass instances** (no dict promotion), consistently with the rest of the codebase — a wrong type raises `TypeError` via the shared `_require_config_instance` helper. Only the classification (finetuning) objective exists for now.
+**Config contract:** all four functions accept only config **dataclass instances** (no dict promotion), consistently with the rest of the codebase — a wrong type raises `TypeError` via the shared `_require_config_instance` helper.
 
 ## Module-level facts
 
-- `wandb` is imported inside a `try/except ImportError` and set to `None` if absent (optional extra).
+- `wandb` is **not** imported here any more: every wandb call goes through [`wandb_utils`](wandb_utils.md), which owns the optional import.
 - The config classes are imported under aliases for the `isinstance` checks: `training_config` → `training_config_class`, `model_config` (base) → `model_config_class`, `dataset_config` → `dataset_config_class`.
 - `get_model` is imported from `jade.model` (used by `train`/`wandb_train` to build the model from its config).
-- `_require_config_instance(value, expected_class, name)` — module helper that raises `TypeError` unless `value` is an instance of `expected_class`; used by every entry point to reject dicts/other types.
+- `_require_config_instance(value, expected_class, name)` — now a one-line **alias** for [`support_training.require_config_instance`](support_training.md), which moved there because the generative cycle needs the identical check. The private name is kept so anything that reached for it still resolves. Raises `TypeError` unless `value` is an instance of `expected_class`; used by every entry point to reject dicts/other types.
 - Module logger: `logger = logging.getLogger(__name__)`.
 
 ---

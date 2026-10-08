@@ -57,6 +57,7 @@ from jade.config.loss_functions import (
     loss_config,
     cross_entropy_config,
     nll_config,
+    elbo_config,
     LOSS_CONFIG_REGISTRY,
     get_loss_config,
 )
@@ -74,6 +75,7 @@ from jade.config.model import (
     deep4net_pooling_config,
     TIDNet_config,
     tidnet_pooling_config,
+    vEEGNet_config,
     braindecode_wrapper_config,
     MODEL_CONFIG_REGISTRY,
     get_model_config,
@@ -120,6 +122,7 @@ __all__ = [
     "loss_config",
     "cross_entropy_config",
     "nll_config",
+    "elbo_config",
     "LOSS_CONFIG_REGISTRY",
     "get_loss_config",
     # Model configs
@@ -133,6 +136,7 @@ __all__ = [
     "Deep4Net_config",
     "deep4net_pooling_config",
     "TIDNet_config",
+    "vEEGNet_config",
     "tidnet_pooling_config",
     "braindecode_wrapper_config",
     "MODEL_CONFIG_REGISTRY",

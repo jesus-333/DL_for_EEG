@@ -9,12 +9,12 @@ Package initializer for the `training` subpackage. It performs three jobs: aggre
 The imports are ordered **leaf-first** so that dependent modules find their dependencies already loaded:
 
 ```
-logging_utils  →  support_training  →  metrics  →  classifier_epoch  →  classifier  →  test_functions
+logging_utils  →  wandb_utils  →  custom_loss_function  →  support_training  →  metrics
+               →  classifier_epoch  →  vae_epoch  →  classifier  →  vae  →  test_functions
 ```
 
-- `support_training` and `metrics` are bound as submodule objects (`from jade.training import support_training`, `... metrics`), so callers can do `jade.training.support_training.get_optimizer(...)` and `jade.training.metrics.compute_metrics(...)`.
-- `setup_logging` (from `logging_utils`), `train_epoch_function`, `validation_epoch_function` (from `classifier_epoch`), `train`, `train_model`, `wandb_train`, `wandb_train_model` (from `classifier`) and `test` (from `test_functions`) are imported as names into the package namespace.
-- `logging_utils` is torch-free (stdlib only), so it is listed first; the rest of the package pulls in torch.
+- Every submodule is bound as a module object (`support_training`, `metrics`, `classifier`, `classifier_epoch`, `vae`, `vae_epoch`, `custom_loss_function`, `wandb_utils`), so callers can do `jade.training.vae.train_model(...)` or `jade.training.support_training.get_optimizer(...)`. **This module-qualified form is the preferred style for new code.**
+- `logging_utils` is torch-free (stdlib only), so it is listed first; `wandb_utils` has no internal import at all and `custom_loss_function` reaches only `jade.config`, so both are true leaves. `support_training` reaches `custom_loss_function` through a *function-local* import, so there is no ordering constraint between them, but listing leaves first keeps the stated convention honest.
 
 ## Package logger
 
@@ -36,12 +36,19 @@ Following the standard library-logging best practice, a `logging.NullHandler` is
 | `wandb_train_model` | `classifier` | function — wandb-wrapped `train_model` (already-built model; logs optional `model_config`/`dataset_config`) |
 | `train_epoch_function` | `classifier_epoch` | function — one training epoch |
 | `validation_epoch_function` | `classifier_epoch` | function — one validation epoch |
+| `vae_train`, `vae_train_model`, `vae_wandb_train`, `vae_wandb_train_model` | `vae` | the same four entry points for a generative model |
+| `vae_train_epoch_function`, `vae_validation_epoch_function` | `vae_epoch` | one epoch each, for a generative model |
 | `test` | `test_functions` | function — generic evaluation |
 | `setup_logging` | `logging_utils` | function — opt-in root-logger setup (console + optional file) |
 | `support_training` | submodule | factories + helpers |
-| `metrics` | submodule | classification metrics |
+| `metrics` | submodule | classification and reconstruction metrics |
+| `classifier`, `classifier_epoch`, `vae`, `vae_epoch`, `custom_loss_function`, `wandb_utils` | submodules | the two training cycles, the custom losses and the wandb plumbing |
+
+### The naming decision
+
+Both families define `train`, `train_model`, `wandb_train`, `wandb_train_model`, `train_epoch_function` and `validation_epoch_function`. The **classification** ones keep the plain names they always had — so every existing `from jade.training import train_model` keeps resolving to the classifier, with no deprecation and no breakage — and the **generative** ones are exported with a `vae_` prefix.
 
 ## Notes / gotchas
 
-- The module docstring explicitly states the current scope: **only the classification (finetuning) objective** is implemented; a reconstruction/pretraining objective and a federated-learning submodule are planned but absent.
+- The module docstring states the current scope: the **classification** and the **generative** objectives are both implemented, each with its own cycle; a federated-learning submodule is planned but absent.
 - `from __future__ import annotations` is used here (and in every module of this package) so all annotations are lazy strings.

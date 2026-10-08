@@ -46,6 +46,43 @@ from jade.config.model import get_model_config
 logger = logging.getLogger(__name__)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Module constants
+
+# Losses that consume the output of a classification head (a tensor of logits/log-probabilities).
+CLASSIFICATION_LOSSES = ("cross_entropy", "nll")
+
+# Losses that consume the output of a generative model (i.e. the reconstruction and the parameters of the latent distribution).
+GENERATIVE_LOSSES = ("elbo",)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Config checks
+
+def require_config_instance(value, expected_class, name : str) -> None :
+    """
+    Ensure a config argument is a dataclass instance (and not a plain dict or another type).
+
+    The training entry points accept only config *instances*, consistently with the rest of the codebase, so a wrong type fails fast with a clear message.
+    It lives here (and not in a single training module) because every training cycle needs it, i.e. both :mod:`jade.training.classifier` and :mod:`jade.training.vae`.
+
+    Parameters
+    ----------
+    value : Any
+        The value to check.
+    expected_class : type
+        The config class ``value`` must be an instance of.
+    name : str
+        The name of the argument, used in the error message.
+
+    Raises
+    ------
+    TypeError
+        If ``value`` is not an instance of ``expected_class``.
+    """
+
+    if not isinstance(value, expected_class) :
+        raise TypeError(f"{name} must be a {expected_class.__name__} instance (a config dataclass), got {type(value)}")
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Dataloader factory
 
 def get_dataloader(dataset, batch_size : int, dataloader_config_to_use : dataloader_config = None) -> torch.utils.data.DataLoader :
@@ -244,33 +281,46 @@ def get_loss_function(loss_config_to_use) -> torch.nn.Module :
     -------
     torch.nn.Module
         The loss module. Remember that :class:`torch.nn.CrossEntropyLoss` expects logits, while :class:`torch.nn.NLLLoss` expects log-probabilities.
+        A custom loss (see :mod:`jade.training.custom_loss_function`) is a module too, but it does not necessarily return a single scalar:
+        :class:`~jade.training.custom_loss_function.elbo.elbo_loss` returns a :class:`~jade.training.custom_loss_function.elbo.elbo_terms` named tuple, whose ``total`` field is the one to backpropagate (see :mod:`jade.training.vae_epoch`).
     """
 
     # Accept both a config instance and a plain dict.
     config = get_loss_config(loss_config_to_use)
 
-    # The class weights are stored as a plain list in the config; turn them into a tensor for torch.
-    weight = torch.tensor(config.weight, dtype = torch.float) if config.weight is not None else None
-
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # Dispatch on the loss name
 
-    if config.name == "cross_entropy" :
-        loss_function = torch.nn.CrossEntropyLoss(
-            weight          = weight,
-            ignore_index    = config.ignore_index,
-            reduction       = config.reduction,
-            label_smoothing = config.label_smoothing,
-        )
-    elif config.name == "nll" :
-        loss_function = torch.nn.NLLLoss(
-            weight       = weight,
-            ignore_index = config.ignore_index,
-            reduction    = config.reduction,
-        )
+    if config.name in CLASSIFICATION_LOSSES :
+        # The class weights are stored as a plain list in the config; turn them into a tensor for torch.
+        # Note that this is done here, and not before the dispatch, because only a classification loss has a class_weight field.
+        # Note also the rename: the config calls them class_weight (they are per-class coefficients, not model weights), while torch calls the argument weight.
+        class_weight = torch.tensor(config.class_weight, dtype = torch.float) if config.class_weight is not None else None
+
+        if config.name == "cross_entropy" :
+            loss_function = torch.nn.CrossEntropyLoss(
+                weight          = class_weight,
+                ignore_index    = config.ignore_index,
+                reduction       = config.reduction,
+                label_smoothing = config.label_smoothing,
+            )
+        else :
+            loss_function = torch.nn.NLLLoss(
+                weight       = class_weight,
+                ignore_index = config.ignore_index,
+                reduction    = config.reduction,
+            )
     else :
+        # Custom losses (the ELBO, for now) have no torch.nn counterpart and live in jade.training.custom_loss_function.
+        # The import is done here, and not at the top of the module, both to keep the import of this module light and to avoid a circular import
+        # (custom_loss_function is a subpackage of jade.training, whose __init__ imports this very module).
+        from jade.training.custom_loss_function import CUSTOM_LOSS_REGISTRY, get_custom_loss_function
+
         # This should never happen (the config validates the name), but keep a clear error just in case.
-        raise ValueError("unknown loss name {}".format(repr(config.name)))
+        if config.name not in CUSTOM_LOSS_REGISTRY :
+            raise ValueError("unknown loss name {}".format(repr(config.name)))
+
+        loss_function = get_custom_loss_function(config)
 
     return loss_function
 
@@ -286,7 +336,10 @@ def cross_check_config(training_config, model_config) -> None :
     The checks currently enforced are:
 
     * **loss vs last-layer activation** - a ``nll`` loss expects log-probabilities, so the classifier must end with a :class:`torch.nn.LogSoftmax` (model ``use_softmax = True``); a ``cross_entropy`` loss expects raw logits, so it must end with a :class:`torch.nn.Identity` (model ``use_softmax = False``). See :func:`get_loss_function` and :class:`~jade.model.EEGNet.EEGNet_Classifier`.
-    * **class weights vs number of classes** - when the loss carries a per-class ``weight`` list, its length must equal the model ``n_classes``.
+    * **class weights vs number of classes** - when the loss carries a per-class ``class_weight`` list, its length must equal the model ``n_classes``.
+    * **training objective** - a generative model (``model_config.task = 'generative'``, e.g. :class:`~jade.config.model.vEEGNet_cfg.vEEGNet_config`) returns a reconstruction and the parameters of a latent distribution, which a classification loss cannot consume; conversely a generative loss needs those parameters, which a classifier does not produce. The two families are listed in :data:`CLASSIFICATION_LOSSES` and :data:`GENERATIVE_LOSSES`.
+
+    A warning (not an error) is emitted when the KL warm-up of the loss lasts longer than the whole training: it is a legitimate setup for a truncated run, but the KL term never reaches its full weight.
 
     New cross-config constraints should be added here.
 
@@ -328,10 +381,30 @@ def cross_check_config(training_config, model_config) -> None :
     # Class weights vs number of classes
 
     # A per-class weight list must have exactly one entry per class.
-    weight = getattr(training_config.loss, "weight", None)
+    class_weight = getattr(training_config.loss, "class_weight", None)
     n_classes = getattr(model_config, "n_classes", None)
-    if weight is not None and n_classes is not None and len(weight) != n_classes :
-        raise ValueError("the loss has {} class weights but the model has {} classes".format(len(weight), n_classes))
+    if class_weight is not None and n_classes is not None and len(class_weight) != n_classes :
+        raise ValueError("the loss has {} class weights but the model has {} classes".format(len(class_weight), n_classes))
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Training objective (classification vs generative)
+
+    # The task is a class attribute of the model config (a ClassVar, so it is not a serialized field): it says what the forward of the model returns.
+    model_task = getattr(model_config, "task", "classification")
+
+    if model_task == "generative" and loss_name in CLASSIFICATION_LOSSES :
+        raise ValueError("model {} is trained with a generative objective (its forward returns the reconstruction and the parameters of the latent distribution): pair it with one of {}, not {}".format(repr(model_config.name), GENERATIVE_LOSSES, repr(loss_name)))
+
+    if model_task != "generative" and loss_name in GENERATIVE_LOSSES :
+        raise ValueError("loss {} needs a model whose forward returns the reconstruction and the parameters of the latent distribution, but {} is a classifier: use one of {} instead".format(repr(loss_name), repr(model_config.name), CLASSIFICATION_LOSSES))
+
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # Warm-up vs number of epochs
+
+    # A warm-up longer than the training is not an error (a run can be deliberately truncated), but the KL term never reaches its full weight, so it is worth a warning.
+    kl_warmup_epochs = getattr(training_config.loss, "kl_warmup_epochs", 0)
+    if kl_warmup_epochs > training_config.epochs :
+        logger.warning("the KL warm-up lasts %d epochs but the training runs for only %d: the KL term never reaches its full weight", kl_warmup_epochs, training_config.epochs)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Helpers used during training

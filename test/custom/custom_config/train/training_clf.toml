@@ -76,8 +76,10 @@ name = "cross_entropy"
 ignore_index = -100
 reduction = "mean"
 label_smoothing = 0.0
-# Optional per-class weights (a list with one entry per class, must match the model n_classes).
-# weight = [1.0, 1.0, 1.0, 1.0]
+# Optional per-class coefficients, used to counter a class imbalance (a list with one entry per class,
+# must match the model n_classes). They are the `weight` argument of the torch loss; the config calls
+# them class_weight so they are not mistaken for the trainable weights of the model.
+# class_weight = [1.0, 1.0, 1.0, 1.0]
 
 # ---------------------------------------------------------------------
 # Dataloader (single option)

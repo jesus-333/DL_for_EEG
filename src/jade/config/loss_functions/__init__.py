@@ -1,10 +1,18 @@
 """
 Loss-function configuration subpackage.
 
-One file per classification loss, each exposing a :func:`dataclasses.dataclass` config that mirrors the parameters of the matching :mod:`torch.nn` loss:
+One file per loss, each exposing a :func:`dataclasses.dataclass` config.
+
+Most of them are classification losses and mirror the parameters of the matching :mod:`torch.nn` loss:
 
 * :class:`~jade.config.loss_functions.cross_entropy.cross_entropy_config` - :class:`torch.nn.CrossEntropyLoss` (expects logits; pair with ``use_softmax = False``)
 * :class:`~jade.config.loss_functions.nll.nll_config`                     - :class:`torch.nn.NLLLoss` (expects log-probabilities; pair with ``use_softmax = True``)
+
+The remaining ones describe a *custom* loss, i.e. a loss with no :mod:`torch.nn` counterpart, implemented inside :mod:`jade.training.custom_loss_function`:
+
+* :class:`~jade.config.loss_functions.elbo.elbo_config` - :class:`~jade.training.custom_loss_function.elbo.elbo_loss` (expects a generative model, e.g. :class:`~jade.model.vEEGNet.vEEGNet`)
+
+The config of a custom loss lives here, and not next to its implementation, because it is the ``[loss]`` section of a :class:`~jade.config.training.training_config`: it must be reachable through the registry below to be loadable from a file, and (like the rest of :mod:`jade.config`) it must stay torch-free.
 
 The :data:`LOSS_CONFIG_REGISTRY` maps the lowercase loss name to its config class, and :func:`get_loss_config` promotes a plain dict into the proper config instance.
 """
@@ -18,6 +26,7 @@ from __future__ import annotations
 from jade.config.loss_functions.generic import loss_config
 from jade.config.loss_functions.cross_entropy import cross_entropy_config
 from jade.config.loss_functions.nll import nll_config
+from jade.config.loss_functions.elbo import elbo_config
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Registry and factory
@@ -26,6 +35,7 @@ from jade.config.loss_functions.nll import nll_config
 LOSS_CONFIG_REGISTRY = {
     "cross_entropy" : cross_entropy_config,
     "nll"           : nll_config,
+    "elbo"          : elbo_config,
 }
 
 
@@ -61,6 +71,7 @@ __all__ = [
     "loss_config",
     "cross_entropy_config",
     "nll_config",
+    "elbo_config",
     "LOSS_CONFIG_REGISTRY",
     "get_loss_config",
 ]
