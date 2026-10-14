@@ -1,6 +1,6 @@
-# `model/support_modules.py` — placeholder (empty)
+# `model/support_models.py` — placeholder (empty)
 
-Source: `src/jade/model/support_modules.py`
+Source: `src/jade/model/support_models.py`
 
 **Currently empty.** The entire file is a single module docstring:
 

@@ -2,7 +2,7 @@
 
 Source: `src/jade/config/training.py`
 
-Defines `training_config`, the **root** config for a classification training run — every parameter consumed by `jade.training.classifier`. It follows the module's standard design (dataclass + `generic_config` + `__post_init__` validation) and, crucially, holds five **nested configs** that are promoted from plain dicts on load. Serialized to TOML, each nested config becomes its own section (`[optimizer]`, `[loss]`, `[wandb]`, …).
+Defines `training_config`, the **root** config for a training run — every parameter consumed by `jade.training.classifier` **or** `jade.training.vae` (both accept the same config). It follows the module's standard design (dataclass + `generic_config` + `__post_init__` validation) and, crucially, holds five **nested configs** that are promoted from plain dicts on load. Serialized to TOML, each nested config becomes its own section (`[optimizer]`, `[loss]`, `[wandb]`, …).
 
 ## Imports of note
 

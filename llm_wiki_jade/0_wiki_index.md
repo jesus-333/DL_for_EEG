@@ -139,7 +139,7 @@ torch EEG models (EEGNet family, EEG Conformer) + the `pooling_1d` anti-aliasing
 | [braindecode_pooling_extension.md](modules/model/braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` |
 | [aEEGNet.md](modules/model/aEEGNet.md) | `model/aEEGNet.py` |
 | [support_functions.md](modules/model/support_functions.md) | `model/support_functions.py` |
-| [support_modules.md](modules/model/support_modules.md) | `model/support_modules.py` (empty TODO placeholder) |
+| [support_models.md](modules/model/support_models.md) | `model/support_models.py` (empty TODO placeholder) |
 
 > Note: `src/jade/model/README.md` and `other/antialiased_pooling_theory.pdf` provide additional background; their relevant content is folded into the model quickstart.
 

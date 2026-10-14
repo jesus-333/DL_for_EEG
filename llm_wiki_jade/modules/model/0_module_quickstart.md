@@ -134,7 +134,7 @@ model/
 ├── braindecode_pooling_extension.py   braindecode_pooling_wrapper (swap braindecode pooling for pooling_1d)
 ├── aEEGNet.py                         attention variant (WIP stub) + channels_attention_head
 ├── support_functions.py               get_activation, get_nonlinearity (+ square / safe_log), get_dropout, get_multichannel_pooling, count_trainable_parameters, create_head, compute_attention_values
-├── support_modules.py                 empty placeholder (TODO)
+├── support_models.py                 empty placeholder (TODO)
 └── pooling_1d/                        anti-aliased 1D pooling research sub-package (self-contained)
 ```
 

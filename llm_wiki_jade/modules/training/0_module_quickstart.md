@@ -79,7 +79,7 @@ For users who do not want to set up their own logger, [`logging_utils.setup_logg
 
 ## Checkpointing / model-artifact behavior
 
-`train` writes several `.pth` files (state dicts, via `torch.save`) into `path_to_save_model`:
+`train_model` writes several `.pth` files (state dicts, via `torch.save`) into `path_to_save_model` (`train` itself only builds the model and delegates to `train_model`, which owns the entire epoch loop and all checkpointing):
 
 - `model_{n}.pth` + `optimizer_{n}.pth` every `epoch_to_save_model` epochs (periodic checkpoints).
 - `model_BEST.pth` + `optimizer_BEST.pth` whenever a new **minimum validation loss** is reached (only when a validation set is given).

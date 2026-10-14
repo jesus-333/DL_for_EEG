@@ -72,7 +72,7 @@ Trains an **already-built** classifier and returns it together with the metrics 
 1. **Config check & setup** — `_require_config_instance(training_config, training_config_class, ...)` (`TypeError` on a dict/wrong type); alias `device = training_config.device`, `use_wandb = training_config.wandb is not None`. If `use_wandb` but `wandb is None`, raise `ImportError`. If `training_config.seed is not None`, call `support_training.set_seed`.
 2. **Dataloaders** — `support_training.get_dataloader(train_dataset, batch_size, dataloader)`; same for validation if present, else `validation_loader = None`.
 3. **Loss / optimizer / scheduler** — `model.to(device)`; optionally load `path_past_weights` into the model (`torch.load(..., map_location=device)` + `load_state_dict`); build loss via `get_loss_function` and move to device (matters when the loss carries class weights); build optimizer via `get_optimizer`; optionally load `path_past_optimizer` state; build LR scheduler via `get_lr_scheduler` if `lr_scheduler` config is set, else `None`.
-4. **Training preparation** — `os.makedirs(path_to_save_model, exist_ok=True)`; if `use_wandb`, `wandb.watch(model, criterion=loss_function, log="all", log_freq=wandb.log_freq, log_graph=True)`; `best_loss_val = sys.maxsize`; init `log_dict = {}` and `computed_metrics_during_training = dict()`.
+4. **Training preparation** — `os.makedirs(path_to_save_model, exist_ok=True)`; if `use_wandb`, `wandb_utils.watch_model(model, loss_function, training_config.wandb)` (which itself calls `wandb.watch(model, criterion=loss_function, log="all", log_freq=wandb_config.log_freq, log_graph=True)`); `best_loss_val = sys.maxsize`; init `log_dict = {}` and `computed_metrics_during_training = dict()`.
 5. **Epoch loop** (`for epoch in range(epochs)`):
    - **Training epoch** (mandatory): `train_loss = train_epoch_function(model, train_loader, loss_function, optimizer, device, log_dict, print_var)`.
    - **Periodic checkpoint**: if `(epoch + 1) % epoch_to_save_model == 0`, save `model_{epoch+1}.pth` and `optimizer_{epoch+1}.pth`.
@@ -152,15 +152,16 @@ The wandb counterpart of `train_model` (already-built model). Opens a `wandb.ini
 
 ### Flow
 
-1. `_require_config_instance` on `training_config` (and `model_config`/`dataset_config` when given).
-2. Raise `ImportError` if `wandb is None`; raise `ValueError` if `training_config.wandb is None`.
-3. Build `config_to_log = {"training_config": training_config.to_dict()}`, adding `"model_config"` and/or `"dataset_config"` (each `to_dict`-ed) when provided.
-4. `run_id = str(training_config.seed)` if a seed is set, else `None` — so a seeded run can be **resumed** under the same id.
-5. `with wandb.init(project=..., entity=..., name=..., job_type="train", config=config_to_log, notes=..., id=run_id, resume="allow") as run:`
-   - Artifact name = `wandb.model_artifact_name + "_trained"`. If `log_model_artifact`, create a `wandb.Artifact(type="model", description=..., metadata=config_to_log)`, else `None`.
-   - Call `train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)`.
-   - If `log_model_artifact`, `run.log_artifact(wandb_model_artifact)`.
-6. Return `train_model`'s result.
+1. `_require_config_instance` on `training_config` (and `model_config`/`dataset_config` when given) — `TypeError` on a dict/wrong type.
+2. Delegates the entire run to [`wandb_utils.run_training_with_wandb(train_model, training_config, model, train_dataset, validation_dataset, model_config=model_config, dataset_config=dataset_config)`](wandb_utils.md), passing its own `train_model` as the training function to call. All wandb mechanics now live there:
+   - `wandb_utils.wandb_run` (a context manager) calls `require_wandb()` (`ImportError` if wandb isn't installed) and checks `training_config.wandb is not None` (`ValueError` otherwise).
+   - Builds `config_to_log` via `build_config_to_log` — `{"training_config": training_config.to_dict()}`, plus `"model_config"`/`"dataset_config"` (each `to_dict`-ed) when provided.
+   - `run_id = build_run_id(training_config)` — `f"{seed}_{name_training_run}"` when **both** `training_config.seed` and `wandb_config.name_training_run` are set, else `None` (wandb assigns its own id).
+   - Opens `wandb.init(project=..., entity=..., name=..., job_type="train", config=config_to_log, notes=..., id=run_id, resume="allow")`.
+   - `create_model_artifact` builds the artifact named `wandb.model_artifact_name + "_trained"` when `log_model_artifact` is true, else `None`.
+3. Inside the run, `run_training_with_wandb` calls `train_model(training_config, model, train_dataset, validation_dataset, wandb_model_artifact)`.
+4. On a clean exit from the run context, `run.log_artifact(wandb_model_artifact)` if an artifact was created.
+5. Returns `train_model`'s result.
 
 ### Side effects / errors
 

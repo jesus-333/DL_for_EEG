@@ -39,7 +39,7 @@ Top-level convenience: runs the model over `loader` (via `compute_label`) and tu
 | `device` | `str` / `torch.device` | — | Device for the forward passes. |
 | `num_classes` | `int` / `None` | `None` | If `None`, inferred as `max(label)+1` (see `_infer_num_classes`). |
 
-Returns the five-key metrics dict. Called once per set (train / validation) per epoch by [`classifier.train`](classifier.md), and by [`test`](test_functions.md).
+Returns the five-key metrics dict. Called once per set (train / validation) per epoch by [`classifier.train_model`](classifier.md), and by [`test`](test_functions.md).
 
 ---
 

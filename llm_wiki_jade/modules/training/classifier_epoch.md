@@ -2,7 +2,7 @@
 
 Source: `src/jade/training/classifier_epoch.py`
 
-The single-epoch primitives for classification training: one training epoch (with the backward pass) and one validation epoch (forward only, no gradient). Both are called by the epoch loop in [`classifier.train`](classifier.md).
+The single-epoch primitives for classification training: one training epoch (with the backward pass) and one validation epoch (forward only, no gradient). Both are called by the epoch loop in [`classifier.train_model`](classifier.md) (`train` only builds the model and delegates; the epoch loop itself lives in `train_model`).
 
 ## Shared design: per-sample weighted loss
 

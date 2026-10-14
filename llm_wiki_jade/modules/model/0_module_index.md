@@ -18,7 +18,7 @@ Table of contents for the `model` module wiki. Start with the [quickstart](0_mod
 | [braindecode_pooling_extension.md](braindecode_pooling_extension.md) | `model/braindecode_pooling_extension.py` | `braindecode_pooling_wrapper` — wrap a braindecode model and swap its pooling layers for the `pooling_1d` operators. |
 | [aEEGNet.md](aEEGNet.md) | `model/aEEGNet.py` | Attention-augmented EEGNet variant — WIP stub — plus `channels_attention_head`. |
 | [support_functions.md](support_functions.md) | `model/support_functions.py` | `get_activation`, `get_nonlinearity` (+ the `square` / `safe_log` modules), `get_dropout`, `get_multichannel_pooling`, `count_trainable_parameters`, `create_head`, `compute_attention_values`. |
-| [support_modules.md](support_modules.md) | `model/support_modules.py` | Empty placeholder file (TODO). |
+| [support_models.md](support_models.md) | `model/support_models.py` | Empty placeholder file (TODO). |
 
 ## Sub-package `pooling_1d/` (`src/jade/model/pooling_1d/`)
 
