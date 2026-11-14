@@ -47,14 +47,14 @@ seed = torch.random.seed()
 # (OPTIONAL) Name of the experiment. If specified, it will change the name of the folder where the results are saved.
 # See the variable path_results below
 name_experiment = None
-name_experiment = "d2a_subj_3"
+name_experiment = "d2a_subj_5"
 
 # Uncomment the following lines to use a timestamp as the name of the experiment (useful for multiple runs).
 # import time
 # name_experiment = f"{time.strftime('%Y_%m_%d_%H_%M_%S')}" if name_experiment is None else f"{name_experiment}_{time.strftime('%Y_%m_%d_%H_%M_%S')}"
 
 # The script saves the optimizer state_dict every epoch. If you want to delete those files after training, set this variable to True.
-delete_optimizer_files = True 
+delete_optimizer_files = True
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -44,6 +44,111 @@ def compute_aliased_energy_ratio_dataloader(model : EEGNet_aliasing, dataloader 
 
     return aliased_energy_ratio_1, aliased_energy_ratio_2
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Metrics reading functions
+
+def read_aliased_energy_ratio_single_repetition(path_results_repetitions, block : int) -> np.ndarray :
+    """
+    Read the aliased energy ratio from the metrics file for a given block.
+
+    To run this fucntion you need to run the script 2_computed_metrics_experiment.py first, whith `save_tensors_per_repetition` set to True, so that the metric for that specific repetition is saved to disk.
+
+    Parameters
+    ----------
+    path_results_metrics : str
+        Path to the metrics folder.
+    block : int
+        EEGNet "block". 1 give the energy ratio for for the first pooling layer, 2 for the second pooling layer.
+
+    Returns
+    -------
+    np.ndarray
+        Array of aliased energy ratios for the specified block across epochs. The final shape is (epochs, N, D), where
+        - epochs is the number of training epochs (clearly),
+        - N is the number of samples in the dataset
+        - D is the number of depth channels in the EEGNet model for that layer (n.b. this should not be confused with the number of EEG channels).
+    """
+
+    if block != 1 and block != 2: raise ValueError(f"Block {block} is not supported. Only block 1 and 2 are supported.")
+    
+    # Read energy ratio for train data
+    path_metrics_train = os.path.join(path_results_repetitions, f"metrics/energy_ratio_train_{block}.pt")
+    energy_ratio_train = torch.load(path_metrics_train).squeeze().cpu().detach().numpy()
+
+    # Read energy ratio for test data
+    path_metrics_test = os.path.join(path_results_repetitions, f"metrics/energy_ratio_test_{block}.pt")
+    energy_ratio_test = torch.load(path_metrics_test).squeeze().cpu().detach().numpy()
+
+    return energy_ratio_train, energy_ratio_test
+
+def read_aliased_energy_ratio_experiment(path_results_experiment, block : int) -> np.ndarray :
+    """
+    Very similar to `read_aliased_energy_ratio_single_repetition`, but this function reads the metrics for all repetitions of the experiment, and returns a tensor of shape (R, epochs, N, D), where R is the number of repetitions.
+
+    Note that this script assumes that the results are stored with a specific folder structure, i.e.
+    ```
+    path_results_experiment/
+        repetition_1/
+            model_weights/
+        repetition_2/
+            model_weights/
+        ...
+        repetition_R/
+            model_weights/
+    ```
+    
+    The script`1_train.py` produce exactly this folder structure.
+    Note that the folder inside does not need to be called `repetition_X`, it can be any name, as long as each folder contains the `model_weights` folder with the weights of the model for that repetition.
+
+    N.b. This function also expects that each repetition use the same number of epochs, the same number of depth channels and the same number of samples in the dataset. If this is not the case, the function will raise an error.
+
+    """
+
+    if block != 1 and block != 2: raise ValueError(f"Block {block} is not supported. Only block 1 and 2 are supported.")
+
+    tmp_list_energy_ratio_train, tmp_list_energy_ratio_test = [], []
+
+    # Get all repetitions folders
+    list_repetitions_folders = get_all_folders_in_folder(path_results_experiment)
+
+    for repetition_folder in list_repetitions_folders :
+        # N.b. this function already return the energy ration in numpy format
+        energy_ratio_train, energy_ratio_test = read_aliased_energy_ratio_single_repetition(repetition_folder, block)
+
+        # Save the energy ratio for this repetition to the list
+        tmp_list_energy_ratio_train.append(energy_ratio_train)
+        tmp_list_energy_ratio_test.append(energy_ratio_test)
+
+    # Convert the list to a numpy array for easier manipulation
+    return np.array(tmp_list_energy_ratio_train), np.array(tmp_list_energy_ratio_test)
+
+def get_idx_sorting_depth_channels_by_energy_ratio(energy_ratio_array : np.ndarray) -> np.ndarray :
+    """
+    The function receive in input an array of shape (epochs, N, D), with
+    - epochs is the number of training epochs (clearly)
+    - N is the number of samples in the dataset
+    - D is the number of depth channels in the EEGNet model for that layer (n.b. this should not be confused with the number of EEG channels).
+
+    The element (i, j, k) of the array is the aliased energy ratio for the i-th epoch, j-th sample and k-th depth channel.
+
+    The output is an array of shape (D,) with the indices that would sort the depth channels by their mean aliased energy ratio at the last epoch.
+    The first element of the output array is the index of the depth channel with the lowest mean aliased energy ratio at the last epoch, and the last element is the index of the depth channel with the highest mean aliased energy ratio at the last epoch.
+    """
+
+    # Check that the input array has the correct shape
+    if len(energy_ratio_array.shape) != 3 : raise ValueError(f"Input array must have shape (epochs, N, D), but got {energy_ratio_array.shape}")
+
+    # Get the last epoch
+    last_epoch_energy_ratio = energy_ratio_array[-1, :, :]
+
+    # Compute the mean aliased energy ratio for each depth channel across all samples
+    mean_energy_ratio_per_depth_channel = np.mean(last_epoch_energy_ratio, axis = 0)
+
+    # Get the indices that would sort the depth channels by their mean aliased energy ratio
+    sorted_indices = np.argsort(mean_energy_ratio_per_depth_channel)
+
+    return sorted_indices
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # General utility functions

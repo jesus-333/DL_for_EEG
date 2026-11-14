@@ -19,7 +19,7 @@ import other.aliasing_experiment.z_support_analysis as support_analysis
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Settings
 
-experiment_name = "d2a_subj_3"
+experiment_name = "d2a_subj_5"
 
 path_results = f'./other/aliasing_experiment/results/{experiment_name}/'
 
@@ -90,6 +90,7 @@ for i in range(len(list_experiment_repetition)) :
         with torch.no_grad() :
             # Load model weights
             path_model_weights = os.path.join(training_config_obj.path_to_save_model, f"model_{epoch + 1}.pth")
+            # model.load_state_dict(torch.load(path_model_weights), map_location = device)
             model.load_state_dict(torch.load(path_model_weights))
             model.eval()
 
