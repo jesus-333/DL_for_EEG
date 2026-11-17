@@ -234,6 +234,54 @@ def count_trainable_parameters(torch_module : nn.Module) -> int:
     return n_parameters
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Generic modules
+
+class lora_linear(nn.Module) :
+    """
+    Low-rank replacement of a :class:`torch.nn.Linear` layer, built on the idea behind LoRA (Hu et al., 2021).
+
+    The ``out_features x in_features`` weight matrix is factorized as the product of two matrices of rank ``rank``, i.e. the input is first projected down to ``rank`` features and then back up to ``out_features``.
+    With ``rank << min(in_features, out_features)`` the number of weights drops from ``in_features * out_features`` to ``rank * (in_features + out_features)``.
+    Note that, contrary to the original LoRA, there is no frozen full-rank layer: this module *is* the layer.
+    The output is scaled by ``alpha / rank``, and there is no bias.
+
+    It is used by the vector latent mappings of :class:`~jade.model.hvEEGNet.hvEEGNet`, where the input (a flattened feature map) can have hundreds of thousands of elements.
+
+    Parameters
+    ----------
+    in_features : int
+        Number of input features.
+    out_features : int
+        Number of output features.
+    rank : int
+        Rank of the factorization.
+    alpha : float, optional
+        Scaling numerator. A non-positive value (the default, -1) means ``alpha = rank``, i.e. no scaling.
+    use_spectral_norm : bool, optional
+        If True apply :func:`torch.nn.utils.parametrizations.spectral_norm` to the two factors, by default False.
+    """
+
+    def __init__(self, in_features : int, out_features : int, rank : int, alpha : float = -1, use_spectral_norm : bool = False) :
+        super().__init__()
+
+        down_projection = nn.Linear(in_features, rank, bias = False)
+        up_projection   = nn.Linear(rank, out_features, bias = False)
+
+        if use_spectral_norm :
+            down_projection = nn.utils.parametrizations.spectral_norm(down_projection)
+            up_projection   = nn.utils.parametrizations.spectral_norm(up_projection)
+
+        # The names of the original implementation (lora_a = down projection, lora_b = up projection).
+        self.lora_a = down_projection
+        self.lora_b = up_projection
+
+        self.rank  = rank
+        self.alpha = alpha if alpha > 0 else rank
+
+    def forward(self, x : torch.Tensor) -> torch.Tensor :
+        return (self.alpha / self.rank) * self.lora_b(self.lora_a(x))
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Function for aEEGNet
 
 def create_head(config : dict) -> tuple[nn.Module, nn.Module, nn.Module] :

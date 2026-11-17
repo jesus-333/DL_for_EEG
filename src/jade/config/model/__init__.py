@@ -9,6 +9,7 @@ Configuration objects that describe a :mod:`jade.model` network, following the `
 * :class:`~jade.config.model.Deep4Net_cfg.Deep4Net_config` - :class:`~jade.model.Deep4Net.Deep4Net` / :class:`~jade.model.Deep4Net.Deep4Net_Classifier`.
 * :class:`~jade.config.model.TIDNet_cfg.TIDNet_config` - :class:`~jade.model.TIDNet.TIDNet` / :class:`~jade.model.TIDNet.TIDNet_Classifier`.
 * :class:`~jade.config.model.vEEGNet_cfg.vEEGNet_config` - :class:`~jade.model.vEEGNet.vEEGNet` (a variational autoencoder, so it has no classifier wrapper).
+* :class:`~jade.config.model.hvEEGNet_cfg.hvEEGNet_config` - :class:`~jade.model.hvEEGNet.hvEEGNet` (the hierarchical variational autoencoder, no classifier wrapper either).
 * :class:`~jade.config.model.braindecode_pooling_extension_cfg.braindecode_wrapper_config` - :class:`~jade.model.braindecode_pooling_extension.braindecode_pooling_wrapper` (any ``braindecode`` model, with its pooling layers swapped).
 
 Every model config carries its ``name`` inside; that value is what :func:`~jade.model.get_model` uses to pick the model class.
@@ -30,6 +31,7 @@ from jade.config.model.ShallowFBCSPNet_cfg import ShallowFBCSPNet_config, shallo
 from jade.config.model.Deep4Net_cfg import Deep4Net_config, deep4net_pooling_config
 from jade.config.model.TIDNet_cfg import TIDNet_config, tidnet_pooling_config
 from jade.config.model.vEEGNet_cfg import vEEGNet_config
+from jade.config.model.hvEEGNet_cfg import hvEEGNet_config
 from jade.config.model.braindecode_pooling_extension_cfg import braindecode_wrapper_config
 from jade.config.model.pooling_1d_cfg import (
     pooling_config,
@@ -66,6 +68,8 @@ MODEL_CONFIG_REGISTRY = {
     # Those two names are deliberately left unknown (instead of pointing here) so they stay available for the classifier variant, and so asking for one today fails with a clear error instead of silently building a generative model.
     "veegnet"                    : vEEGNet_config,
     "vae_eegnet"                 : vEEGNet_config,
+    "hveegnet"                   : hvEEGNet_config,
+    "hierarchical_veegnet"       : hvEEGNet_config,
     "braindecode_wrapper"        : braindecode_wrapper_config,
     "braindecode"                : braindecode_wrapper_config,
     "braindecode_pooling"        : braindecode_wrapper_config,
@@ -114,6 +118,7 @@ __all__ = [
     "TIDNet_config",
     "tidnet_pooling_config",
     "vEEGNet_config",
+    "hvEEGNet_config",
     "braindecode_wrapper_config",
     "MODEL_CONFIG_REGISTRY",
     "get_model_config",

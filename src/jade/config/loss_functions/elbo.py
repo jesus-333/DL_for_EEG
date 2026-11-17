@@ -13,7 +13,7 @@ The loss it describes is
 
 where :math:`L_{R}` is the reconstruction term (selected by ``reconstruction_type``), :math:`L_{KL}` is the Kullback-Leibler divergence between the approximate posterior and the standard normal prior, and :math:`w(e)` is the warm-up (annealing) multiplier at epoch :math:`e`.
 
-Note that this loss needs a *generative* model, i.e. a model whose forward returns the reconstruction and the parameters of the latent distribution (e.g. :class:`~jade.model.vEEGNet.vEEGNet`).
+Note that this loss needs a *generative* model, i.e. a model whose forward returns the reconstruction and the parameters of the latent distribution (e.g. :class:`~jade.model.vEEGNet.vEEGNet`, or the hierarchical :class:`~jade.model.hvEEGNet.hvEEGNet`, whose KL term is the sum over its latent spaces).
 The pairing is checked by :func:`~jade.training.support_training.cross_check_config`.
 
 Authors
@@ -28,6 +28,7 @@ from __future__ import annotations
 
 # Specific imports
 from dataclasses import dataclass
+from typing import Optional
 
 # Internal imports
 from jade.config.loss_functions.generic import loss_config
@@ -36,7 +37,15 @@ from jade.config.loss_functions.generic import loss_config
 # Module constants
 
 # Reconstruction terms implemented by jade.training.custom_loss_function.support_loss.
-RECONSTRUCTION_TYPES = ("mse", "l1", "gaussian_nll")
+# Note that 'soft_dtw' and 'block_dtw' need the optional dependency dtw-loss-functions (pip install "jade[extra]").
+# The config can be built without it: the import error is raized only when the loss is built.
+RECONSTRUCTION_TYPES = ("mse", "l1", "gaussian_nll", "soft_dtw", "block_dtw")
+
+# The reconstruction terms based on the DTW (they read the dtw_* fields).
+DTW_RECONSTRUCTION_TYPES = ("soft_dtw", "block_dtw")
+
+# SoftDTW implementations wrapped by dtw_loss_functions.soft_dtw.soft_dtw.
+DTW_IMPLEMENTATIONS = ("mag", "pysdtw", "ron")
 
 # Warm-up (annealing) schedules of the KL term.
 KL_WARMUP_TYPES = ("none", "linear")
@@ -81,7 +90,8 @@ class elbo_config(loss_config) :
     Parameters
     ----------
     reconstruction_type : str, default 'mse'
-        Reconstruction term. One of ``RECONSTRUCTION_TYPES``, i.e. ``'mse'`` (the term used in the original vEEGNet paper), ``'l1'`` or ``'gaussian_nll'``. Case-insensitive.
+        Reconstruction term. One of ``RECONSTRUCTION_TYPES``, i.e. ``'mse'`` (the term used in the original vEEGNet paper), ``'l1'``, ``'gaussian_nll'``, ``'soft_dtw'`` (the term of hvEEGNet) or ``'block_dtw'``. Case-insensitive.
+        The two DTW terms need the optional package ``dtw-loss-functions`` and are configured by the ``dtw_*`` fields.
     alpha : float, default 1.0
         Weight of the reconstruction term. It must be greater than or equal to zero.
     beta : float, default 1.0
@@ -103,6 +113,20 @@ class elbo_config(loss_config) :
         Lower bound on the variance, used only when ``reconstruction_type = 'gaussian_nll'``. It must be greater than zero.
     gaussian_nll_full : bool, default False
         If True the constant term of the Gaussian negative log-likelihood is included. Used only when ``reconstruction_type = 'gaussian_nll'``.
+    dtw_implementation : str, default 'mag'
+        SoftDTW implementation, one of ``DTW_IMPLEMENTATIONS`` (see :class:`dtw_loss_functions.soft_dtw.soft_dtw`). ``'mag'`` is the one used to train hvEEGNet. DTW terms only.
+    dtw_gamma : float, default 1.0
+        Smoothing parameter of the soft-min inside the SoftDTW, greater than zero. The closer to 0, the closer the SoftDTW is to the DTW. DTW terms only.
+    dtw_normalize : bool, default False
+        If True compute the SoftDTW *divergence* instead of the SoftDTW. DTW terms only.
+    dtw_bandwidth : float, optional
+        Sakoe-Chiba bandwidth used to prune the alignment, by default None (no pruning). DTW terms only.
+    dtw_block_size : int, default 128
+        Number of time samples of each block of the block DTW. Used only when ``reconstruction_type = 'block_dtw'``.
+    dtw_average_channels : bool, default False
+        If True the DTW of the channels of a trial is averaged instead of summed. DTW terms only.
+    dtw_average_time_samples : bool, default False
+        If True the DTW is divided by the number of time samples of the trial. DTW terms only.
 
     Notes
     -----
@@ -129,6 +153,15 @@ class elbo_config(loss_config) :
     # Used only when reconstruction_type = 'gaussian_nll'
     gaussian_nll_eps    : float = 1e-6
     gaussian_nll_full   : bool = False
+
+    # Used only when reconstruction_type is 'soft_dtw' or 'block_dtw'
+    dtw_implementation       : str = "mag"
+    dtw_gamma                : float = 1.0
+    dtw_normalize            : bool = False
+    dtw_bandwidth            : Optional[float] = None
+    dtw_block_size           : int = 128
+    dtw_average_channels     : bool = False
+    dtw_average_time_samples : bool = False
 
 
     def __post_init__(self) -> None :
@@ -187,3 +220,27 @@ class elbo_config(loss_config) :
 
         if not isinstance(self.gaussian_nll_full, bool) :
             raise ValueError(f"gaussian_nll_full must be a bool, got {self.gaussian_nll_full!r}")
+
+        # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        # DTW parameters
+        # They are validated whatever the reconstruction term, so a config file never carries an invalid value that would surface only after switching term.
+
+        self.dtw_implementation = str(self.dtw_implementation).lower()
+        if self.dtw_implementation not in DTW_IMPLEMENTATIONS :
+            raise ValueError(f"dtw_implementation must be one of {DTW_IMPLEMENTATIONS}, got {self.dtw_implementation!r}")
+
+        if not isinstance(self.dtw_gamma, (int, float)) or isinstance(self.dtw_gamma, bool) or self.dtw_gamma <= 0 :
+            raise ValueError(f"dtw_gamma must be a number > 0, got {self.dtw_gamma!r}")
+        self.dtw_gamma = float(self.dtw_gamma)
+
+        if self.dtw_bandwidth is not None :
+            if not isinstance(self.dtw_bandwidth, (int, float)) or isinstance(self.dtw_bandwidth, bool) or self.dtw_bandwidth <= 0 :
+                raise ValueError(f"dtw_bandwidth must be None or a number > 0, got {self.dtw_bandwidth!r}")
+            self.dtw_bandwidth = float(self.dtw_bandwidth)
+
+        if not _is_int(self.dtw_block_size) or self.dtw_block_size < 1 :
+            raise ValueError(f"dtw_block_size must be an integer >= 1, got {self.dtw_block_size!r}")
+
+        for field_name in ("dtw_normalize", "dtw_average_channels", "dtw_average_time_samples") :
+            if not isinstance(getattr(self, field_name), bool) :
+                raise ValueError(f"{field_name} must be a bool, got {getattr(self, field_name)!r}")

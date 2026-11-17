@@ -6,7 +6,9 @@
 # under the parent's `loss` key. To paste them into training_vae.toml instead, put them under a [loss] section (training_config.loss).
 name = "elbo"
 
-# Reconstruction term: "mse" (the term used in the original vEEGNet paper), "l1" or "gaussian_nll".
+# Reconstruction term: "mse" (the term used in the original vEEGNet paper), "l1", "gaussian_nll",
+# "soft_dtw" (the term used to train hvEEGNet) or "block_dtw". The two DTW terms need the optional
+# package dtw-loss-functions (pip install "jade[extra]") and read the dtw_* keys.
 reconstruction_type = "mse"
 # Weight of the reconstruction term.
 alpha = 1.0
@@ -32,3 +34,20 @@ kl_warmup_start = 0.0
 # gaussian_nll_eps = 1e-6
 # Include the constant term of the Gaussian negative log-likelihood.
 # gaussian_nll_full = false
+
+# --- DTW reconstruction terms (used only when reconstruction_type = "soft_dtw" or "block_dtw") ---
+# The DTW is computed independently for every channel of every trial.
+# SoftDTW implementation of dtw-loss-functions: "mag", "pysdtw" or "ron".
+# dtw_implementation = "mag"
+# Smoothing of the soft-min (> 0). The closer to 0, the closer the SoftDTW is to the DTW.
+# dtw_gamma = 1.0
+# Compute the SoftDTW divergence instead of the SoftDTW.
+# dtw_normalize = false
+# Sakoe-Chiba bandwidth used to prune the alignment (omit it for no pruning).
+# dtw_bandwidth = 100.0
+# Number of time samples per block (block_dtw only).
+# dtw_block_size = 128
+# Average the DTW over the channels of a trial instead of summing it.
+# dtw_average_channels = false
+# Divide the DTW by the number of time samples.
+# dtw_average_time_samples = false

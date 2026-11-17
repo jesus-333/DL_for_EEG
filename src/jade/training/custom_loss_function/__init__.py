@@ -31,7 +31,10 @@ from jade.training.custom_loss_function import support_loss
 from jade.training.custom_loss_function.support_loss import (
     RECONSTRUCTION_LOSS_REGISTRY,
     get_reconstruction_loss_function,
+    dtw_reconstruction_loss,
     kl_divergence_normal,
+    kl_divergence_shifted_normal,
+    kl_divergence_hierarchical,
     compute_kl_weight,
 )
 from jade.training.custom_loss_function.elbo import elbo_loss, elbo_terms
@@ -95,6 +98,9 @@ __all__ = [
     "support_loss",
     "RECONSTRUCTION_LOSS_REGISTRY",
     "get_reconstruction_loss_function",
+    "dtw_reconstruction_loss",
     "kl_divergence_normal",
+    "kl_divergence_shifted_normal",
+    "kl_divergence_hierarchical",
     "compute_kl_weight",
 ]

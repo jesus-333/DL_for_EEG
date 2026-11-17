@@ -78,7 +78,7 @@ class elbo_loss(nn.Module) :
         self.config = config
 
         # Resolve the reconstruction term from its name (the KL term has a single closed form, so it needs no factory).
-        self.reconstruction_loss_function = support_loss.get_reconstruction_loss_function(config.reconstruction_type)
+        self.reconstruction_loss_function = support_loss.get_reconstruction_loss_function(config.reconstruction_type, config)
 
         # Weights of the two terms.
         self.alpha = config.alpha
@@ -145,14 +145,21 @@ class elbo_loss(nn.Module) :
 
         x_reconstructed, mu, log_var = model_output[0], model_output[1], model_output[2]
 
+        # A hierarchical model (e.g. hvEEGNet) returns a list of latent parameters per element, followed by the posterior shifts of the non-deepest latent spaces.
+        if isinstance(mu, (tuple, list)) :
+            if len(model_output) < 5 :
+                raise ValueError("a hierarchical model must return at least (x_reconstructed, mu_list, log_var_list, delta_mu_list, delta_log_var_list)")
+            return self.compute_loss(x, x_reconstructed, mu, log_var, model_output[3], model_output[4])
+
         return self.compute_loss(x, x_reconstructed, mu, log_var)
 
 
-    def compute_loss(self, x : torch.Tensor, x_reconstructed : torch.Tensor, mu : torch.Tensor, log_var : torch.Tensor) -> elbo_terms :
+    def compute_loss(self, x : torch.Tensor, x_reconstructed : torch.Tensor, mu, log_var, delta_mu_list = None, delta_log_var_list = None) -> elbo_terms :
         """
         Compute the loss from its explicit arguments.
 
         This is the entry point to call when the elements are already unpacked (e.g. in a test); :meth:`forward` simply unpacks the output of the model and delegates here.
+        For a hierarchical model ``mu`` and ``log_var`` are lists and the posterior shifts must be given too; the KL term is then :func:`~jade.training.custom_loss_function.support_loss.kl_divergence_hierarchical`.
 
         Parameters
         ----------
@@ -160,10 +167,14 @@ class elbo_loss(nn.Module) :
             The original signal.
         x_reconstructed : torch.Tensor
             The signal reconstructed by the decoder (same shape as ``x``).
-        mu : torch.Tensor
-            The mean of the approximate posterior.
-        log_var : torch.Tensor
+        mu : torch.Tensor or list of torch.Tensor
+            The mean of the approximate posterior. For a hierarchical model, the list described in :func:`~jade.training.custom_loss_function.support_loss.kl_divergence_hierarchical`.
+        log_var : torch.Tensor or list of torch.Tensor
             The logarithm of the variance of the approximate posterior (same shape as ``mu``).
+        delta_mu_list : list of torch.Tensor, optional
+            Hierarchical model only: the posterior shifts of the means.
+        delta_log_var_list : list of torch.Tensor, optional
+            Hierarchical model only: the posterior shifts of the log variances.
 
         Returns
         -------
@@ -175,7 +186,11 @@ class elbo_loss(nn.Module) :
         # The two terms
 
         reconstruction_loss = self.reconstruction_loss_function(x_reconstructed, x, self.config)
-        kl_loss             = support_loss.kl_divergence_normal(mu, log_var)
+
+        if isinstance(mu, (tuple, list)) :
+            kl_loss = support_loss.kl_divergence_hierarchical(mu, log_var, delta_mu_list, delta_log_var_list)
+        else :
+            kl_loss = support_loss.kl_divergence_normal(mu, log_var)
 
         # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # Combination

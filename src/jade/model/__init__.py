@@ -24,6 +24,7 @@ from jade.model.ShallowFBCSPNet import ShallowFBCSPNet, ShallowFBCSPNet_Classifi
 from jade.model.Deep4Net import Deep4Net, Deep4Net_Classifier
 from jade.model.TIDNet import TIDNet, TIDNet_Classifier
 from jade.model.vEEGNet import vEEGNet
+from jade.model.hvEEGNet import hvEEGNet
 from jade.model.braindecode_pooling_extension import braindecode_pooling_wrapper
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -41,6 +42,7 @@ __all__ = [
     "TIDNet",
     "TIDNet_Classifier",
     "vEEGNet",
+    "hvEEGNet",
     "braindecode_pooling_wrapper",
     "MODEL_REGISTRY",
     "get_model",
@@ -71,6 +73,8 @@ MODEL_REGISTRY = {
     # Those two names are deliberately left unknown (instead of pointing here) so they stay available for the classifier variant, and so asking for one today fails with a clear error instead of silently building a generative model.
     "veegnet"                    : vEEGNet,
     "vae_eegnet"                 : vEEGNet,
+    "hveegnet"                   : hvEEGNet,
+    "hierarchical_veegnet"       : hvEEGNet,
     "braindecode_wrapper"        : braindecode_pooling_wrapper,
     "braindecode"                : braindecode_pooling_wrapper,
     "braindecode_pooling"        : braindecode_pooling_wrapper,
