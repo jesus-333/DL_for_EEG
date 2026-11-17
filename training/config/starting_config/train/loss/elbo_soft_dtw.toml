@@ -1,0 +1,28 @@
+# ELBO loss with the SoftDTW reconstruction term, i.e. the loss used to train hvEEGNet in the paper
+# (Cisotto et al., 2024): alpha = beta = 1, SoftDTW with gamma = 1, summed over the channels.
+# Requires the optional package dtw-loss-functions (pip install "jade[extra]").
+# For the full description of each key see ./elbo.toml.
+# NOTE: this file has NO [loss] header on purpose (it is nested under the training config by 0_prepare_config.py).
+name = "elbo"
+
+reconstruction_type = "soft_dtw"
+alpha = 1.0
+beta = 1.0
+reduction = "mean"
+
+kl_warmup_type = "none"
+kl_warmup_epochs = 0
+kl_warmup_start = 0.0
+
+# SoftDTW implementation of dtw-loss-functions: "mag", "pysdtw" or "ron".
+dtw_implementation = "mag"
+# Smoothing of the soft-min (> 0).
+dtw_gamma = 1.0
+# Compute the SoftDTW divergence instead of the SoftDTW.
+dtw_normalize = false
+# Number of time samples per block. Used only if reconstruction_type = "block_dtw".
+dtw_block_size = 128
+# Average the DTW over the channels instead of summing it.
+dtw_average_channels = false
+# Divide the DTW by the number of time samples.
+dtw_average_time_samples = false

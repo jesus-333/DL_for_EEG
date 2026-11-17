@@ -1,0 +1,96 @@
+# =====================================================================
+# Default hvEEGNet model configuration (jade.config.model.hvEEGNet_config)
+# =====================================================================
+# Skeleton config for hvEEGNet, the hierarchical variational autoencoder whose encoder is an
+# EEGNet, whose decoder mirrors it, and which has a latent space after each encoder block.
+# The default values are the ones of the original hvEEGNet paper for BCI IV-2a
+# (22 channels, 1000 time samples at 250 Hz); edit them to match your data.
+# Load it with: hvEEGNet_config.from_toml("hvEEGNet.toml").
+#
+# NOTE: there is no classification branch. Train it with the "elbo" loss: the ELBO recognizes
+# the hierarchical output and sums the KL divergence of the three latent spaces.
+
+# Which model to build: "hveegnet" (or its alias "hierarchical_veegnet").
+name = "hveegnet"
+
+# --- Encoder (EEGNet). These keys mirror the ones of EEGNet.toml ---
+# Convolutional layers (of both the encoder and the decoder) use a bias term.
+use_bias = false
+# Number of spatial filters learned per temporal filter (total spatial filters = D * filter_1).
+D = 2
+# Activation function: "relu", "elu", "selu" or "gelu".
+# It is also applied before the 1x1 convolutions that produce the latent parameters.
+activation = "elu"
+# Dropout probability, in [0, 1].
+prob_dropout = 0.5
+# Use nn.Dropout2d (true) instead of nn.Dropout (false).
+use_dropout_2d = true
+
+# Number of EEG channels of the input.
+C = 22
+# Number of time samples of the input.
+T = 1000
+# Depth of the input tensor (1 for raw EEG, > 1 for time-frequency input).
+depth_first_layer = 1
+
+# Number of temporal filters (first convolution).
+filter_1 = 8
+# Temporal convolution kernel (height, width) = (1, time). 128 samples = 0.5 s at 250 Hz.
+c_kernel_1 = [1, 128]
+# Spatial (depthwise) convolution kernel, usually (C, 1). Its height must not exceed C.
+c_kernel_2 = [22, 1]
+
+# Number of filters of the separable convolution (pointwise output).
+filter_2 = 16
+# Depthwise convolution kernel of the separable block.
+c_kernel_3 = [1, 32]
+
+# --- Latent spaces ---
+# How each latent space is mapped from (and back to) its feature map:
+#   "convolutional" -> 1x1 convolutions, the latent variable has the shape of the feature map (the paper);
+#   "linear"        -> flatten + feedforward layers, the latent variable is a vector;
+#   "lora"          -> as "linear", with low-rank (LoRA-style) feedforward layers.
+parameters_map_type = "convolutional"
+# Dimension of the three latent spaces, deepest first (z_0, z_1, z_2). Only for "linear" / "lora".
+hidden_space_dimension_list = [32, 128, 512]
+# Rank of the low-rank layers. Only for "lora".
+lora_rank = 16
+# Spectral normalization of the feedforward layers. Only for "linear" / "lora".
+use_spectral_norm = false
+# Apply the activation before the maps that produce the latent parameters (as in the original code).
+use_activation_in_sampling = true
+
+# --- Decoder ---
+# Combine the deepest sample with a trainable tensor h (Fig. 2 of the NVAE paper). If false, h is a
+# tensor of zeros (the trained hvEEGNet of the paper). An explicit h can always be passed to
+# forward / generate as a "seed".
+use_h_in_decoder = false
+# Interpolation used to invert the pooling stages: "nearest", "bilinear", "bicubic" or "area".
+upsample_mode = "nearest"
+
+# --- Misc ---
+# Shape (batch, depth, channels, time) of the dummy input used to probe the geometry of the encoder
+# at build time. It drives the WHOLE decoder, so its last three values must match
+# depth_first_layer, C and T.
+input_size = [1, 1, 22, 1000]
+
+# Print the parameter count / shape tracking at build time.
+print_var = false
+
+# --- Pooling (the two pooling stages of the encoder) ---
+# Identical to the [pooling] section of EEGNet.toml: the encoder IS an EEGNet.
+# The original hvEEGNet has no pooling after the spatial filter and a pooling of factor 10
+# after the separable convolution.
+[pooling]
+# Pooling operator per stage:
+#   "default"              -> classic EEGNet nn.AvgPool2d (average pooling along time only);
+#   "avg"/"max"/"blur"/"sinc"/"dwt" -> the matching 1D pooling operator, applied channel-wise;
+#   "identity"             -> no pooling.
+pooling_type_1 = "identity"
+pooling_type_2 = "default"
+# Decimation factor M per stage: the number of time samples becomes T / M.
+pooling_factor_1 = 1
+pooling_factor_2 = 10
+
+# Note that the size of the latent spaces is set by the encoder blocks: with the defaults the
+# shallowest one (after the temporal filter) has filter_1 * C * T = 176000 elements per trial.

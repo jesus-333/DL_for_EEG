@@ -15,6 +15,8 @@ A graphical representation of the folder structure is shown below, in section [F
   - `train_{MODEL_NAME}.sh`: A shell script that execute the python script. Initially developed to provide a shell script that can be launched with the `sbatch` command. Then, to keep `0_launch_sbatch.sh` and `0_launch_local.sh` scripts as simple as possible, this script is also used to launch the training on a local machine.
   - Other training files, specific to the model being trained, may be added to this folder as needed.
 
+The `model_name` variable inside `0_launch_local.sh` and `0_launch_sbatch.sh` (and the other config names, e.g. `loss`, `optimizer`) is case insensitive : `model_name="eegnet"` finds the folder `EEGNet/`, the script `EEGNet/train_EEGNet.sh` and the config `config/starting_config/model/EEGNet.toml`, also on case-sensitive filesystems (e.g. Linux). The name written on disk is then used for the job name and the logs folder (`logs/{MODEL_NAME}/`).
+
 # Folder structure
 
 Summary of the folder structure. `{MODEL_NAME}` is a placeholder for the name of the model being trained. 

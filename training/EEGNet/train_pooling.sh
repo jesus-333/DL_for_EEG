@@ -18,8 +18,8 @@
 #SBATCH --time=0-01:00:00
 #SBATCH --mail-user=alberto.zancanaro@uni.lu
 #SBATCH --mail-type=end,fail 
-#SBATCH --output=./training/logs/eegnet/%j_std_%x.txt
-#SBATCH --error=./training/logs/eegnet/%j_err_%x.txt
+#SBATCH --output=./training/logs/EEGNet/%j_std_%x.txt
+#SBATCH --error=./training/logs/EEGNet/%j_err_%x.txt
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Load python environment
