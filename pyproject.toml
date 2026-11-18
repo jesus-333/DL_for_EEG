@@ -9,12 +9,16 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/jade"]
 
-# Ship the commented TOML skeleton configs as package data (used by the
-# "create-default-config" cli command, which copies them at runtime). This is
-# additive: the default Python-file selection above is kept, this only guarantees
-# the .toml data files land in the wheel at the right import location.
-[tool.hatch.build.targets.wheel.force-include]
-"src/jade/config/default_config" = "jade/config/default_config"
+# Note that the commented TOML skeleton configs (src/jade/config/default_config, used by the
+# "create-default-config" cli command) are shipped automatically, since every non-ignored file
+# inside src/jade is included. Do not add them again with a force-include: recent hatchling
+# versions (e.g. 1.33, but not 1.29) refuse to add a second file at the same path of the wheel.
+
+# Restrict the source distribution to the package. Without this, the sdist includes every
+# file of the repository that is not gitignored (e.g. the downloaded datasets inside data/,
+# tens of GB), and `hatchling build` takes forever to compress them.
+[tool.hatch.build.targets.sdist]
+only-include = ["src/jade", "pyproject.toml", "README.md", "LICENSE"]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -37,7 +41,7 @@ dependencies = [
 ]
 [project.optional-dependencies]
 extra = [
-	"dtw-loss-functions",
+	"dtw-loss-functions>=1.0.4", # The soft_dtw / block_dtw API used by jade (implementation + sdtw_config) was introduced in 1.0.4
 	"wandb",
 ]
 dataset = [

@@ -286,30 +286,37 @@ class hvEEGNet(nn.Module) :
         self.h_decoder_combination = features_combination(depth_separable, depth_separable, depth_separable)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        # Decoder blocks (same layers of jade.model.vEEGNet.eegnet_decoder)
+        # Decoder blocks
+        # The order of the layers is the one of the paper (Table 2) and of the original code: every block is the corresponding encoder block run backwards,
+        # i.e. dropout -> upsample -> activation -> batch norm -> (transposed) convolution, so the output of each block is the raw output of a convolution.
+        # Note that this differs from jade.model.vEEGNet.eegnet_decoder (convolution -> batch norm -> activation -> dropout): with that order hvEEGNet is unstable,
+        # since the features from which the priors of z_1 and z_2 are computed are already normalized and activated (the training quickly diverges to NaN).
 
         # Inverse of the separable convolution. Its output has the shape of the spatial filter output.
         self.separable_convolution_transpose = nn.Sequential(
+            dropout,
             nn.Upsample(size = self.upsample_target_shapes[1], mode = config.upsample_mode),
+            activation,
+            nn.BatchNorm2d(depth_separable),
             same_padding_conv_transpose_2d(depth_separable, depth_spatial, kernel_size = (1, 1)           , groups = 1            , bias = use_bias),
             same_padding_conv_transpose_2d(depth_spatial  , depth_spatial, kernel_size = config.c_kernel_3, groups = depth_spatial, bias = use_bias),
-            nn.BatchNorm2d(depth_spatial),
-            activation,
-            dropout,
         )
 
         # Inverse of the spatial filter. Its output has the shape of the temporal filter output.
         # The unpadded transposed convolution grows the channel axis back from C - c_kernel_2[0] + 1 to C.
         self.spatial_filter_transpose = nn.Sequential(
-            nn.Upsample(size = self.upsample_target_shapes[0], mode = config.upsample_mode),
-            nn.ConvTranspose2d(depth_spatial, depth_temporal, kernel_size = config.c_kernel_2, groups = config.filter_1, bias = use_bias),
-            nn.BatchNorm2d(depth_temporal),
-            activation,
             dropout,
+            nn.Upsample(size = self.upsample_target_shapes[0], mode = config.upsample_mode),
+            activation,
+            nn.BatchNorm2d(depth_spatial),
+            nn.ConvTranspose2d(depth_spatial, depth_temporal, kernel_size = config.c_kernel_2, groups = config.filter_1, bias = use_bias),
         )
 
-        # Inverse of the temporal filter. Nothing follows it: its output is the reconstructed signal, so it must be free to take any value.
-        self.temporal_filter_transpose = same_padding_conv_transpose_2d(depth_temporal, config.depth_first_layer, kernel_size = config.c_kernel_1, groups = 1, bias = use_bias)
+        # Inverse of the temporal filter (batch norm + convolution, as the first block of the encoder). Its output is the reconstructed signal.
+        self.temporal_filter_transpose = nn.Sequential(
+            nn.BatchNorm2d(depth_temporal),
+            same_padding_conv_transpose_2d(depth_temporal, config.depth_first_layer, kernel_size = config.c_kernel_1, groups = 1, bias = use_bias),
+        )
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Shallower latent spaces (z_1 and z_2)

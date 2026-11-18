@@ -15,6 +15,9 @@ Alberto Zancanaro <alberto.zancanaro@uni.lu>
 
 from __future__ import annotations
 
+# Standard library imports
+import importlib.metadata
+
 # Third party imports
 import torch
 from torch import nn
@@ -109,6 +112,9 @@ def reconstruction_loss_gaussian_nll(x_reconstructed : torch.Tensor, x : torch.T
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Reconstruction registry and factory
 
+# Oldest version of dtw-loss-functions with the API used by dtw_reconstruction_loss (soft_dtw / block_dtw built from implementation + sdtw_config).
+MIN_DTW_LOSS_FUNCTIONS_VERSION = "1.0.4"
+
 class dtw_reconstruction_loss(nn.Module) :
     """
     Reconstruction term based on the SoftDTW (``'soft_dtw'``) or on the block DTW (``'block_dtw'``), i.e. the reconstruction term used to train hvEEGNet.
@@ -131,17 +137,26 @@ class dtw_reconstruction_loss(nn.Module) :
     Raises
     ------
     ImportError
-        If ``dtw-loss-functions`` is not installed.
+        If ``dtw-loss-functions`` is not installed, or if the installed version is older than ``MIN_DTW_LOSS_FUNCTIONS_VERSION`` (1.0.4).
     """
 
     def __init__(self, config) :
         super().__init__()
 
-        # Fail early (when the loss is built, not at the first batch) if the optional dependency is missing.
+        # Fail early (when the loss is built, not at the first batch) if the optional dependency is missing or too old.
+        # Note that the versions before 1.0.4 are installable but have a different API (e.g. 1.0.2 has no soft_dtw module), so the two cases get different messages.
         try :
             from dtw_loss_functions import soft_dtw, block_dtw
         except ImportError as error :
-            raise ImportError(f"the reconstruction term {config.reconstruction_type!r} needs the optional package dtw-loss-functions. Install it with: pip install dtw-loss-functions (or pip install \"jade[extra]\")") from error
+            try :
+                installed_version = importlib.metadata.version("dtw-loss-functions")
+            except importlib.metadata.PackageNotFoundError :
+                installed_version = None
+
+            if installed_version is None :
+                raise ImportError(f"the reconstruction term {config.reconstruction_type!r} needs the optional package dtw-loss-functions (>= {MIN_DTW_LOSS_FUNCTIONS_VERSION}). Install it with: pip install \"dtw-loss-functions>={MIN_DTW_LOSS_FUNCTIONS_VERSION}\" (or pip install \"jade[extra]\")") from error
+            else :
+                raise ImportError(f"the reconstruction term {config.reconstruction_type!r} needs dtw-loss-functions >= {MIN_DTW_LOSS_FUNCTIONS_VERSION}, but version {installed_version} is installed. Update it with: pip install --upgrade \"dtw-loss-functions>={MIN_DTW_LOSS_FUNCTIONS_VERSION}\"") from error
 
         self.soft_dtw_module  = soft_dtw
         self.block_dtw_module = block_dtw
