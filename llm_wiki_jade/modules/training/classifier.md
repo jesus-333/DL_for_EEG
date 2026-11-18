@@ -9,7 +9,7 @@ The full classification training cycle, as **two mirrored pairs**: `train` / `wa
 - `train` is the standard entry point: it cross-checks the training/model configs, builds the model from a `model_config` with `jade.model.get_model`, and delegates to `train_model`.
 - `train_model` runs the entire loop on an already-built model (dataloaders, optimizer/scheduler/loss creation, epoch loop, checkpointing, optional metrics, optional wandb logging) and returns the trained model plus the per-epoch metrics.
 - `wandb_train` is the wandb counterpart of `train` (it cross-checks, builds the model, delegates to `wandb_train_model`).
-- `wandb_train_model` is the wandb counterpart of `train_model`: after the config checks it delegates the whole run to [`wandb_utils.run_training_with_wandb`](wandb_utils.md), passing its own `train_model` as the function to call inside the run. Its signature and return value are unchanged, which matters because `training/EEGNet/train_eegnet.py` and `train_pooling.py` call it with six positional arguments.
+- `wandb_train_model` is the wandb counterpart of `train_model`: after the config checks it delegates the whole run to [`wandb_utils.run_training_with_wandb`](wandb_utils.md), passing its own `train_model` as the function to call inside the run. Its signature and return value are unchanged, which matters because `training/EEGNet/train_EEGNet.py` and `train_pooling.py` call it with six positional arguments.
 
 **Config contract:** all four functions accept only config **dataclass instances** (no dict promotion), consistently with the rest of the codebase — a wrong type raises `TypeError` via the shared `_require_config_instance` helper.
 

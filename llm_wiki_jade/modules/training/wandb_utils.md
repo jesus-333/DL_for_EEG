@@ -67,7 +67,7 @@ return wandb_utils.run_training_with_wandb(
 )
 ```
 
-so **no `train_model_function=` keyword is ever exposed on a public entry point**, and `classifier.wandb_train_model`'s six-positional-argument signature is untouched — which matters, because `training/EEGNet/train_eegnet.py` and `train_pooling.py` call it positionally.
+so **no `train_model_function=` keyword is ever exposed on a public entry point**, and `classifier.wandb_train_model`'s six-positional-argument signature is untouched — which matters, because `training/EEGNet/train_EEGNet.py` and `train_pooling.py` call it positionally.
 
 ---
 

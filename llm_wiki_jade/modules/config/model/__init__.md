@@ -27,6 +27,8 @@ Maps a lowercase model name to its config class (the aliases mirror `jade.model.
 | `tidnetclassifier` | `TIDNet_config` |
 | `veegnet` | [`vEEGNet_config`](vEEGNet_cfg.md) |
 | `vae_eegnet` | [`vEEGNet_config`](vEEGNet_cfg.md) |
+| `hveegnet` | [`hvEEGNet_config`](hvEEGNet_cfg.md) |
+| `hierarchical_veegnet` | [`hvEEGNet_config`](hvEEGNet_cfg.md) |
 | `braindecode_wrapper` | `braindecode_wrapper_config` |
 | `braindecode` | `braindecode_wrapper_config` |
 | `braindecode_pooling` | `braindecode_wrapper_config` |
@@ -46,7 +48,7 @@ Used by `jade.model.get_model`, every model constructor (both `EEGNet`, `EEGConf
 
 ## Public API (`__all__`)
 
-- Model configs: `model_config`, `EEGNet_config`, `eegnet_pooling_config` (the EEGNet `[pooling]` section, reused as is by `vEEGNet_config`), `EEGConformer_config`, `conformer_pooling_config`, `ShallowFBCSPNet_config`, `shallowfbcspnet_pooling_config`, `Deep4Net_config`, `deep4net_pooling_config`, `TIDNet_config`, `tidnet_pooling_config` (each model's `[pooling]` section), `vEEGNet_config`, `braindecode_wrapper_config`, `MODEL_CONFIG_REGISTRY`, `get_model_config`.
+- Model configs: `model_config`, `EEGNet_config`, `eegnet_pooling_config` (the EEGNet `[pooling]` section, reused as is by `vEEGNet_config`), `EEGConformer_config`, `conformer_pooling_config`, `ShallowFBCSPNet_config`, `shallowfbcspnet_pooling_config`, `Deep4Net_config`, `deep4net_pooling_config`, `TIDNet_config`, `tidnet_pooling_config` (each model's `[pooling]` section), `vEEGNet_config`, `hvEEGNet_config`, `braindecode_wrapper_config`, `MODEL_CONFIG_REGISTRY`, `get_model_config`.
 - Pooling configs (re-exported from [`pooling_1d_cfg`](pooling_1d_cfg.md)): `pooling_config`, `avg_pooling_config`, `blur_pooling_config`, `sinc_pooling_config`, `dwt_pooling_config`, `max_pooling_config`, `POOLING_CONFIG_REGISTRY`, `get_pooling_config`.
 
 Everything here is also re-exported one level up from `jade.config.__init__`.

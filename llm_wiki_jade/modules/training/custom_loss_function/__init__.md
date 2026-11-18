@@ -26,4 +26,4 @@ Raises `ValueError` listing the known names for anything else.
 
 ## Public API
 
-Re-exports `elbo_loss`, `elbo_terms`, the registry and the factory, plus the [`support_loss`](support_loss.md) module and its four public helpers (`RECONSTRUCTION_LOSS_REGISTRY`, `get_reconstruction_loss_function`, `kl_divergence_normal`, `compute_kl_weight`), so the stateless pieces can be used and tested without reaching into the submodule.
+Re-exports `elbo_loss`, `elbo_terms`, the registry and the factory, plus the [`support_loss`](support_loss.md) module and its public helpers (`RECONSTRUCTION_LOSS_REGISTRY`, `get_reconstruction_loss_function`, `kl_divergence_normal`, `kl_divergence_shifted_normal`, `kl_divergence_hierarchical`, `compute_kl_weight`), so the stateless pieces can be used and tested without reaching into the submodule.

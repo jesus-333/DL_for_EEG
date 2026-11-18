@@ -29,7 +29,7 @@ The instructions put the *loss module* under `jade.training`; the config stays i
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | `str` | `"elbo"` | Discriminator, **frozen** in `__post_init__`. |
-| `reconstruction_type` | `str` | `"mse"` | The reconstruction term. One of `RECONSTRUCTION_TYPES = ("mse", "l1", "gaussian_nll")`. `mse` is the term used in the original vEEGNet paper. |
+| `reconstruction_type` | `str` | `"mse"` | The reconstruction term. One of `RECONSTRUCTION_TYPES = ("mse", "l1", "gaussian_nll", "soft_dtw", "block_dtw")`. `mse` is the term used in the original vEEGNet paper, `soft_dtw` the one of hvEEGNet. The two DTW terms need the optional `dtw-loss-functions` (imported only when the loss is built, so the config itself stays dependency-free). |
 | `alpha` | `float` | `1.0` | Weight of the reconstruction term. Must be `>= 0`. |
 | `beta` | `float` | `1.0` | Weight of the KL term. Must be `>= 0`. |
 | `reduction` | `str` | `"mean"` | How both terms are reduced over the batch. One of `REDUCTIONS = ("mean", "sum")`. |
@@ -38,6 +38,15 @@ The instructions put the *loss module* under `jade.training`; the config stays i
 | `kl_warmup_start` | `float` | `0.0` | KL weight at epoch 0, ramped to 1. Must be in `[0, 1]`. |
 | `gaussian_nll_eps` | `float` | `1e-6` | Lower bound on the variance. `gaussian_nll` only. |
 | `gaussian_nll_full` | `bool` | `False` | Include the constant term. `gaussian_nll` only. |
+| `dtw_implementation` | `str` | `"mag"` | SoftDTW implementation of `dtw_loss_functions` (`DTW_IMPLEMENTATIONS = ("mag", "pysdtw", "ron")`). DTW terms only. |
+| `dtw_gamma` | `float` | `1.0` | Soft-min smoothing, `> 0`. DTW terms only. |
+| `dtw_normalize` | `bool` | `False` | SoftDTW **divergence** instead of SoftDTW. DTW terms only. |
+| `dtw_bandwidth` | `Optional[float]` | `None` | Sakoe-Chiba pruning bandwidth (`None` = no pruning, omitted from TOML). DTW terms only. |
+| `dtw_block_size` | `int` | `128` | Block length in samples. `block_dtw` only. |
+| `dtw_average_channels` | `bool` | `False` | Average (instead of sum) the per-channel DTW of a trial. DTW terms only. |
+| `dtw_average_time_samples` | `bool` | `False` | Divide the DTW by `T`. DTW terms only. |
+
+The `dtw_*` fields are validated whatever `reconstruction_type` is, so an invalid value cannot hide until the term is switched.
 
 ### Notable values
 

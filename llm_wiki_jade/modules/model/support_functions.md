@@ -73,6 +73,12 @@ Returns `sum(p.numel() for p in torch_module.parameters() if p.requires_grad)` â
 
 ---
 
+## Generic modules
+
+### `class lora_linear(nn.Module)`
+
+`lora_linear(in_features, out_features, rank, alpha = -1, use_spectral_norm = False)`: a low-rank replacement of `nn.Linear` (LoRA-style factorization, but **no** frozen full-rank layer â€” this *is* the layer). `lora_b(lora_a(x)) * alpha / rank`, no bias; `alpha <= 0` means `alpha = rank`. Optional spectral norm on both factors. Ported from the original `LoRALinear`; used by the `'lora'` latent mapping of [`hvEEGNet`](hvEEGNet.md), kept generic for other experiments.
+
 ## Attention helpers (for `aEEGNet`)
 
 ### `create_head(config: dict) -> tuple[nn.Module, nn.Module, nn.Module]`

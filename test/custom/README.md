@@ -26,3 +26,9 @@ hatchling build && pip install -e .
     - Create a `vEEGNet` and synthetic data of shape `[N x 1 x C x T]`
     - Train it for a few epochs with the ELBO and a linear KL warm-up (`jade.training.vae`)
     - Check that every term of the loss and both reconstruction metrics are tracked, that the KL weight ramps as expected, that the reconstruction error decreases and that the checkpoints are written
+- [`./hvEEGNet.py`](hvEEGNet.py) :
+    - Build an `hvEEGNet` (the hierarchical variational autoencoder) through `get_model` and check its output (reconstruction, three latent spaces, two posterior shifts)
+    - Check that the reconstruction has **exactly** the shape of the input over a set of geometries, and the `pooling_1d` operators
+    - Check the latent mappings (convolutional / linear / LoRA), the extra decoder input `h` and the DTW reconstruction terms of the ELBO
+    - Check the hierarchical KL against the general Gaussian KL, the helpers (`reconstruct`, `reconstruct_ignoring_latent_spaces`, `generate`), a training step, the config round-trip and the guards
+    - Train it for a few epochs on synthetic data with `jade.training.vae`

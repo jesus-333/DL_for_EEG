@@ -56,7 +56,9 @@ The **whole output tuple of the model** comes first and the target second, mirro
 
 Note that for an autoencoder the target **is** the input, so `vae_epoch` calls `loss_function(model(x), x)`.
 
-`compute_loss(x, x_reconstructed, mu, log_var)` is the explicit entry point for tests and direct callers; `forward` only unpacks and delegates to it.
+**Hierarchical models.** When `model_output[1]` is a list/tuple (e.g. [`hvEEGNet`](../../model/hvEEGNet.md)), the output is read as `(x_reconstructed, mu_list, log_var_list, delta_mu_list, delta_log_var_list, ...)` and the KL term becomes [`support_loss.kl_divergence_hierarchical`](support_loss.md) (the sum over the latent spaces). A hierarchical output shorter than five elements raises `ValueError`. The returned `elbo_terms` are unchanged (`kl` is the total over levels; there is no per-level KL logging yet), so `vae_epoch` / `vae.train_model` need no change.
+
+`compute_loss(x, x_reconstructed, mu, log_var, delta_mu_list = None, delta_log_var_list = None)` is the explicit entry point for tests and direct callers; `forward` only unpacks and delegates to it.
 
 ### KL warm-up state
 
