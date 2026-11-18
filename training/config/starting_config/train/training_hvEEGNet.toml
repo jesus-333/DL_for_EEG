@@ -1,0 +1,141 @@
+# =====================================================================
+# Training configuration of the hvEEGNet paper (Cisotto et al., 2024)
+# =====================================================================
+# Batch size 30, 80 epochs, AdamW (lr 0.01, weight decay 0.01), ExponentialLR (gamma 0.999),
+# ELBO with the SoftDTW reconstruction term (alpha = beta = 1, gamma_dtw = 1, summed over the channels).
+# The nested sections are already filled, so this file can be used directly by train_hvEEGNet.py.
+# When launching through 0_launch_local.sh / 0_launch_sbatch.sh the [optimizer], [lr_scheduler] and [loss]
+# sections are replaced by the files selected there: use optimizer="adamw_hvEEGNet",
+# lr_scheduler="exponential_lr_hvEEGNet" and loss="elbo_soft_dtw" to keep the values of the paper.
+# For the description of each key see ./training_vae.toml.
+
+# Number of training epochs.
+epochs = 20
+
+# Mini-batch size (shared by every dataloader, so it lives here and not in [dataloader]).
+batch_size = 30
+
+# Torch device: "cpu", "cuda", "cuda:0", ...
+device = "cpu"
+
+# Folder where the model/optimizer checkpoints are written.
+# 0_prepare_config.py appends the name of the run (e.g. hvEEGNet_495361435), so every run is saved in model_weights/hvEEGNet_<seed>/.
+path_to_save_model = "model_weights"
+
+# Save a periodic checkpoint every N epochs. 0 (or any non-positive value) disables periodic checkpoints.
+# When the training config object is created every value lower or equal to 0 is automatically set to epochs + 1 (i.e. the first epoch after the last one, so no checkpoint is saved). In this case only the final checkpoint is saved at the end of training.
+epoch_to_save_model = 0
+
+# If true, also overwrite an alternating A/B backup of the model every epoch (handy for long HPC runs).
+backup_model_every_epoch = false
+
+# If true, compute the reconstruction metrics (MSE and MAE between the input and its
+# reconstruction) during training. They are NOT classification metrics, which need a label the
+# model never predicts, and they are not the reconstruction term of the loss either: they are
+# measured in evaluation mode over the whole set. It adds a forward pass per epoch.
+# Note that every term of the loss is tracked anyway, whatever this flag is.
+# Disabled for hvEEGNet: the model is trained with a DTW loss, so the MSE is not informative (it penalizes the small time shifts the DTW allows).
+measure_metrics_during_training = false
+
+# If true, emit the per-epoch INFO log lines.
+print_var = true
+
+# Random seed for numpy/torch. Uncomment to make a run reproducible (must be a non-negative integer).
+# seed = 42
+
+# Resume from a previous run. Uncomment and set the paths to the saved state dicts.
+# path_past_weights = "model_weights/model_END.pth"
+# path_past_optimizer = "model_weights/optimizer_END.pth"
+
+# ---------------------------------------------------------------------
+# Optimizer (REQUIRED, pick ONE)
+# ---------------------------------------------------------------------
+# Same content of ./optimizer/adamw_hvEEGNet.toml
+[optimizer]
+name = "adamw"
+lr = 0.01
+betas = [0.9, 0.999]
+eps = 1e-8
+weight_decay = 0.01
+amsgrad = false
+maximize = false
+
+# ---------------------------------------------------------------------
+# Learning-rate scheduler (OPTIONAL, pick at most ONE)
+# ---------------------------------------------------------------------
+# Same content of ./lr_scheduler/exponential_lr_hvEEGNet.toml
+[lr_scheduler]
+name = "exponential_lr"
+gamma = 0.999
+
+# ---------------------------------------------------------------------
+# Loss function (REQUIRED)
+# ---------------------------------------------------------------------
+# Same content of ./loss/elbo_soft_dtw.toml (the loss of the paper). The implementation "mag" is the
+# CUDA SoftDTW of Maghoumi used in the paper. Requires the optional package dtw-loss-functions.
+[loss]
+name = "elbo"
+# Reconstruction term: "mse" (the term used in the original vEEGNet paper), "l1", "gaussian_nll",
+# "soft_dtw" (the term used to train hvEEGNet) or "block_dtw". The two DTW terms need the optional
+# package dtw-loss-functions (pip install "jade[extra]") and read the dtw_* keys.
+reconstruction_type = "soft_dtw"
+# Weight of the reconstruction term.
+alpha = 1.0
+# Weight of the Kullback-Leibler term. beta = 0 turns the model into a plain autoencoder.
+beta = 1.0
+# How both terms are reduced over the batch: "mean" or "sum".
+reduction = "mean"
+# KL warm-up (annealing): "none" (constant weight of 1) or "linear". A warm-up starts the training
+# with a small KL weight, so the decoder can learn to reconstruct before the regularization kicks
+# in (it mitigates the posterior collapse).
+kl_warmup_type = "none"
+# Number of epochs the warm-up lasts. Ignored when kl_warmup_type = "none", REQUIRED (> 0) otherwise.
+kl_warmup_epochs = 0
+# KL weight at epoch 0, linearly ramped up to 1 over kl_warmup_epochs. Must be in [0, 1].
+kl_warmup_start = 0.0
+
+# --- DTW reconstruction terms (used only when reconstruction_type = "soft_dtw" or "block_dtw") ---
+# The DTW is computed independently for every channel of every trial.
+# SoftDTW implementation of dtw-loss-functions: "mag", "pysdtw" or "ron".
+dtw_implementation = "mag"
+# Smoothing of the soft-min (> 0). The closer to 0, the closer the SoftDTW is to the DTW.
+dtw_gamma = 1.0
+# Compute the SoftDTW divergence instead of the SoftDTW.
+dtw_normalize = false
+# Sakoe-Chiba bandwidth used to prune the alignment (omit it for no pruning).
+# dtw_bandwidth = 100.0
+# Number of time samples per block (block_dtw only).
+dtw_block_size = 128
+# Average the DTW over the channels of a trial instead of summing it.
+dtw_average_channels = false
+# Divide the DTW by the number of time samples.
+dtw_average_time_samples = false
+
+# ---------------------------------------------------------------------
+# Dataloader (single option)
+# ---------------------------------------------------------------------
+# This whole [dataloader] section is OPTIONAL. Remove it (or comment it out) to use
+# a default dataloader (torch's default DataLoader values, with shuffle = true).
+# Keep it to customize the values below.
+[dataloader]
+# Worker processes for data loading. 0 loads in the main process.
+num_workers = 0
+# Batches prefetched per worker (only meaningful when num_workers > 0).
+# prefetch_factor = 2
+# Pin host memory (faster host -> GPU copies).
+pin_memory = false
+# Keep the worker processes alive between epochs (only meaningful when num_workers > 0).
+persistent_workers = false
+# Shuffle the training data every epoch.
+shuffle = true
+
+# ---------------------------------------------------------------------
+# wandb logging (OPTIONAL)
+# ---------------------------------------------------------------------
+# No wandb logging unless a [wandb] table is present (training_config.wandb defaults
+# to None). To enable it, uncomment the [wandb] block below and fill in the required fields,
+# or paste the keys from ./wandb.toml under it (that file holds just the keys, no [wandb]
+# header). Needs the optional "extra" dependency.
+# [wandb]
+# project_name = "my_project"
+# model_artifact_name = "my_model"

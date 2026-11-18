@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser(description = 'Train hvEEGNet model.')
 parser.add_argument('--path_dataset_config'              , type = str  , default = None, help = 'Path to the dataset toml config file. If not provided, the default path (see default settings section) will be used.')
 parser.add_argument('--path_model_config'                , type = str  , default = None, help = 'Path to the model toml config file. If not provided, the default path (see default settings section) will be used.')
 parser.add_argument('--path_training_config'             , type = str  , default = None, help = 'Path to the training toml config file. If not provided, the default path (see default settings section) will be used.')
+parser.add_argument('--scale_factor'                     , type = float, default = 1e6 , help = 'Factor multiplied to the EEG data after loading. The default (1e6) converts the data from volt (the unit of MNE / moabb) to microvolt, as in the original hvEEGNet code. Use 1 to keep the data unchanged.')
+parser.add_argument('--percentage_validation'            , type = float, default = 0.1 , help = 'Fraction of the training set used for validation (0.1 in the hvEEGNet paper). If 0, the test set is used as validation set (as in the EEGNet training script).')
 
 args = parser.parse_args()
 
@@ -36,12 +38,12 @@ from jade.training import vae, logging_utils
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default settings. Used only if the corresponding argument is not provided when launching the script.
 # You can use these paths if you want to execute directly this script with the "python" command, without passing any argument.
-# Note that the default training config has no [loss] nested config with the DTW. Edit it (or use 0_launch_local.sh with loss="elbo_soft_dtw") to train with the reconstruction loss of the paper.
+# The default configs reproduce the training conditions of the hvEEGNet paper (Cisotto et al., 2024) : BCI IV-2a (one subject), original train/test split, batch size 30, 80 epochs, AdamW (lr 0.01), ExponentialLR (gamma 0.999), ELBO with SoftDTW.
 
 # Path to config files.
-default_path_config_dataset  = './training/config/starting_config/dataset/dataset.toml'
+default_path_config_dataset  = './training/config/starting_config/dataset/dataset_hvEEGNet.toml'
 default_path_config_model    = './training/config/starting_config/model/hvEEGNet.toml'
-default_path_config_training = './training/config/starting_config/train/training_vae.toml'
+default_path_config_training = './training/config/starting_config/train/training_hvEEGNet.toml'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Load config
@@ -78,15 +80,39 @@ print(f"Dataset config:\n{dataset_config_obj}")
 eeg_dataset_train, eeg_dataset_test = moabb_dataset.get_dataset(dataset_config_obj)
 
 print("Dataset created")
+
+# Convert the data from volt (unit used by MNE / moabb) to microvolt, as in the original hvEEGNet code.
+# This is necessary with the SoftDTW: with signals of the order of 1e-5 the soft-min (gamma = 1) is dominated by the number of alignment paths and not by the signal,
+# so the reconstruction loss becomes a large negative number that the decoder minimizes without reconstructing the input.
+eeg_dataset_train.data *= args.scale_factor
+eeg_dataset_test.data  *= args.scale_factor
+print(f"Data multiplied by {args.scale_factor} (std of the train data : {eeg_dataset_train.data.std().item():.4g})")
 print(f"Data shape (TRAIN)   : {eeg_dataset_train.data.shape}.")
 print(f"Data shape (TEST)    : {eeg_dataset_test.data.shape}.")
+
+# Split the training set in train and validation (90/10 in the paper).
+# The split is random but reproducible : it uses the seed of the training config (set by 0_prepare_config.py, so it changes for every run, as the 20 runs per subject of the paper, each with a different train/validation split).
+# If the training config has no seed, the seed of the dataset config is used.
+# If percentage_validation is 0, the test set is used as validation set (as in the EEGNet training script).
+if not 0 <= args.percentage_validation < 1 :
+    raise ValueError(f"percentage_validation must be in [0, 1). Current value : {args.percentage_validation}")
+
+if args.percentage_validation > 0 :
+    split_seed   = training_config_dict.get("seed", dataset_config_obj.seed)
+    n_validation = int(len(eeg_dataset_train) * args.percentage_validation) # Floor, so 288 trials give 260 train and 28 validation, as in the paper
+    n_train      = len(eeg_dataset_train) - n_validation
+    eeg_dataset_train, eeg_dataset_validation = torch.utils.data.random_split(eeg_dataset_train, [n_train, n_validation], generator = torch.Generator().manual_seed(split_seed))
+    print(f"Training set split in train ({n_train} trials) and validation ({n_validation} trials)")
+else :
+    eeg_dataset_validation = eeg_dataset_test
+    print("Test set used as validation set")
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Model creation
 
 # Get dataset parameters
-C = eeg_dataset_train.data.shape[2] # Number of EEG channels
-T = eeg_dataset_train.data.shape[3] # Number of time samples
+C = eeg_dataset_test.data.shape[2] # Number of EEG channels
+T = eeg_dataset_test.data.shape[3] # Number of time samples
 
 # Update config with custom values
 # Note that, contrary to EEGNet, the input_size drives the whole decoder geometry of hvEEGNet, so it must match C and T.
@@ -129,8 +155,8 @@ print(f"\nTraining config:\n{training_config_object}")
 
 # Train the model
 # The training is tracked with wandb only if the training config contains the [wandb] section.
-# Note that the test set is used as validation set (as in the EEGNet training script).
+# Note that the test set is used as validation set only if percentage_validation is 0 (see the dataset creation section).
 if training_config_object.wandb is not None :
-    model = vae.wandb_train_model(training_config_object, model, eeg_dataset_train, eeg_dataset_test, model_config_obj, dataset_config_obj)
+    model = vae.wandb_train_model(training_config_object, model, eeg_dataset_train, eeg_dataset_validation, model_config_obj, dataset_config_obj)
 else :
-    model = vae.train_model(training_config_object, model, eeg_dataset_train, eeg_dataset_test)
+    model = vae.train_model(training_config_object, model, eeg_dataset_train, eeg_dataset_validation)

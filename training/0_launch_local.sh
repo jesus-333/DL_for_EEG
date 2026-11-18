@@ -21,13 +21,14 @@ seed=($(((RANDOM << 15) | RANDOM )) + 1)
 
 # Variable for the path to config. This name will be used to create the path to the corresponding config file inside config/starting_config/
 # I decided to use this method because it's quicked to change only the variable name instead of changing part of the path.
+dataset_config_name="dataset" # Name of the dataset config file (without the .toml extension), located in ./training/config/starting_config/dataset/. Use "dataset_hvEEGNet" for the setup of the hvEEGNet paper
 filter="" # If empty, no filter will be used. Options are :  bandpass, bandstop, highpass, lowpass, notch
 model_name="EEGNet"
-training_config_name="training_clf" # Specify the name of the training config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
-loss="cross_entropy" # Possible options are : cross_entropy, nll (classifiers), elbo, elbo_soft_dtw (generative models, e.g. hvEEGNet with training_config_name="training_vae")
-optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd
-lr_scheduler="exponential_lr" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr
-wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/
+training_config_name="training_clf" # Specify the name of the training config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/. Use "training_hvEEGNet" for the setup of the hvEEGNet paper
+loss="cross_entropy" # Possible options are : cross_entropy, nll (classifiers), elbo, elbo_soft_dtw (generative models, e.g. hvEEGNet with training_config_name="training_vae" or "training_hvEEGNet")
+optimizer="adamw" # Possible options are :  adam, adamw, lbfgs, rmsprop, sgd, adamw_hvEEGNet (hyperparameters of the hvEEGNet paper)
+lr_scheduler="exponential_lr" # If empty, no lr scheduler will be used. Options are : cosine_annealing_lr, cosine_annealing_warm_restarts, cyclic_lr, exponential_lr, step_lr, exponential_lr_hvEEGNet (hvEEGNet paper)
+wandb_config_name="wandb" # If empty, no wandb will be used. Otherwise, specify the name of the wandb config file to use (without the .toml extension). The config file must be located in ./training/config/starting_config/train/. Use "wandb_hvEEGNet" to log the hvEEGNet runs in their own project
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Case insensitive paths
@@ -65,7 +66,7 @@ script_name=$(resolve_case_insensitive "${model_folder}/train_${model_name}.sh")
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Path dataset, training, optimizer and lr scheduler config (files to copy)
-path_dataset_config=$(resolve_case_insensitive "./training/config/starting_config/dataset/dataset.toml")
+path_dataset_config=$(resolve_case_insensitive "./training/config/starting_config/dataset/${dataset_config_name}.toml")
 path_model_config=$(resolve_case_insensitive "./training/config/starting_config/model/${model_name}.toml")
 path_training_config=$(resolve_case_insensitive "./training/config/starting_config/train/${training_config_name}.toml")
 path_loss_config=$(resolve_case_insensitive "./training/config/starting_config/train/loss/${loss}.toml")

@@ -1,0 +1,10 @@
+# AdamW optimizer with the hyperparameters of the hvEEGNet paper (Cisotto et al., 2024): lr = 0.01, weight decay = 0.01.
+# For the description of each key see ./adamw.toml.
+# NOTE: this file has NO [optimizer] header on purpose (it is nested under the training config by 0_prepare_config.py).
+name = "adamw"
+lr = 0.01
+betas = [0.9, 0.999]
+eps = 1e-8
+weight_decay = 0.01
+amsgrad = false
+maximize = false

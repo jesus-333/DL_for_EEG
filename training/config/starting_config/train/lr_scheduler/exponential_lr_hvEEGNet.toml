@@ -1,0 +1,4 @@
+# ExponentialLR scheduler of the hvEEGNet paper (Cisotto et al., 2024): gamma = 0.999, applied every epoch.
+# NOTE: this file has NO [lr_scheduler] header on purpose (it is nested under the training config by 0_prepare_config.py).
+name = "exponential_lr"
+gamma = 0.999

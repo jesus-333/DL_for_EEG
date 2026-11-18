@@ -18,6 +18,8 @@ Furthermore, the script must receive other two argument
 - the path to a folder where the config files will be copied. The folder will be created if it does not exist.
 - a random seed for reproducibility (optional). If provided it will saved inside the training config, otherwise no seed will be set.
 
+The name of the output folder is also appended to the path_to_save_model of the training config, so the weights of each run are saved in their own subfolder (e.g. model_weights/hvEEGNet_495361435/).
+
 The script will read the config files, convert them to jade config objects (see the config module) and create a copy in the specified folder.
 Note that the conversion to jade config is used to validate the config files, since the jade config objects are implemented as python dataclasses with type/input validation.
 
@@ -176,6 +178,10 @@ training_config_dict['wandb']        = wandb_config_dict
 if args.seed is not None :
     dataset_config_dict['seed'] = args.seed
     training_config_dict['seed'] = args.seed
+
+# Save the weights of each run in its own subfolder, named as the output folder of the configs (e.g. model_weights/hvEEGNet_495361435/), so a run does not overwrite the weights of the previous ones.
+# The path_to_save_model of the training config is used as parent folder.
+training_config_dict['path_to_save_model'] = os.path.join(training_config_dict.get('path_to_save_model', 'model_weights'), os.path.basename(os.path.normpath(args.path_output_folder)))
 
 # Check config
 training_config_obj = jade_cfg.training_config.from_dict(training_config_dict)

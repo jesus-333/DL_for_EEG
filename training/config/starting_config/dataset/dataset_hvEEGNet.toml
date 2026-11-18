@@ -1,0 +1,26 @@
+# =====================================================================
+# Dataset configuration of the hvEEGNet paper (Cisotto et al., 2024)
+# =====================================================================
+# BCI Competition IV dataset 2a (moabb BNCI2014_001): 22 channels, 250 Hz, 4 classes of motor imagery.
+# The moabb trial window of this dataset is 2-6 s after the trial start, i.e. 1000 time samples at 250 Hz
+# (the segment used in the paper), so the default hvEEGNet model config fits it without changes.
+# For the description of each key see ./dataset.toml.
+
+dataset_name = "BNCI2014_001"
+
+# The paper trains one model per subject (within-subject). Change the subject (1 to 9) for every run.
+subjects = [1]
+
+# No resampling and no extra filtering: the paper keeps the data as distributed
+# (already band-pass filtered 0.5-100 Hz with a 50 Hz notch by the dataset authors).
+resample = false
+resample_freq = 128.0
+
+# No normalization
+normalize = -1
+
+# Original split of the competition: session "0train" for training, session "1test" for test (288 trials each).
+# The 90/10 split of the training session in train/validation is done inside train_hvEEGNet.py.
+use_original_split = true
+split_train_test = 0.5
+seed = 42

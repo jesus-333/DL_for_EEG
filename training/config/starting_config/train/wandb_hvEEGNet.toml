@@ -1,0 +1,21 @@
+# Copy of ./wandb.toml for the hvEEGNet runs: same settings, logged to the dedicated "hvEEGNet" project.
+# wandb logging config (jade.config.wandb_training.wandb_training_config): track a run on Weights & Biases.
+# Needs the optional "extra" dependency (wandb).
+# NOTE: this file has NO [wandb] header on purpose, so its settings load flat and can be nested directly
+# under the parent's `wandb` key. To paste them into training_clf.toml instead, put them under a [wandb] section (training_config.wandb).
+# wandb project the run is logged to. REQUIRED (non-empty).
+project_name = "hvEEGNet"
+# Base name of the wandb model artifact. REQUIRED (non-empty). The trained artifact gets a "_trained" suffix.
+model_artifact_name = "hvEEGNet"
+# wandb entity (user or team) that owns the project. Leave commented to use your default entity.
+entity = "alberto_zancanaro_academic"
+# Human-readable run name. Leave commented to let wandb assign a random one.
+name_training_run = "paper_reproduction"
+# Free-text notes attached to the run.
+# notes = "some notes about this run"
+# Upload the model weights as a wandb artifact.
+log_model_artifact = false
+# How often (in epochs) wandb.watch logs gradients/parameters. Must be a positive int.
+log_freq = 1
+# Only handy to filter debug runs in the wandb UI (not used by the training logic).
+debug = false
