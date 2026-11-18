@@ -53,9 +53,9 @@ The deepest decoder level combines the `z_0` feature map with `h` (shape = encod
 
 | Method | Returns / does |
 |---|---|
-| `forward(x, h=None)` | `(x_reconstructed, mu_list, log_var_list, delta_mu_list, delta_log_var_list, z_list)`. `mu_list = [mu_0 (posterior), mu_1 (prior), mu_2 (prior)]`; deltas for levels 1-2; `z_list = [z_0, z_1, z_2]`. First five elements = original output order; append-only. Rejects an input of the wrong geometry. |
+| `forward(x, h=None, use_mean=False)` | `(x_reconstructed, mu_list, log_var_list, delta_mu_list, delta_log_var_list, z_list)`. With `use_mean=True` every z is the mean of its (approximate posterior) distribution instead of a sample (deterministic; never for training). `mu_list = [mu_0 (posterior), mu_1 (prior), mu_2 (prior)]`; deltas for levels 1-2; `z_list = [z_0, z_1, z_2]`. First five elements = original output order; append-only. Rejects an input of the wrong geometry. |
 | `encode(x)` | `(mu_0, log_var_0)` of the deepest level only (the others depend on the decoder). |
-| `reconstruct(x, no_grad=True)` | `forward(x)[0]`; does not change train/eval mode. |
+| `reconstruct(x, no_grad=True, use_mean=False)` | `forward(x, use_mean=use_mean)[0]`; sampled by default (as the original), deterministic with `use_mean=True`; does not change train/eval mode. |
 | `reconstruct_ignoring_latent_spaces(x, [b0, b1, b2])` | Ignored levels are sampled from their prior instead of the posterior. Flags are **deepest first** (`z_0, z_1, z_2`), unlike the original (encoder order, and ignoring the deepest had no effect there). Ignoring `z_0` samples it from `N(0, I)`. |
 | `generate(n_samples=1, z=None, device=None, no_grad=True, h=None)` | Samples `z_0 ~ N(0, I)` (shape `latent_shapes[0]`), then `z_1`, `z_2` from the conditional priors. |
 | `debug_shape(input_size)` | Shape printout (run when `print_var = True`). |

@@ -149,6 +149,14 @@ def check_helpers() -> None :
     assert model.reconstruct(x).shape == x.shape
     assert not model.reconstruct(x).requires_grad
 
+    # With use_mean the latent variables are not sampled, so (in eval mode) the reconstruction is deterministic and the z are the posterior means
+    assert torch.equal(model.reconstruct(x, use_mean = True), model.reconstruct(x, use_mean = True))
+    assert not torch.equal(model.reconstruct(x), model.reconstruct(x))
+    with torch.no_grad() :
+        output = model(x, use_mean = True)
+    assert torch.equal(output[5][0], output[1][0])                    # z_0 = mu_0
+    assert torch.equal(output[5][1], output[1][1] + output[3][0])     # z_1 = prior mean + posterior shift
+
     for flags in ([True, False, False], [False, True, True], [True, True, True]) :
         assert model.reconstruct_ignoring_latent_spaces(x, flags).shape == x.shape
 
@@ -170,7 +178,7 @@ def check_helpers() -> None :
     except ValueError :
         pass
 
-    print("  [OK] helpers             : reconstruct, reconstruct_ignoring_latent_spaces, encode, generate, input guard")
+    print("  [OK] helpers             : reconstruct (sampled and use_mean), reconstruct_ignoring_latent_spaces, encode, generate, input guard")
 
 
 def check_training_step() -> None :

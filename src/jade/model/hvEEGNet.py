@@ -448,7 +448,7 @@ class hvEEGNet(nn.Module) :
 
         return h.expand(z_0_feature_map.shape[0], *h.shape[1:]) if h.shape[0] == 1 else h
 
-    def _decode(self, z_0 : torch.tensor, encoder_outputs = None, use_posterior = (True, True), h : torch.tensor = None) :
+    def _decode(self, z_0 : torch.tensor, encoder_outputs = None, use_posterior = (True, True), h : torch.tensor = None, use_mean : bool = False) :
         """
         Run the decoder from the deepest latent variable, sampling the two shallower latent spaces on the way.
 
@@ -463,6 +463,8 @@ class hvEEGNet(nn.Module) :
             For ``z_1`` and ``z_2`` respectively, whether to use the approximate posterior (True) or the prior (False), by default ``(True, True)``. Ignored when ``encoder_outputs`` is None.
         h : torch.tensor, optional
             Extra input of the deepest decoder level, with the shape of the encoder output. By default None, see :meth:`_get_h`.
+        use_mean : bool, optional
+            If True, ``z_1`` and ``z_2`` are set to the mean of their distribution instead of being sampled, by default False.
 
         Returns
         -------
@@ -509,9 +511,11 @@ class hvEEGNet(nn.Module) :
                 delta_mu_list.append(delta_mu)
                 delta_log_var_list.append(delta_log_var)
 
-                z = reparametrize(prior_mu + delta_mu, prior_log_var + delta_log_var)
+                mu, log_var = prior_mu + delta_mu, prior_log_var + delta_log_var
             else :
-                z = reparametrize(prior_mu, prior_log_var)
+                mu, log_var = prior_mu, prior_log_var
+
+            z = mu if use_mean else reparametrize(mu, log_var)
             z_list.append(z)
 
             # Merge the sample (as a feature map) with the decoder features and run the next decoder block.
@@ -523,7 +527,7 @@ class hvEEGNet(nn.Module) :
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Public API
 
-    def forward(self, x : torch.tensor, h : torch.tensor = None) :
+    def forward(self, x : torch.tensor, h : torch.tensor = None, use_mean : bool = False) :
         """
         Encode, sample the three latent spaces and decode.
 
@@ -533,6 +537,10 @@ class hvEEGNet(nn.Module) :
             A batch of EEG trials, of shape ``(batch, depth_first_layer, C, T)``.
         h : torch.tensor, optional
             Extra input of the deepest decoder level (Fig. 2 of the NVAE paper), with the shape of the encoder output. By default None, i.e. the trainable ``h`` if ``use_h_in_decoder``, else zeros.
+        use_mean : bool, optional
+            If True, every latent variable is set to the mean of its approximate posterior instead of being sampled, so the output is deterministic (in eval mode), by default False.
+            Note that the means of ``z_1`` and ``z_2`` depend on the levels above, so this is the mean of each level given the means of the previous ones, not the mean of the joint posterior.
+            Keep it False during training: the ELBO needs sampled latent variables.
 
         Returns
         -------
@@ -547,7 +555,7 @@ class hvEEGNet(nn.Module) :
         delta_log_var_list : list of torch.tensor
             The matching shifts of the log variances.
         z_list : list of torch.tensor
-            ``[z_0, z_1, z_2]``: the sampled latent variables.
+            ``[z_0, z_1, z_2]``: the sampled latent variables (their means if ``use_mean``).
 
         Notes
         -----
@@ -561,11 +569,11 @@ class hvEEGNet(nn.Module) :
         encoder_outputs = self._encoder_blocks_forward(x)
 
         mu_0, log_var_0 = self.posterior_map_0(encoder_outputs[2])
-        z_0 = reparametrize(mu_0, log_var_0)
+        z_0 = mu_0 if use_mean else reparametrize(mu_0, log_var_0)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # Decoder (and shallower latent spaces)
-        x_reconstructed, prior_mu_list, prior_log_var_list, delta_mu_list, delta_log_var_list, z_list = self._decode(z_0, encoder_outputs, h = h)
+        x_reconstructed, prior_mu_list, prior_log_var_list, delta_mu_list, delta_log_var_list, z_list = self._decode(z_0, encoder_outputs, h = h, use_mean = use_mean)
 
         return x_reconstructed, [mu_0] + prior_mu_list, [log_var_0] + prior_log_var_list, delta_mu_list, delta_log_var_list, [z_0] + z_list
 
@@ -592,11 +600,12 @@ class hvEEGNet(nn.Module) :
 
         return self.posterior_map_0(self._encoder_blocks_forward(x)[2])
 
-    def reconstruct(self, x : torch.tensor, no_grad : bool = True) -> torch.tensor :
+    def reconstruct(self, x : torch.tensor, no_grad : bool = True, use_mean : bool = False) -> torch.tensor :
         """
         Reconstruct a batch of trials, i.e. encode it and decode it back.
 
-        Note that the reconstruction is stochastic (all the latent variables are *sampled*) and that this method does not change the mode of the model: call ``model.eval()`` first to disable dropout and use the running statistics of the batch normalization.
+        Note that by default the reconstruction is stochastic (all the latent variables are *sampled*, as in the original implementation), unless ``use_mean`` is True.
+        This method does not change the mode of the model: call ``model.eval()`` first to disable dropout and use the running statistics of the batch normalization.
 
         Parameters
         ----------
@@ -604,6 +613,8 @@ class hvEEGNet(nn.Module) :
             A batch of EEG trials.
         no_grad : bool, optional
             If True (the default) the computation is done inside :func:`torch.no_grad`.
+        use_mean : bool, optional
+            If True, every latent variable is set to the mean of its distribution instead of being sampled (see :meth:`forward`), so the reconstruction is deterministic in eval mode. By default False.
 
         Returns
         -------
@@ -613,9 +624,9 @@ class hvEEGNet(nn.Module) :
 
         if no_grad :
             with torch.no_grad() :
-                output = self.forward(x)
+                output = self.forward(x, use_mean = use_mean)
         else :
-            output = self.forward(x)
+            output = self.forward(x, use_mean = use_mean)
 
         return output[0]
 

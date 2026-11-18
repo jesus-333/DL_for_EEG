@@ -33,6 +33,10 @@ default_channel   = 'C3'
 # Number of reconstructions. The reconstruction is stochastic (the latent variables are sampled), so with more than 1 the mean is plotted, with the band of +- one std.
 default_n_reconstructions = 5
 
+# If True, every latent variable is set to the mean of its distribution instead of being sampled, so the reconstruction is deterministic (the same at every run).
+# In this case a single reconstruction is computed and default_n_reconstructions is ignored.
+default_use_mean = False
+
 # Same values used by train_hvEEGNet.py
 default_scale_factor          = 1e6
 default_percentage_validation = 0.1
@@ -60,6 +64,7 @@ parser.add_argument('--split'                , type = str  , default = default_s
 parser.add_argument('--idx_trial'            , type = int  , default = default_idx_trial            , help = 'Index of the trial inside the selected set.')
 parser.add_argument('--channel'              , type = str  , default = default_channel              , help = 'Channel to plot, as name (e.g. C3) or as index (e.g. 7).')
 parser.add_argument('--n_reconstructions'    , type = int  , default = default_n_reconstructions    , help = 'Number of (stochastic) reconstructions. If > 1, the mean and the std are plotted.')
+parser.add_argument('--use_mean'             , action = argparse.BooleanOptionalAction, default = default_use_mean, help = 'Use the mean of the latent distributions instead of sampling them (deterministic reconstruction). If set, --n_reconstructions is ignored.')
 parser.add_argument('--scale_factor'         , type = float, default = default_scale_factor         , help = 'Factor multiplied to the EEG data after loading. Must be the same used during training.')
 parser.add_argument('--percentage_validation', type = float, default = default_percentage_validation, help = 'Fraction of the training set used for validation. Must be the same used during training.')
 args = parser.parse_args()
@@ -144,7 +149,9 @@ model.eval()
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Reconstruction
 
-x_r_full = [model.reconstruct(x) for _ in range(args.n_reconstructions)] # Each element is [1 x 1 x C x T]
+# With use_mean the reconstruction is deterministic, so one is enough
+if args.use_mean : args.n_reconstructions = 1
+x_r_full = [model.reconstruct(x, use_mean = args.use_mean) for _ in range(args.n_reconstructions)] # Each element is [1 x 1 x C x T]
 
 # Reconstruction loss used during training (the [loss] section of the training config, e.g. SoftDTW with the same implementation, gamma and normalize)
 loss_config_obj     = elbo_config.from_dict(training_config_dict['loss'])
@@ -162,7 +169,7 @@ x_r_std  = np.std(x_r_list, axis = 0)
 x_orig   = x[0, 0, idx_ch].numpy()
 
 loss_name = loss_config_obj.reconstruction_type + (" (divergence)" if loss_config_obj.reconstruction_type in ("soft_dtw", "block_dtw") and loss_config_obj.dtw_normalize else "")
-print(f"Trial {args.idx_trial} ({args.split} set, label {int(label)}). Reconstruction loss : {loss_name}" + (f" (mean +- std over {args.n_reconstructions} reconstructions)" if args.n_reconstructions > 1 else ""))
+print(f"Trial {args.idx_trial} ({args.split} set, label {int(label)}). Latent variables : {'mean' if args.use_mean else 'sampled'}. Reconstruction loss : {loss_name}" + (f" (mean +- std over {args.n_reconstructions} reconstructions)" if args.n_reconstructions > 1 else ""))
 print(f"\tChannel {ch_name:<5} : {loss_channel.mean():.4g}" + (f" +- {loss_channel.std():.4g}" if args.n_reconstructions > 1 else ""))
 print(f"\tWhole trial   : {loss_trial.mean():.4g}" + (f" +- {loss_trial.std():.4g}" if args.n_reconstructions > 1 else ""))
 
@@ -175,7 +182,10 @@ plt.rcParams.update({'font.size': plot_settings['fontsize']})
 fig, ax = plt.subplots(1, 1, figsize = plot_settings['figsize'])
 
 ax.plot(t, x_orig, label = 'Original', color = 'black')
-ax.plot(t, x_r_mean, label = 'Reconstructed' if args.n_reconstructions == 1 else f'Reconstructed (mean of {args.n_reconstructions})', color = 'red')
+if args.use_mean                 : label_reconstructed = 'Reconstructed (latent mean)'
+elif args.n_reconstructions == 1 : label_reconstructed = 'Reconstructed'
+else                             : label_reconstructed = f'Reconstructed (mean of {args.n_reconstructions})'
+ax.plot(t, x_r_mean, label = label_reconstructed, color = 'red')
 if args.n_reconstructions > 1 :
     ax.fill_between(t, x_r_mean - x_r_std, x_r_mean + x_r_std, color = 'red', alpha = 0.25)
 
@@ -189,7 +199,7 @@ fig.tight_layout()
 
 if plot_settings['save_plot'] :
     os.makedirs(plot_settings['path_to_save_plot'], exist_ok = True)
-    file_name = f"{os.path.basename(os.path.normpath(args.path_run_config))}_{args.split}_trial_{args.idx_trial}_ch_{ch_name}"
+    file_name = f"{os.path.basename(os.path.normpath(args.path_run_config))}_{args.split}_trial_{args.idx_trial}_ch_{ch_name}" + ("_latent_mean" if args.use_mean else "")
     for format in plot_settings['format_list'] :
         fig.savefig(os.path.join(plot_settings['path_to_save_plot'], f"{file_name}.{format}"), format = format)
 
